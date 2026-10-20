@@ -53,9 +53,11 @@
 
 	// The last five different catches, newest first (what loadAmountFromList(5, true) meant to show;
 	// the legacy page ran it before the save had loaded, so the list always started empty).
+	// Waits for pokemon_info.json too, since a card cannot be described without it.
+	let pokemonInfoReady = $state(false);
 	let recentFilled = false;
 	$effect(() => {
-		if (!player.loaded || recentFilled) return;
+		if (!player.loaded || !pokemonInfoReady || recentFilled) return;
 		recentFilled = true;
 		recent = [...new Set([...player.pkmnList].reverse())].slice(0, 5);
 	});
@@ -341,7 +343,7 @@
 	});
 
 	onMount(() => {
-		loadPokemonInfo();
+		loadPokemonInfo().then(() => (pokemonInfoReady = true));
 		month = new Date().getMonth();
 		// math.js draws a present delay here in December that it never uses. Drawing it keeps the
 		// random sequence, and so the game, identical to the original. It is stored because the
