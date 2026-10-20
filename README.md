@@ -21,7 +21,7 @@ Den originale ideen om å gi ut Pokémon som belønning for å løse matteoppgav
 
 ## Teknologi
 
-- **Frontend:** HTML, CSS, JavaScript (ingen rammeverk)
+- **Frontend:** SvelteKit (nye sider) og HTML, CSS, JavaScript (eldre sider)
 - **Backend:** Node.js med Express
 - **Database:** MySQL
 - **Hosting:** DreamHost
@@ -30,6 +30,8 @@ Den originale ideen om å gi ut Pokémon som belønning for å løse matteoppgav
 
 ## Kjøre lokalt
 
+Siden er i ferd med å flyttes til [SvelteKit](https://svelte.dev/docs/kit). Sider som er skrevet om ligger i `src/routes/` (for eksempel `src/routes/faq.html/`), resten ligger uendret i `static/`. Begge deler havner i `build/` når man bygger.
+
 Produksjonsserveren (`server.js`) ligger ikke i repoet. `dev/server.js` er en erstatning for lokal utvikling, laget ut fra hva klienten forventer. Alt lagres i minnet, og ingen e-post sendes.
 
 ```sh
@@ -37,11 +39,15 @@ npm install
 npm run dev
 ```
 
-Åpne http://localhost:3000. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `static/images/` og `static/fonts/`.
+Åpne http://localhost:5173. `npm run dev` starter også `dev/server.js` på port 3001. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `static/images/` og `static/fonts/`.
 
 - **Lærerkonto:** `laerer@test.no` / `passord123`. Nye kontoer trenger ingen manuell godkjenning. Lenker som ellers sendes på e-post, som bekreftelse og nytt passord, skrives i terminalen.
 - **Koder:** `MYNTER`, `SHINY`, `LEGENDARISK`, `STJERNESTØV` og `PIKACHU` kan løses inn på redeem.html.
 - **Bingo:** logg inn som lærer, start et spill, og åpne `bingo_join.html?code=<kode>` i et annet nettleservindu.
+
+### Publisere
+
+`npm run build` lager hele nettsiden i `build/`. Det er den mappen som skal ut på serveren, i stedet for roten av repoet. Prøv bygget lokalt med `SITE_DIR=build npm run dev:server`.
 
 ---
 

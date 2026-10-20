@@ -1,21 +1,46 @@
-<DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+	import { onMount } from 'svelte';
+
+	// PokéMath has cost about 300 kr a month since January 2021.
+	const MONTHLY_COST = 300;
+	const START = new Date(2021, 0, 1);
+
+	// The page is prerendered at build time, so read the date again in the browser.
+	let now = $state(new Date());
+	onMount(() => (now = new Date()));
+
+	const totalCost = $derived(
+		((now.getFullYear() - START.getFullYear()) * 12 + (now.getMonth() - START.getMonth())) * MONTHLY_COST
+	);
+	const today = $derived(now.toDateString());
+
+	let cacheMessage = $state('');
+
+	async function clearCache() {
+		const reload = () => (location.href = location.pathname + '?_=' + Date.now());
+		if (!('caches' in window)) {
+			cacheMessage = 'Laster inn siden på nytt...';
+			setTimeout(reload, 800);
+			return;
+		}
+		try {
+			await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+			cacheMessage = 'Cache tømt! Siden lastes inn på nytt...';
+		} catch {
+			cacheMessage = 'Tømte det som var mulig. Siden lastes inn på nytt...';
+		}
+		setTimeout(reload, 1200);
+	}
+</script>
+
+<svelte:head>
 	<title>Pokémath - FAQ</title>
-	<meta name="title" content="Pokémath - FAQ">
-	<meta name="description" content="Ofte stilte spørsmål!">
-	<meta name="robots" content="noindex, nofollow">
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<meta name="author" content="Tirco">
-	<link rel="stylesheet" href="globalstyle.css?v=100">
-	<link rel="stylesheet" href="faq.css?v=100">
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
-	<!-- <link rel="stylesheet" href="https://www.jsdelivr.com/package/npm/bulma> -->
-</head>
-<body>
-	<div id="header"></div>
+	<meta name="title" content="Pokémath - FAQ" />
+	<meta name="description" content="Ofte stilte spørsmål!" />
+	<meta name="robots" content="noindex, nofollow" />
+	<link rel="stylesheet" href="/faq.css?v=100" />
+</svelte:head>
+
 <div class="main">
  <div class="container">
 	<div class="faq-header">Ofte Stilte Spørsmål (FAQ)
@@ -61,29 +86,10 @@
 			Faktisk så taper vi penger på å ha siden oppe, men det er heldigvis ikke mye.</p>
 			<p>Vi betaler ca. 350kr i måneden for å holde siden oppe.<br>
 			Ettersom vi ikke vil ha reklame på nettsiden, og nettsiden ikke koster penger å ta i bruk, så tjener vi ingenting på nettsiden.</p>
-			<p class="cost-display">Totalt har pokemath så langt kostet ca. <span id="total-cost">?</span> kr.</p>
+			<p class="cost-display">Totalt har pokemath så langt kostet ca. <span id="total-cost">{totalCost}</span> kr.</p>
 			Dette er ikke medregnet arbeidstimene som er lagt inn, eller betalingen for kunsten på f.eks julekalenderen.<br>
 
-			<script>
-				// Define the monthly cost in kr
-				const monthlyCost = 300;
-		
-				// Get the current date
-				const currentDate = new Date();
-		
-				// Define the start date (January 1, 2021)
-				const startDate = new Date(2021, 0, 1); // Month is 0-indexed (0 = January)
-		
-				// Calculate the total number of months between the start date and the current date
-				const totalMonths = (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
-									(currentDate.getMonth() - startDate.getMonth());
-		
-				// Calculate the total cost
-				const totalCost = totalMonths * monthlyCost;
-		
-				// Display the total cost in the HTML
-				document.getElementById('total-cost').textContent = totalCost;
-			</script><br>
+			<br>
 			Vi tar i mot donasjoner på <a href="about.html#contact">Kontakt oss</a> siden vår!
 		</div>
 	  </div>
@@ -125,7 +131,7 @@
 		<div class="plus">+</div>
 		<label for="q7" class="panel-title">Hei PokeMorten - Hva er din favoritt pokemon?</label>
 		<div class="panel-content">
-			<p><img src="./images/pokemon/normal/258.png"></p>
+			<p><img src="/images/pokemon/normal/258.png" alt="Mudkip"></p>
 		</div>
 	  </div>
 	<div class="faq-question">
@@ -134,7 +140,7 @@
 		<label for="q8" class="panel-title">Hvorfor starter ikke sesong-eventet på min enhet? (Halloween, Jul, Påske, osv.)</label>
 		<div class="panel-content">
 			<p>Noen av disse er avhengige av datoen på din enhet for å fungere. Akkuratt nå leses den datoen som:</p>
-			<p><script> document.write(new Date().toDateString()); </script></p>
+			<p>{today}</p>
 			<p>Hvis dette ikke stemmer med riktig dato, så kan det være årsaken. Hvis datoen er riktig, se spørsmålet ovenfor om "Vennene mine har funksjoner som ikke jeg har."</p>
 		</div>
 	  </div>
@@ -147,25 +153,8 @@
 			<p><strong>OBS: Ta backup av dataen din før du tømmer nettlesercachen!</strong><br>
 			Gå til <a href="./saveandload.html">Lagre / Last inn</a> og last ned en lagringsfil først.</p>
 			<p>Klikk knappen under for å forsøke å tømme nettlesercachen for PokeMath automatisk:</p>
-			<button class="button-1" id="clearCacheBtn" onclick="(function(){
-				var done = function(msg){ document.getElementById('clearCacheMsg').textContent = msg; };
-				var reload = function(){ location.href = location.pathname + '?_=' + Date.now(); };
-				if('caches' in window){
-					caches.keys().then(function(names){
-						return Promise.all(names.map(function(n){ return caches.delete(n); }));
-					}).then(function(){
-						done('Cache tømt! Siden lastes inn på nytt...');
-						setTimeout(reload, 1200);
-					}).catch(function(){
-						done('Tømte det som var mulig. Siden lastes inn på nytt...');
-						setTimeout(reload, 1200);
-					});
-				} else {
-					done('Laster inn siden på nytt...');
-					setTimeout(reload, 800);
-				}
-			})()">Tøm cache</button>
-			<p id="clearCacheMsg" style="font-style:italic;"></p>
+			<button class="button-1" id="clearCacheBtn" onclick={clearCache}>Tøm cache</button>
+			<p id="clearCacheMsg" style="font-style:italic;">{cacheMessage}</p>
 
 			<p><strong>Manuell hurtigoppdatering per enhet:</strong></p>
 			<ul>
@@ -188,9 +177,3 @@
 	</div>
 </div>
 
-<div id="botbar" class="botbar"></div>
-
-<script src="global.js?v=100"></script>
-</body>
-
-</html>

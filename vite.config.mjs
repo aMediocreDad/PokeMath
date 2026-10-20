@@ -7,16 +7,30 @@ import { defineConfig } from 'vite';
 const API_PORT = 3001;
 const api = `http://localhost:${API_PORT}`;
 
-/** Start the stand-in server alongside `vite dev`. */
+/**
+ * Start the stand-in server alongside `vite dev`.
+ * @returns {import('vite').Plugin}
+ */
 function devApiServer() {
+	const shared = /** @type {{ pokemathDevApi?: import('node:child_process').ChildProcess }} */ (globalThis);
+
 	return {
 		name: 'pokemath-dev-api',
 		apply: 'serve',
-		configureServer() {
-			const child = spawn(process.execPath, ['dev/server.js'], {
+		configureServer(server) {
+			// Serve static/index.html for / (and lærer/index.html for /lærer/), as static hosting does.
+			server.middlewares.use((req, _res, next) => {
+				const [path, query = ''] = (req.url ?? '').split('?');
+				if (path.endsWith('/')) req.url = path + 'index.html' + (query && '?' + query);
+				next();
+			});
+
+			// Vite re-runs this on every config change; keep the one server already running.
+			if (shared.pokemathDevApi) return;
+			const child = (shared.pokemathDevApi = spawn(process.execPath, ['dev/server.js'], {
 				env: { ...process.env, PORT: String(API_PORT) },
 				stdio: 'inherit'
-			});
+			}));
 			process.on('exit', () => child.kill());
 		}
 	};
@@ -41,7 +55,8 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+|create-board)$': api,
+			// Matched against the URL including its query string.
+			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+|create-board)(\\?|$)': api,
 			'^/(api|teacher|bingo)/': api,
 			// images/ and fonts/ are gitignored; the stand-in server fetches and caches them.
 			'^/(images|fonts)/': api,
