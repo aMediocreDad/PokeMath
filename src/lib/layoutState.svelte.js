@@ -6,5 +6,7 @@ export const layout = $state({
 	/** @type {WorkOverview | null} Only the game page fills in the work overview, as in the legacy site. */
 	workOverview: null,
 	/** Shown as "🎲 Bingo: CODE" in the bottom bar on the game page. */
-	bingoCode: ''
+	bingoCode: '',
+	/** The game's joke for a tampered ?stage=: the header briefly shows -99999 coins and "Juksemaker". */
+	cheater: false
 });

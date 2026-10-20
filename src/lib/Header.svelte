@@ -73,12 +73,12 @@
 				class="topbar-icontext-left money score"
 				class:animate={player.moneyAnimating}
 				data-added="+{player.lastAdded}"
-				data-total={player.money}
+				data-total={layout.cheater ? '-99999' : player.money}
 			></span>
 		</a>
 		<a href="/dex.html" id="caught" class="topbar-icon-left">
 			<img id="ballimage" src="/pokeball.svg" width="50" height="50" alt="Pokémon fanget" />
-			<span id="balltext" class="topbar-icontext-left">{player.caught}</span>
+			<span id="balltext" class="topbar-icontext-left">{layout.cheater ? 0 : player.caught}</span>
 		</a>
 		<a href="/badges.html" id="badges" class="topbar-icon-left">
 			<img id="badgeimage" src="/images/badges/1.png" width="50" height="50" alt="Merker" />
@@ -88,7 +88,7 @@
 			<!-- svelte-ignore a11y_missing_attribute -->
 			<a class="playerbtn">
 				<img id="playerimage" src={player.playerImage} width="50" height="50" alt="" />
-				<span id="playertext" class="topbar-icontext-left">{player.username}</span>
+				<span id="playertext" class="topbar-icontext-left">{layout.cheater ? 'Juksemaker' : player.username}</span>
 			</a>
 			<div class="playercard-content">
 				<div class="trainercard">

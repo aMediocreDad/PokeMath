@@ -28,9 +28,10 @@
 </svelte:head>
 
 <div id="header"><Header /></div>
+<!-- Right below the header: globalstyle.css gives .toast-container "top: 50" without a unit,
+     so toasts appear wherever the container sits in the page, as on the legacy pages. -->
+<Toaster />
 
 {@render children()}
 
 <div id="botbar" class="botbar"><Botbar /></div>
-
-<Toaster />
