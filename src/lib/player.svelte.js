@@ -26,6 +26,16 @@ const writers = {
 		shopBackground: p.background || '',
 		boughtBackgrounds: p.boughtBackgrounds.filter((bg) => bg.trim() !== '').join('|')
 	}),
+	upgrades: (/** @type {Player} */ p) => ({
+		shinyLevel: String(p.shinyLevel || 1),
+		legendLevel: String(p.legendLevel || 0),
+		mythicLevel: String(p.mythicLevel || 0),
+		specialLevel: String(p.specialLevel || 0),
+		coinLevel: String(p.coinLevel || 0)
+	}),
+	// saveAll() only writes claimedSecrets when there are any.
+	claimedSecrets: (/** @type {Player} */ p) =>
+		p.claimedSecrets.length > 0 ? { claimedSecrets: p.claimedSecrets.join('|') } : {},
 	shinyBait: (/** @type {Player} */ p) => ({
 		shinyBaitCount: String(p.shinyBaitCount || 0),
 		shinyBaitPurchases: String(p.shinyBaitPurchases || 0)
@@ -49,9 +59,12 @@ class Player {
 	boughtBackgrounds = $state([]);
 	/** @type {string[]} */
 	boughtPlayerIcons = $state([]);
+	/** @type {string[]} */
+	claimedSecrets = $state([]);
 	shinyLevel = $state(1);
 	mythicLevel = $state(0);
 	legendLevel = $state(0);
+	specialLevel = $state(0);
 	coinLevel = $state(0);
 	shinyBaitCount = $state(0);
 	shinyBaitPurchases = $state(0);
@@ -94,9 +107,11 @@ class Player {
 		this.playerIcon = getStorageString('playerIcon');
 		this.playerIconImg = localStorage.getItem('playerIconImg')?.trim() ?? '';
 		this.boughtPlayerIcons = getStorageArray('boughtPlayerIcons', '|');
+		this.claimedSecrets = getStorageArray('claimedSecrets', '|');
 		this.shinyLevel = getStorageInt('shinyLevel') || 1;
 		this.mythicLevel = getStorageInt('mythicLevel');
 		this.legendLevel = getStorageInt('legendLevel');
+		this.specialLevel = getStorageInt('specialLevel');
 		this.coinLevel = getStorageInt('coinLevel');
 		this.shinyBaitCount = getStorageInt('shinyBaitCount');
 		this.shinyBaitPurchases = getStorageInt('shinyBaitPurchases');
@@ -118,6 +133,11 @@ class Player {
 				localStorage.setItem(key, value);
 			}
 		}
+	}
+
+	/** Every field, as saveAll() writes them. */
+	saveAll() {
+		this.save(.../** @type {Field[]} */ (Object.keys(writers)));
 	}
 
 	/** @param {number} amount */
