@@ -15,6 +15,8 @@
 	import { setupGame, generateProblem, isCorrect, coinsForStage } from '#lib/game/problems.js';
 	import { loadPokemonInfo, rollPokemonId, pickForm, rollShiny, describe, catchTitle } from '#lib/game/pokemon.js';
 	import PokemonCard from '#lib/PokemonCard.svelte';
+	import HalloweenEgg from '#lib/game/HalloweenEgg.svelte';
+	import XmasPresent from '#lib/game/XmasPresent.svelte';
 
 	const LIVES = 3;
 	const GOOD_MESSAGES = ['Flott jobbet!', 'Nice!', 'Ny pokémon!', 'Trykk på ballen!', 'Enda en til samlingen!', 'Fortsett sånn!', 'Stå på!', 'Du er super!', 'Oh, hva får du nå?', 'Eyy! Bra jobbet!'];
@@ -46,6 +48,14 @@
 
 	/** @type {string[]} Cards shown under the game, newest first. */
 	let recent = $state([]);
+
+	/** 0–11, set in the browser: October has the Halloween egg, December the Christmas present. */
+	let month = $state(-1);
+	/** @type {{ progress: () => void } | undefined} */
+	let halloweenEgg = $state();
+	/** @type {{ progress: () => void } | undefined} */
+	let xmasPresent = $state();
+	let unusedPresentDelay = $state(0);
 
 	const progress = $derived(score / winScore);
 
@@ -122,6 +132,9 @@
 				toast('En eller fler av dine egendefinerte valg er for lette, du kan derfor ikke fange pokemon på dette nivået.', { bad: true });
 				return;
 			}
+			// progressEvent(): the seasonal events count wins.
+			if (month === 9) halloweenEgg?.progress();
+			else if (month === 11) xmasPresent?.progress();
 			endMessage = GOOD_MESSAGES[Math.floor(Math.random() * GOOD_MESSAGES.length)];
 			overlayOpen = true;
 			showBall = true;
@@ -138,18 +151,30 @@
 		showContinue = false;
 	}
 
-	/** The ball was tapped: createRandomPokemon() → createSpecificPokemon() → addToPokedex(). */
-	function throwBall() {
-		if (!values) return;
-		const ctx = {
-			stage: values.stage,
+	function catchContext() {
+		return {
+			stage: values?.stage ?? 3,
 			streak,
 			upgrades: { shinyLevel: player.shinyLevel, legendLevel: player.legendLevel, mythicLevel: player.mythicLevel }
 		};
-		const form = pickForm(rollPokemonId(ctx), values.stage);
+	}
+
+	/** The ball was tapped: createRandomPokemon() → createSpecificPokemon(). */
+	function throwBall() {
+		const ctx = catchContext();
+		const id = rollPokemonId(ctx);
+		streak = ctx.streak;
+		catchForm(pickForm(id, ctx.stage));
+	}
+
+	/**
+	 * addToPokedex(): roll for shiny, store the catch and show it.
+	 * @param {string} form  "25", or "25-1" / "25-H1" for an alternate or event form.
+	 */
+	function catchForm(form) {
 		showBall = false;
 		showContinue = true;
-
+		const ctx = catchContext();
 		const baitActive = player.shinyBaitCount > 0;
 		if (baitActive) {
 			player.shinyBaitCount--;
@@ -161,6 +186,17 @@
 		player.addPokemon(entry);
 		trackEvent('/track-catch', {});
 		showCatch(entry);
+	}
+
+	/**
+	 * A seasonal event hands out a Pokémon: open the win screen and catch it straight away.
+	 * @param {string | null} form  null when the event has nothing to give (createEventPokemon()).
+	 */
+	function eventCatch(form) {
+		overlayOpen = true;
+		showBall = false;
+		showContinue = true;
+		if (form) catchForm(form);
 	}
 
 	/**
@@ -220,6 +256,11 @@
 
 	onMount(() => {
 		loadPokemonInfo();
+		month = new Date().getMonth();
+		// math.js draws a present delay here in December that it never uses. Drawing it keeps the
+		// random sequence, and so the game, identical to the original. It is stored because the
+		// minifier removes a bare Math.random() call.
+		if (month === 11) unusedPresentDelay = 1000 * 180 * Math.random() + 30000;
 		// The work overview fills in after the first solved problem, as on the legacy page.
 
 		const params = new URLSearchParams(location.search);
@@ -285,6 +326,10 @@
 		</div>
 	</noscript>
 
+	{#if month === 9 && values}
+		<HalloweenEgg bind:this={halloweenEgg} stage={values.stage} onCatch={eventCatch} />
+	{/if}
+
 	<div class="main-ui" class:ui-animate-correct={correctAnimation} class:ui-animate-wrong={wrongAnimation}>
 		<p class="problem" class:animate-wrong={wrongAnimation}>
 			{#if problem}{problem.numberOne} {problem.operator} {problem.numberTwo}{/if}
@@ -332,6 +377,12 @@
 			>Klikk her for å se alle dine pokemon.</a
 		>
 	</div>
+
+	{#if month === 11}
+		<XmasPresent bind:this={xmasPresent} stage={values?.stage ?? 3} onCatch={eventCatch} />
+	{:else}
+		<div class="xmas-present floating"></div>
+	{/if}
 
 	<div class="overlay">
 		<div class="overlay-inner">
