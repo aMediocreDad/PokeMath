@@ -1,6 +1,6 @@
 import json, re, pathlib
 
-base = pathlib.Path(__file__).resolve().parent.parent
+base = pathlib.Path(__file__).resolve().parent.parent / 'static'
 js_path = base / 'alternateforms.js'
 json_path = base / 'pokemon_info.json'
 

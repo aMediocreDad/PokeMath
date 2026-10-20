@@ -1,7 +1,7 @@
 # Build pokemon_info.json from pokemon.csv
 
-$csvPath = "pokemon.csv"
-$jsonPath = "pokemon_info.json"
+$csvPath = "static/pokemon.csv"
+$jsonPath = "static/pokemon_info.json"
 
 # Read all CSV rows
 $rows = Import-Csv -Path $csvPath -Encoding UTF8
@@ -9,7 +9,7 @@ $rows = Import-Csv -Path $csvPath -Encoding UTF8
 # Load alternate forms data using node
 $nodeScript = @"
 const fs = require('fs');
-const content = fs.readFileSync('alternateforms.js', 'utf8');
+const content = fs.readFileSync('static/alternateforms.js', 'utf8');
 eval(content);
 console.log('ALTFORMS:' + JSON.stringify(alternateFormsData));
 console.log('EVENT:' + JSON.stringify(eventData));

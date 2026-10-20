@@ -1,7 +1,7 @@
 import json, sys, re
 sys.stdout.reconfigure(encoding='utf-8')
 
-with open('f:/Pokemath/pokemon_info.json', 'r', encoding='utf-8') as f:
+with open('f:/Pokemath/static/pokemon_info.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # (dex, old_numeric_key) -> event_type
@@ -233,7 +233,7 @@ for dex in data:
     sorted_variants = dict(sorted(data[dex].items(), key=lambda x: sort_key(x[0])))
     data[dex] = sorted_variants
 
-with open('f:/Pokemath/pokemon_info.json', 'w', encoding='utf-8') as f:
+with open('f:/Pokemath/static/pokemon_info.json', 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
 print('\nDone. pokemon_info.json updated.')

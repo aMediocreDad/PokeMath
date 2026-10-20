@@ -1,7 +1,7 @@
 // Classroom bingo: the /ws WebSocket used by bingo_host_tasks.js (teacher) and
 // bingo_client_live.js (players), plus GET /bingo/claim-prizes.
 const { WebSocketServer } = require("ws");
-const bingoTasks = require("../bingo-tasks.js");
+const bingoTasks = require("../static/bingo-tasks.js");
 const { sessionTeacher } = require("./teacher");
 
 const rooms = new Map(); // code -> room

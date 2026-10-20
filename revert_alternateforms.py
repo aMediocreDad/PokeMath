@@ -2,7 +2,7 @@ import re, json, sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Parse alternateforms.js - strip JS wrapper to get JSON
-with open('f:/Pokemath/alternateforms.js', 'r', encoding='utf-8') as f:
+with open('f:/Pokemath/static/alternateforms.js', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Extract only the alternateFormsData block
@@ -34,7 +34,7 @@ for dex, variants in af_data.items():
 print(f'Imageids in alternateforms (numeric variants): {len(af_imageid_set)}')
 
 # Load pokemon_info.json
-with open('f:/Pokemath/pokemon_info.json', 'r', encoding='utf-8') as f:
+with open('f:/Pokemath/static/pokemon_info.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # The assignments from rekey_events.py - same dict
@@ -197,7 +197,7 @@ def sort_key(k):
 for dex in data:
     data[dex] = dict(sorted(data[dex].items(), key=lambda x: sort_key(x[0])))
 
-with open('f:/Pokemath/pokemon_info.json', 'w', encoding='utf-8') as f:
+with open('f:/Pokemath/static/pokemon_info.json', 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
 print('\nDone. pokemon_info.json updated.')

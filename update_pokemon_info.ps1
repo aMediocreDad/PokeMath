@@ -3,8 +3,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$AF_PATH = "C:\Users\mortel-nes\OneDrive - DGI Digirom\PokeMath\alternateforms_backup.js"
-$PI_PATH = "C:\Users\mortel-nes\OneDrive - DGI Digirom\PokeMath\pokemon_info.json"
+$AF_PATH = "C:\Users\mortel-nes\OneDrive - DGI Digirom\PokeMath\static\alternateforms_backup.js"
+$PI_PATH = "C:\Users\mortel-nes\OneDrive - DGI Digirom\PokeMath\static\pokemon_info.json"
 
 Write-Host "Reading files..."
 

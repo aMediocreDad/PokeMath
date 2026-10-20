@@ -37,7 +37,7 @@ npm install
 npm run dev
 ```
 
-Åpne http://localhost:3000. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `images/` og `fonts/`.
+Åpne http://localhost:3000. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `static/images/` og `static/fonts/`.
 
 - **Lærerkonto:** `laerer@test.no` / `passord123`. Nye kontoer trenger ingen manuell godkjenning. Lenker som ellers sendes på e-post, som bekreftelse og nytt passord, skrives i terminalen.
 - **Koder:** `MYNTER`, `SHINY`, `LEGENDARISK`, `STJERNESTØV` og `PIKACHU` kan løses inn på redeem.html.
