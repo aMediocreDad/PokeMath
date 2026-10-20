@@ -2,26 +2,28 @@
 	// The top bar, cookie notice and backup reminder from static/header.html.
 	// Ids and classes are kept so static/globalstyle.css styles it the same way.
 	import { onMount } from 'svelte';
-	import { readPlayer } from '#lib/storage.js';
+	import { page } from '$app/state';
+	import { player } from '#lib/player.svelte.js';
+	import { layout } from '#lib/layoutState.svelte.js';
+	import { hasCookieConsent } from '#lib/storage.js';
 
-	let player = $state({
-		username: 'Ash',
-		money: 0,
-		caught: 0,
-		tiersSolved: [0, 0, 0, 0, 0],
-		playerImage: '/images/player.png',
-		backgroundImage: ''
-	});
 	let showCookieNotice = $state(false);
-	let showBackupReminder = $state(false);
+	let backupDue = $state(false);
 	let snoozeDays = $state('7');
 
-	onMount(() => {
-		player = readPlayer();
-		showCookieNotice = !document.cookie.split(';').some((c) => c.trim().startsWith('cookies='));
+	onMount(() => (showCookieNotice = !hasCookieConsent()));
+
+	// Like checkReminder() in global.js: decided once, when the save has loaded.
+	let reminderChecked = false;
+	$effect(() => {
+		if (!player.loaded || reminderChecked) return;
+		reminderChecked = true;
 		const snoozeUntil = localStorage.getItem('backupReminder');
-		showBackupReminder = player.caught > 25 && (!snoozeUntil || new Date() > new Date(snoozeUntil));
+		backupDue = player.caught > 25 && (!snoozeUntil || new Date() > new Date(snoozeUntil));
 	});
+
+	const onBackupPage = $derived(page.url.pathname.includes('saveandload'));
+	const showBackupReminder = $derived(backupDue && !onBackupPage);
 
 	function acceptCookies() {
 		const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString();
@@ -42,7 +44,7 @@
 		until.setDate(until.getDate() + days);
 		localStorage.setItem('backupReminder', until.toISOString());
 		alert(`Varselett ble utsatt i ${days} dag(er).`);
-		showBackupReminder = false;
+		backupDue = false;
 	}
 </script>
 
@@ -69,7 +71,8 @@
 			<span
 				id="cointext"
 				class="topbar-icontext-left money score"
-				data-added="0"
+				class:animate={player.moneyAnimating}
+				data-added="+{player.lastAdded}"
 				data-total={player.money}
 			></span>
 		</a>
@@ -110,7 +113,17 @@
 					</div>
 				</div>
 				<div id="tracker" class="tc-tracker">
-					<div id="levelDetails"></div>
+					<div id="levelDetails">
+						{#if layout.workOverview}
+							<h3>Arbeidsoversikt:</h3>
+							{#each [['today', 'I dag'], ['week', 'Denne uken'], ['month', 'Denne måneden']] as [period, title] (period)}
+								<h4>{title}:</h4>
+								{#each Object.entries(layout.workOverview[/** @type {'today' | 'week' | 'month'} */ (period)]) as [level, count] (level)}
+									<p>{level}: {count} oppgave(r)</p>
+								{/each}
+							{/each}
+						{/if}
+					</div>
 				</div>
 			</div>
 		</div>

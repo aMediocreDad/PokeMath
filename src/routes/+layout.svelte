@@ -1,14 +1,25 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
 	import Header from '#lib/Header.svelte';
 	import Botbar from '#lib/Botbar.svelte';
+	import Toaster from '#lib/Toaster.svelte';
+	import { player } from '#lib/player.svelte.js';
+	import { loadAchievements } from '#lib/achievements.js';
 	import { trackEvent } from '#lib/track.js';
 
 	/** @type {{children: import('svelte').Snippet}} */
 	let { children } = $props();
 
-	onMount(() => trackEvent('/track-page', { page: page.url.pathname }));
+	onMount(() => {
+		player.load();
+		loadAchievements();
+	});
+
+	// Once per page view, including navigation between Svelte pages.
+	afterNavigate(({ to }) => {
+		if (to) trackEvent('/track-page', { page: to.url.pathname });
+	});
 </script>
 
 <svelte:head>
@@ -21,3 +32,5 @@
 {@render children()}
 
 <div id="botbar" class="botbar"><Botbar /></div>
+
+<Toaster />
