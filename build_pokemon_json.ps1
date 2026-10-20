@@ -1,6 +1,6 @@
 # Build pokemon_info.json from pokemon.csv
 
-$csvPath = "static/pokemon.csv"
+$csvPath = "pokemon.csv"
 $jsonPath = "static/pokemon_info.json"
 
 # Read all CSV rows
