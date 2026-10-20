@@ -28,6 +28,23 @@ Den originale ideen om å gi ut Pokémon som belønning for å løse matteoppgav
 
 ---
 
+## Kjøre lokalt
+
+Produksjonsserveren (`server.js`) ligger ikke i repoet. `dev/server.js` er en erstatning for lokal utvikling, laget ut fra hva klienten forventer. Alt lagres i minnet, og ingen e-post sendes.
+
+```sh
+npm install
+npm run dev
+```
+
+Åpne http://localhost:3000. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `images/` og `fonts/`.
+
+- **Lærerkonto:** `laerer@test.no` / `passord123`. Nye kontoer trenger ingen manuell godkjenning. Lenker som ellers sendes på e-post, som bekreftelse og nytt passord, skrives i terminalen.
+- **Koder:** `MYNTER`, `SHINY`, `LEGENDARISK`, `STJERNESTØV` og `PIKACHU` kan løses inn på redeem.html.
+- **Bingo:** logg inn som lærer, start et spill, og åpne `bingo_join.html?code=<kode>` i et annet nettleservindu.
+
+---
+
 ## Datahåndtering
 
 All spilldata lagres lokalt i nettleserens `localStorage`. Data sendes kun til server ved deltakelse i Bingo eller ved bruk av lærerkonto. Se [personvernerklæringen](about.html#privacy) for detaljer.
