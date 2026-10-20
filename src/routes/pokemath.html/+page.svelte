@@ -13,7 +13,9 @@
 		progressTypeAchievement
 	} from '#lib/achievements.js';
 	import { setupGame, generateProblem, isCorrect, coinsForStage } from '#lib/game/problems.js';
-	import { loadPokemonInfo, rollPokemonId, pickForm, rollShiny, describe, catchTitle } from '#lib/game/pokemon.js';
+	import { loadPokemonInfo, rollPokemonId, pickForm, rollShiny, describe, catchTitle, catchFacts, baseName } from '#lib/game/pokemon.js';
+	import { startBingo, storedBingoCode } from '#lib/bingo.js';
+	import BingoLootbox from '#lib/game/BingoLootbox.svelte';
 	import PokemonCard from '#lib/PokemonCard.svelte';
 	import HalloweenEgg from '#lib/game/HalloweenEgg.svelte';
 	import XmasPresent from '#lib/game/XmasPresent.svelte';
@@ -56,6 +58,13 @@
 	/** @type {{ progress: () => void } | undefined} */
 	let xmasPresent = $state();
 	let unusedPresentDelay = $state(0);
+
+	/** @type {ReturnType<typeof startBingo> | undefined} */
+	let bingo;
+	/** @type {import('#lib/bingo.js').Prize[]} Prizes waiting to be revealed. */
+	let prizeQueue = $state([]);
+	/** @type {{ message: string, position: string } | null} */
+	let adminPopup = $state(null);
 
 	const progress = $derived(score / winScore);
 
@@ -186,6 +195,43 @@
 		player.addPokemon(entry);
 		trackEvent('/track-catch', {});
 		showCatch(entry);
+		reportToBingo(entry);
+	}
+
+	/** @param {string} entry */
+	function reportToBingo(entry) {
+		if (!bingo) return;
+		const params = new URLSearchParams(location.search);
+		const stageParam = params.get('stage');
+		const difficulty = stageParam ? `stage${stageParam}` : params.get('custom') ? 'custom' : null;
+		bingo.reportCatch({ pokemonCode: entry, difficulty: difficulty || 'stage3', ...catchFacts(entry) });
+	}
+
+	/**
+	 * applyBingoPrize() from pokestuff.js: give the prizes, then reveal them one by one.
+	 * @param {import('#lib/bingo.js').Prize[]} prizes
+	 */
+	function applyBingoPrizes(prizes) {
+		const shown = [];
+		for (const prize of prizes) {
+			if (prize.type === 'coins') {
+				const amount = Number(prize.amount) || 0;
+				if (!amount) continue;
+				player.money += amount;
+				player.save('money');
+			} else if (prize.type === 'pokemon') {
+				if (!prize.entry) continue;
+				player.addPokemon(String(prize.entry));
+				trackEvent('/track-catch', {});
+			} else if (prize.type === 'stardust') {
+				player.shinyBaitCount += Number(prize.amount) || 1;
+				player.save('shinyBait');
+			} else {
+				continue;
+			}
+			shown.push(prize);
+		}
+		prizeQueue = [...prizeQueue, ...shown];
 	}
 
 	/**
@@ -294,7 +340,24 @@
 		const pingTimer = setInterval(sendMathPing, 300_000);
 		trackEvent('/track-stage', { stage: params.get('stage') || (params.get('custom') ? 'custom' : 'unknown') });
 
+		layout.bingoCode = storedBingoCode();
+		/** @type {ReturnType<typeof setTimeout> | undefined} */
+		let popupTimer;
+		bingo = startBingo({
+			onPrizes: applyBingoPrizes,
+			onCodeChange: (code) => (layout.bingoCode = code),
+			onAdminPopup: (message, duration, position) => {
+				adminPopup = { message, position };
+				clearTimeout(popupTimer);
+				popupTimer = setTimeout(() => (adminPopup = null), duration * 1000);
+			}
+		});
+
 		return () => {
+			bingo?.stop();
+			bingo = undefined;
+			clearTimeout(popupTimer);
+			layout.bingoCode = '';
 			clearInterval(pingTimer);
 			clearTimeout(cheatTimer);
 			layout.cheater = false;
@@ -413,3 +476,38 @@
 		</div>
 	</div>
 </div>
+
+{#if prizeQueue.length}
+	<BingoLootbox prizes={prizeQueue} nameOf={baseName} onDone={() => (prizeQueue = [])} />
+{/if}
+
+{#if adminPopup}
+	<div id="bingo-admin-popup" class="pos-{adminPopup.position || 'top-center'}">{adminPopup.message}</div>
+{/if}
+
+<style>
+	/* The message a PokeMorten admin can push to every player in a bingo game. */
+	#bingo-admin-popup {
+		position: fixed;
+		z-index: 99999;
+		background: #1f2a44;
+		color: #fff;
+		padding: 20px 32px;
+		border-radius: 16px;
+		font-size: 1.6em;
+		font-weight: 700;
+		box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55);
+		max-width: 600px;
+		text-align: center;
+		pointer-events: none;
+		top: 16px;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+	.pos-top-left { left: 16px; transform: none; }
+	.pos-top-right { left: auto; right: 16px; transform: none; }
+	.pos-center { top: 50%; transform: translate(-50%, -50%); }
+	.pos-bottom-left { top: auto; bottom: 16px; left: 16px; transform: none; }
+	.pos-bottom-center { top: auto; bottom: 16px; }
+	.pos-bottom-right { top: auto; bottom: 16px; left: auto; right: 16px; transform: none; }
+</style>

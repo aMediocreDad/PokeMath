@@ -248,3 +248,41 @@ export function catchTitle(card) {
 	const rarityText = card.rarity === 'legendary' ? 'Legendarisk ' : card.rarity === 'mythic' ? 'Mytisk ' : '';
 	return `${card.shiny ? 'Shiny ' : ''}${rarityText}${card.name}`;
 }
+
+/**
+ * What a catch tells the bingo server (the bingo branch of addToPokedex()).
+ * @param {string} entry
+ */
+export function catchFacts(entry) {
+	const raw = entry.replace(/^[NS]/i, '');
+	const pokedexId = Number(raw.split('-')[0]);
+	const dexEntry = info?.[pokedexId];
+	const base = dexEntry?.['0'];
+	let pokemonName = base?.name || null;
+	let types = Array.isArray(base?.types) ? base.types : base?.types ? [base.types] : [];
+	if (raw.includes('-')) {
+		const variant = dexEntry?.[raw.split('-')[1] || ''];
+		if (variant) {
+			pokemonName = variant.name || pokemonName;
+			types = Array.isArray(variant.types) ? variant.types : variant.types ? [variant.types] : types;
+		}
+	}
+	const name = (pokemonName || '').toLowerCase();
+	return {
+		pokedexId,
+		pokemonName,
+		types,
+		flags: {
+			shiny: /^S/i.test(entry),
+			mega: name.includes('mega'),
+			gmax: name.includes('gigantamax') || name.includes('gmax'),
+			hisuian: name.includes('hisuian'),
+			alolan: name.includes('alolan'),
+			legendary: legendaries.includes(pokedexId),
+			mythic: mythics.includes(pokedexId)
+		}
+	};
+}
+
+/** The base name of a Pokémon, for prize announcements. @param {number | undefined} id */
+export const baseName = (id) => (id == null ? undefined : info?.[String(id)]?.['0']?.name);

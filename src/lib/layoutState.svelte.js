@@ -7,6 +7,8 @@ export const layout = $state({
 	workOverview: null,
 	/** Shown as "🎲 Bingo: CODE" in the bottom bar on the game page. */
 	bingoCode: '',
+	/** @type {'good' | 'okay' | 'disconnected'} The light in the bottom bar (updateConnectionIndicator()). */
+	connection: 'okay',
 	/** The game's joke for a tampered ?stage=: the header briefly shows -99999 coins and "Juksemaker". */
 	cheater: false
 });

@@ -2,11 +2,13 @@
 	// The bottom bar from static/botbar.html. The connection light starts yellow ("okay"),
 	// as on the legacy pages.
 	import { layout } from '#lib/layoutState.svelte.js';
+
+	const STATUS = { good: 'status-green', okay: 'status-yellow', disconnected: 'status-red' };
 </script>
 
 <!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
 <a id="connection-indicator" class="align-left">
-	<span id="connection-status" class="status-yellow">&nbsp;</span>
+	<span id="connection-status" class={STATUS[layout.connection]}>&nbsp;</span>
 </a>
 {#if layout.bingoCode}
 	<div
