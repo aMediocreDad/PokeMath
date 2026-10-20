@@ -36,8 +36,7 @@
 	let score = $state(0);
 	let wrongAnswers = $state(0);
 	let streak = 0;
-	// The legacy page shows 5 here until the first answer, whatever the stage.
-	let pointsNeeded = $state(5);
+	const pointsNeeded = $derived(winScore - score);
 
 	let correctAnimation = $state(false);
 	let wrongAnimation = $state(false);
@@ -51,6 +50,15 @@
 
 	/** @type {string[]} Cards shown under the game, newest first. */
 	let recent = $state([]);
+
+	// The last five different catches, newest first (what loadAmountFromList(5, true) meant to show;
+	// the legacy page ran it before the save had loaded, so the list always started empty).
+	let recentFilled = false;
+	$effect(() => {
+		if (!player.loaded || recentFilled) return;
+		recentFilled = true;
+		recent = [...new Set([...player.pkmnList].reverse())].slice(0, 5);
+	});
 
 	/** 0–11, set in the browser: October has the Halloween egg, December the Christmas present. */
 	let month = $state(-1);
@@ -100,7 +108,6 @@
 		if (isCorrect(values, problem, Number(answer))) {
 			score++;
 			streak++;
-			pointsNeeded = 5 - score;
 			if (values.stage == 0) {
 				// Custom setups that are too easy: you can play, but you earn nothing.
 				flash('correct');
@@ -156,7 +163,6 @@
 		overlayOpen = false;
 		score = 0;
 		wrongAnswers = 0;
-		pointsNeeded = winScore;
 		catchImage = '';
 		showContinue = false;
 	}
