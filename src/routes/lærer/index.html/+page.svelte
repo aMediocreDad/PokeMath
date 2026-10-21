@@ -509,6 +509,10 @@
 		justify-content: space-between;
 		gap: 12px;
 	}
+	.session-row .pm-button {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
 	.big {
 		font-size: 18px;
 		font-weight: 700;
