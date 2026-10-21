@@ -6,11 +6,11 @@
 	const ALERT_ID = '2026-03-16';
 
 	const STAGES = [
-		{ id: 'stage-one', href: 'pokemath.html?stage=1', title: 'Nivå 1', lines: ['Pluss & Minus', '0 - 10'] },
-		{ id: 'stage-two', href: 'pokemath.html?stage=2', title: 'Nivå 2', lines: ['Pluss & Minus', '0 - 25'] },
-		{ id: 'stage-three', href: 'pokemath.html?stage=3', title: 'Nivå 3', lines: ['4 regnearter', 'Små tall'] },
-		{ id: 'stage-four', href: 'pokemath.html?stage=4', title: 'Nivå 4', lines: ['4 Regnearter', 'Store tall'] },
-		{ id: 'stage-five', href: 'pokemath.html?stage=5', title: 'Nivå 5', lines: ['4 regnearter', 'Veldig Store tall'] }
+		{ id: 'stage-one', href: 'pokemath.html?stage=1', title: 'Nivå 1', lines: ['Pluss og minus', '0–10'] },
+		{ id: 'stage-two', href: 'pokemath.html?stage=2', title: 'Nivå 2', lines: ['Pluss og minus', '0–25'] },
+		{ id: 'stage-three', href: 'pokemath.html?stage=3', title: 'Nivå 3', lines: ['Alle fire regnearter', 'Små tall'] },
+		{ id: 'stage-four', href: 'pokemath.html?stage=4', title: 'Nivå 4', lines: ['Alle fire regnearter', 'Store tall'] },
+		{ id: 'stage-five', href: 'pokemath.html?stage=5', title: 'Nivå 5', lines: ['Alle fire regnearter', 'Veldig store tall'] }
 	];
 
 	/** @type {number} 0–11, set in the browser */
@@ -53,79 +53,273 @@
 	/>
 	<meta name="keywords" content="Matte, Pokemon, pokemth, poekmath, mate, pokematte" />
 	<meta name="robots" content="index, nofollow" />
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
 </svelte:head>
 
-{#snippet stageCard(/** @type {string} */ id, /** @type {string} */ href, /** @type {string} */ image, /** @type {string} */ title, /** @type {string[]} */ lines, /** @type {string} */ imageStyle = 'background-size: cover;')}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div class="bigcard" {id} onclick={() => (location.href = href)}>
-		<div class="card-content">
-			<div class="has-text-centered">
-				{#if image}
-					<div class="card-image" style="background-image: url('{image}'); height: 128px; width: 128px; {imageStyle}">&nbsp;</div>
-				{/if}
-			</div>
-		</div>
-		<div class="card-footer">
-			<p class="card-footer-item"><strong style="text-transform: capitalize;">{title}</strong></p>
-		</div>
-		<div class="card-footer">
-			<p class="card-footer-item">
-				<!-- svelte-ignore a11y_missing_attribute -->
-				<a style="text-transform: capitalize;">{lines[0]} <br /> {lines[1]}</a>
-			</p>
-		</div>
-	</div>
+{#snippet tile(/** @type {string} */ id, /** @type {string} */ href, /** @type {string} */ image, /** @type {string} */ title, /** @type {string[]} */ lines, /** @type {number} */ level, /** @type {string} */ variant = '')}
+	<a class="tile {variant}" {id} {href}>
+		<span class="art" style:background-image={image ? `url('${image}')` : null}></span>
+		<span class="title">{title}</span>
+		<span class="lines">{lines[0]}{#if lines[1]}<br />{lines[1]}{/if}</span>
+		{#if level}
+			<span class="meter" aria-label="Vanskelighet {level} av 5">
+				{#each { length: 5 }, i (i)}<span class="pip" class:on={i < level}></span>{/each}
+			</span>
+		{/if}
+	</a>
 {/snippet}
 
-<div class="main">
+<div class="main home">
 	<noscript>
-		<div style="border: 1px solid purple; padding: 10px">
-			<span style="color:red"
-				>JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan skru på JavaScript <a
-					href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
-					>her. (microsoft.com)</a
-				></span
-			>
-		</div>
+		<p class="noscript">
+			JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
+			skru på JavaScript <a href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
+				>her (microsoft.com)</a
+			>.
+		</p>
 	</noscript>
-	<div class="snowflakecontainer">
-		{#if month === 11}
-			{#each { length: 10 }, i (i)}<div class="fallingsnowflake">❅</div>{/each}
-		{/if}
-	</div>
-	<div id="logo" class="logo" style:background-image={logoImage}>
-		<span id="logotext" class="tilt pop">{splash}</span>
+	{#if month === 11}
+		<div class="snow" aria-hidden="true">
+			{#each { length: 10 }, i (i)}<span class="fallingsnowflake" style:left="{i * 10 + 4}%" style:animation-delay="{i * 0.7}s">❅</span>{/each}
+		</div>
+	{/if}
+
+	<div id="logo" class="logo" style:background-image={logoImage ?? 'url(images/logo.png)'} role="img" aria-label="PokéMath">
+		<span id="logotext" class="splash">{splash}</span>
 	</div>
 
-	<div class="columns is-multiline is-mobile" id="stageselect">
+	<h1 class="pick">Velg nivå</h1>
+	<nav class="tiles" id="stageselect" aria-label="Velg nivå">
 		{#if month === 11}
-			{@render stageCard('xmas', 'christmas.html', 'images/events/christmas/calendar.png', 'Julekalender', ['Fra 1. til 24.', 'desember!'])}
+			{@render tile('xmas', 'christmas.html', 'images/events/christmas/calendar.png', 'Julekalender', ['Fra 1. til 24.', 'desember!'], 0, 'event')}
 		{/if}
 		{#if month === 2 || month === 3}
-			{@render stageCard('easter', 'easter.html', 'images/events/easter/Spr_4d_Egg.png', 'Påskeevent', ['Mars og april!', ''], 'background-color:#d4f7c5; background-size: contain; background-repeat: no-repeat; background-position: center;')}
+			{@render tile('easter', 'easter.html', 'images/events/easter/Spr_4d_Egg.png', 'Påskeevent', ['Mars og april!', ''], 0, 'event')}
 		{/if}
 		{#each STAGES as stage, i (stage.id)}
-			{@render stageCard(stage.id, stage.href, starterSet ? `images/starter-${starterSet}-${i + 1}.png` : '', stage.title, stage.lines)}
+			{@render tile(stage.id, stage.href, starterSet ? `images/starter-${starterSet}-${i + 1}.png` : '', stage.title, stage.lines, i + 1)}
 		{/each}
-		{@render stageCard('stage-custom', 'customizer.html', 'images/gear.png', 'Eget Nivå', ['alle muligheter', 'Velg selv'])}
-	</div>
+		{@render tile('stage-custom', 'customizer.html', 'images/gear.png', 'Eget nivå', ['Velg regnearter', 'og tall selv'], 0, 'custom')}
+	</nav>
 </div>
 
 {#if showAlert}
-	<div id="alertbox" class="alert simple-alert" data-alert-id={ALERT_ID}>
-		<h2>De svarte linjene er borte!<span class="date"> 16.03.2026</span></h2>
+	<aside id="alertbox" class="news" data-alert-id={ALERT_ID} aria-labelledby="news-title">
+		<button class="close" onclick={closeAlert} aria-label="Lukk">×</button>
+		<h2 id="news-title">De svarte linjene er borte! <span class="date">16.03.2026</span></h2>
 		<p>
-			Opplever du at de svarte linjene mangler?<br />
-			Kan du ikke se penger eller navn?<br />
-			Vi har en fiks! På PC kan du enkelt gjøre CTRL+F5 for å laste inn ordentlig.<br />
-			På iPad: Gå til <a href="./faq.html">FAQ</a> og trykk "Jeg ønsker å få nyeste oppdatering", velg deretter "Tøm Cache".<br />
+			Opplever du at de svarte linjene mangler, eller kan du ikke se penger eller navn? På PC kan du trykke CTRL+F5
+			for å laste inn ordentlig. På iPad: gå til <a href="./faq.html">FAQ</a>, trykk «Jeg ønsker å få nyeste
+			oppdatering» og så «Tøm cache».
 		</p>
-		<!-- svelte-ignore a11y_missing_attribute, a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<a class="close" onclick={closeAlert}>&times;</a>
-		<br />
-		- Mvh. PokeMorten
-		<br />
-	</div>
+		<p class="signature">– Mvh. PokeMorten</p>
+	</aside>
 {/if}
+
+<style>
+	.home {
+		max-width: 900px;
+		margin: 0 auto;
+		padding: 8px 16px 32px;
+	}
+	.noscript {
+		padding: 12px;
+		border-radius: 12px;
+		background: var(--pm-red-soft);
+	}
+
+	.logo {
+		position: relative;
+		height: clamp(110px, 22vw, 190px);
+		margin: 12px auto 0;
+		max-width: 560px;
+		background-size: contain;
+		background-position: center;
+		background-repeat: no-repeat;
+	}
+	/* The splash line, a gold sticker on the logo's corner. */
+	.splash {
+		position: absolute;
+		right: 0;
+		bottom: 2px;
+		max-width: 60%;
+		padding: 4px 12px;
+		border-radius: 10px;
+		background: var(--pm-gold);
+		box-shadow: 0 3px 0 oklch(0.65 0.13 80);
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: clamp(14px, 2.6vw, 20px);
+		line-height: 1.15;
+		text-align: center;
+		transform: rotate(-4deg);
+		animation: pulse 1.6s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% { transform: rotate(-4deg) scale(1.05); }
+	}
+
+	.pick {
+		margin: 22px 0 14px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 26px;
+		text-align: center;
+	}
+	.tiles {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 14px;
+	}
+	.tile {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 12px 10px 14px;
+		border-radius: 20px;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		color: var(--pm-ink);
+		text-align: center;
+		text-decoration: none;
+		transition: transform 120ms ease-out;
+	}
+	.tile:active {
+		transform: scale(0.97);
+	}
+	.tile.event {
+		box-shadow: var(--pm-shadow), 0 0 0 3px var(--pm-gold);
+	}
+	.art {
+		width: 104px;
+		height: 104px;
+		border-radius: 50%;
+		background-color: var(--pm-cream);
+		background-size: 84%;
+		background-position: center;
+		background-repeat: no-repeat;
+	}
+	.custom .art {
+		background-size: 60%;
+	}
+	.title {
+		margin-top: 6px;
+		font-family: var(--pm-display);
+		font-size: 24px;
+	}
+	.lines {
+		color: var(--pm-ink-soft);
+		font-size: 15px;
+		line-height: 1.3;
+	}
+	.meter {
+		display: flex;
+		gap: 4px;
+		margin-top: 6px;
+	}
+	.pip {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--pm-line);
+	}
+	.pip.on {
+		background: var(--pm-red);
+	}
+
+	.news {
+		position: fixed;
+		left: 12px;
+		right: 12px;
+		bottom: 56px;
+		z-index: 800;
+		max-width: 520px;
+		margin: 0 auto;
+		padding: 16px 52px 12px 18px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.news h2 {
+		margin: 0 0 6px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 20px;
+	}
+	.date {
+		color: var(--pm-ink-soft);
+		font-family: var(--pm-body);
+		font-size: 14px;
+	}
+	.news p {
+		margin: 0 0 6px;
+		line-height: 1.4;
+	}
+	.news a {
+		color: var(--pm-red-deep);
+	}
+	.signature {
+		color: var(--pm-ink-soft);
+	}
+	.close {
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		width: 44px;
+		height: 44px;
+		border: none;
+		border-radius: 50%;
+		background: none;
+		color: var(--pm-ink-soft);
+		font-size: 28px;
+		cursor: pointer;
+	}
+
+	.snow {
+		position: fixed;
+		inset: 0;
+		pointer-events: none;
+		overflow: hidden;
+		z-index: 1;
+	}
+	.fallingsnowflake {
+		position: absolute;
+		top: -40px;
+		color: oklch(0.8 0.03 240);
+		font-size: 28px;
+		animation: fall 9s linear infinite;
+	}
+	@keyframes fall {
+		to { transform: translateY(110vh); }
+	}
+
+	@media (max-width: 480px) {
+		.tiles {
+			grid-template-columns: repeat(2, 1fr);
+			gap: 10px;
+		}
+		.art {
+			width: 84px;
+			height: 84px;
+		}
+		.title {
+			font-size: 21px;
+		}
+		/* On phones the sticker sits under the logo instead of over the word. */
+		.splash {
+			bottom: -18px;
+			max-width: 80%;
+			font-size: 13px;
+		}
+		.pick {
+			margin-top: 30px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.splash,
+		.fallingsnowflake {
+			animation: none;
+		}
+	}
+</style>
