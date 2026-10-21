@@ -1,20 +1,42 @@
 <script>
-	// The bottom bar from static/botbar.html. The connection light starts yellow ("okay"),
-	// as on the legacy pages.
+	// The bottom bar from static/botbar.html: the connection light (yellow until the server has
+	// answered, as on the legacy pages) and the bingo code while playing bingo.
 	import { layout } from '#lib/layoutState.svelte.js';
 
 	const STATUS = { good: 'status-green', okay: 'status-yellow', disconnected: 'status-red' };
+	const LABEL = { good: 'Tilkoblet', okay: 'Kobler til', disconnected: 'Frakoblet' };
 </script>
 
-<!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
-<a id="connection-indicator" class="align-left">
-	<span id="connection-status" class={STATUS[layout.connection]}>&nbsp;</span>
-</a>
+<span id="connection-indicator" class="connection" title={LABEL[layout.connection]}>
+	<span id="connection-status" class="dot {STATUS[layout.connection]}"></span>
+</span>
 {#if layout.bingoCode}
-	<div
-		id="bingoIndicator"
-		style="float:right; margin:9px 14px 0 0; padding:5px 12px; border-radius:20px; background:#00C957; color:#fff; font-weight:700; font-size:14px; line-height:1.4;"
-	>
-		🎲 Bingo: {layout.bingoCode}
-	</div>
+	<span id="bingoIndicator" class="bingo">🎲 Bingo: {layout.bingoCode}</span>
 {/if}
+
+<style>
+	.connection {
+		display: inline-flex;
+		align-items: center;
+	}
+	.dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--pm-gold);
+	}
+	.dot.status-green {
+		background: var(--pm-green);
+	}
+	.dot.status-red {
+		background: var(--pm-red);
+	}
+	.bingo {
+		padding: 4px 12px;
+		border-radius: 999px;
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+		font-family: var(--pm-display);
+		font-size: 16px;
+	}
+</style>

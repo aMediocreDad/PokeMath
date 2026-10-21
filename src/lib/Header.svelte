@@ -1,6 +1,7 @@
 <script>
-	// The top bar, cookie notice and backup reminder from static/header.html.
-	// Ids and classes are kept so static/globalstyle.css styles it the same way.
+	// The top bar, cookie notice and backup reminder (static/header.html on the legacy pages).
+	// It has its own class names, so the legacy header rules in globalstyle.css do not apply;
+	// the ids the legacy scripts and the tests rely on are kept.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { player } from '#lib/player.svelte.js';
@@ -51,9 +52,12 @@
 	/** @param {PointerEvent} event */
 	function closeMenus(event) {
 		const target = /** @type {HTMLElement} */ (event.target);
-		if (!target.closest('.dropdown')) menuOpen = false;
-		if (!target.closest('.playercard')) cardOpen = false;
+		if (!target.closest('.menu')) menuOpen = false;
+		if (!target.closest('.trainer')) cardOpen = false;
 	}
+
+	/** @param {number} n */
+	const format = (n) => Number(n).toLocaleString('no-NO');
 
 	function snoozeBackup() {
 		const days = parseInt(snoozeDays, 10);
@@ -65,277 +69,472 @@
 	}
 </script>
 
+<svelte:document onpointerdown={closeMenus} />
+
 {#if showCookieNotice}
-	<div class="cookie-container" id="cookie-container">
-		<h2 class="cookie-header">🔒 Lagring av data</h2>
-		<div>
-			<p class="cookie-text">
-				PokéMath lagrer Pokémon og spillerdata lokalt i nettleseren din (localStorage) – ingen
-				cookies, ingen sporing. Ved å bruke siden godkjenner du vår
-				<a href="/about.html#privacy">personvernerklæring</a>.
-			</p>
-			<button class="button-1" id="acceptCookies" onclick={acceptCookies}>Forstått!</button>
-			<a class="button-2" href="/about.html#privacy">Les mer</a>
+	<div class="sheet" id="cookie-container" role="dialog" aria-labelledby="cookie-title">
+		<h2 id="cookie-title">🔒 Lagring av data</h2>
+		<p>
+			PokéMath lagrer Pokémon og spillerdata lokalt i nettleseren din (localStorage) – ingen cookies, ingen
+			sporing. Ved å bruke siden godkjenner du vår <a href="/about.html#privacy">personvernerklæring</a>.
+		</p>
+		<div class="actions">
+			<button class="pm-button" id="acceptCookies" onclick={acceptCookies}>Forstått!</button>
+			<a class="pm-button secondary" href="/about.html#privacy">Les mer</a>
 		</div>
 	</div>
 {/if}
 
-<!-- pointerdown rather than click: iOS often sends no click for a tap on a blank area. -->
-<svelte:document onpointerdown={closeMenus} />
+<header class="pm-bar" id="topbar">
+	<a href="/index.html" class="back" aria-label="Til forsiden">
+		<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+	</a>
+	<a href="/shop.html" id="money" class="stat" aria-label="Mynter, til butikken">
+		<img src="/money.svg" width="28" height="28" alt="" />
+		<span
+			id="cointext"
+			class="pm-stat-value"
+			data-added={player.moneyDelta}
+			data-total={layout.cheater ? '-99999' : player.money}>{layout.cheater ? '-99 999' : format(player.money)}</span
+		>
+		{#if player.moneyAnimating}<span class="delta" aria-hidden="true">{player.moneyDelta}</span>{/if}
+	</a>
+	<a href="/dex.html" id="caught" class="stat" aria-label="Pokémon fanget, til Pokédexen">
+		<img src="/pokeball.svg" width="28" height="28" alt="" />
+		<span id="balltext" class="pm-stat-value">{layout.cheater ? 0 : player.caught}</span>
+	</a>
+	<a href="/badges.html" id="badges" class="stat badges" aria-label="Merker">
+		<img src="/images/badges/1.png" width="28" height="28" alt="" />
+	</a>
 
-<div>
-	<div class="topbar" id="topbar">
-		<a href="/index.html" id="backbutton">&#8249;</a>
-		<a href="/shop.html" id="money" class="topbar-icon-left">
-			<img id="coinimage" src="/money.svg" width="50" height="50" alt="Mynter" />
-			<span
-				id="cointext"
-				class="topbar-icontext-left money score"
-				class:animate={player.moneyAnimating}
-				data-added={player.moneyDelta}
-				data-total={layout.cheater ? '-99999' : player.money}
-			></span>
-		</a>
-		<a href="/dex.html" id="caught" class="topbar-icon-left">
-			<img id="ballimage" src="/pokeball.svg" width="50" height="50" alt="Pokémon fanget" />
-			<span id="balltext" class="topbar-icontext-left">{layout.cheater ? 0 : player.caught}</span>
-		</a>
-		<a href="/badges.html" id="badges" class="topbar-icon-left">
-			<img id="badgeimage" src="/images/badges/1.png" width="50" height="50" alt="Merker" />
-		</a>
-		<div id="playercard" class="topbar-icon-left playercard" class:open={cardOpen}>
-			<!-- svelte-ignore a11y_missing_attribute, a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<a class="playerbtn" onclick={() => (cardOpen = !cardOpen)}>
-				<img id="playerimage" src={player.playerImage} width="50" height="50" alt="" />
-				<span id="playertext" class="topbar-icontext-left">{layout.cheater ? 'Juksemaker' : player.username}</span>
-			</a>
-			<div class="playercard-content">
-				<div class="trainercard">
-					<div class="tc-avatar">
-						<img id="playerimagebig" src={player.playerImage} alt="" />
-					</div>
-					<div class="tc-body">
-						<div class="tc-header">
-							<span id="playertextheader" class="tc-name">{player.username}</span>
-							<a href="/player_profile.html" class="tc-profile-link">Min profil ›</a>
-						</div>
-						<div class="tc-subtitle">Pokémon Trener</div>
-						<div class="tc-stats-label">Oppgaver løst per nivå</div>
-						<div class="tc-stats">
-							{#each player.tiersSolved as solved, i (i)}
-								<div class="tc-stat">
-									<span class="tc-stat-n" id="t{i + 1}solved">{solved}</span>
-									<span class="tc-stat-l">Niv. {i + 1}</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				</div>
-				<div id="tracker" class="tc-tracker">
-					<div id="levelDetails">
-						{#if layout.workOverview}
-							<h3>Arbeidsoversikt:</h3>
-							{#each [['today', 'I dag'], ['week', 'Denne uken'], ['month', 'Denne måneden']] as [period, title] (period)}
-								<h4>{title}:</h4>
-								{#each Object.entries(layout.workOverview[/** @type {'today' | 'week' | 'month'} */ (period)]) as [level, count] (level)}
-									<p>{level}: {count} oppgave(r)</p>
-								{/each}
-							{/each}
-						{/if}
-					</div>
+	<div class="trainer" class:open={cardOpen}>
+		<button class="trainer-button" aria-expanded={cardOpen} onclick={() => (cardOpen = !cardOpen)}>
+			<img id="playerimage" class="avatar" src={player.playerImage} width="36" height="36" alt="" />
+			<span id="playertext" class="trainer-name">{layout.cheater ? 'Juksemaker' : player.username}</span>
+		</button>
+		<div class="pm-panel trainer-panel">
+			<div class="trainer-head">
+				<img class="avatar large" src={player.playerImage} alt="" />
+				<div>
+					<div class="pm-panel-title">{player.username}</div>
+					<div class="muted">Pokémon-trener</div>
+					<a href="/player_profile.html" class="link">Min profil ›</a>
 				</div>
 			</div>
-		</div>
-		<div class="dropdown" class:open={menuOpen}>
-			<button class="dropbtn" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
-				<img id="gearimage" src="/images/gear.png" width="50" height="50" alt="Meny" />
-			</button>
-			<div class="dropdown-content">
-				<a href="/index.html">Hovedmeny</a>
-				<a href="/dex.html">Pokedex</a>
-				<a href="/shop.html">Butikk</a>
-				<!-- Phones hide these two header shortcuts, so the menu offers them instead. -->
-				<a href="/badges.html" class="phone-only">Merker</a>
-				<a href="/player_profile.html" class="phone-only">Min profil</a>
-				<a href="/about.html">Om siden</a>
-				<a href="/about.html#contact">Kontakt oss</a>
-				<a href="/about.html#news">Nylige oppdateringer</a>
-				<a href="/saveandload.html">Lagre / Last Inn</a>
-				<a href="/faq.html">FAQ</a>
-				<!-- svelte-ignore a11y_missing_attribute, a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-				<a onclick={resetPrompt}>Tilbakestill (Slett alt)</a>
+			<div class="panel-label">Oppgaver løst per nivå</div>
+			<div class="tiers">
+				{#each player.tiersSolved as solved, i (i)}
+					<div class="tier">
+						<span class="tier-count" id="t{i + 1}solved">{format(solved)}</span>
+						<span class="tier-label">Nivå {i + 1}</span>
+					</div>
+				{/each}
+			</div>
+			<div id="levelDetails">
+				{#if layout.workOverview}
+					<div class="panel-label">Arbeidsoversikt</div>
+					{#each [['today', 'I dag'], ['week', 'Denne uken'], ['month', 'Denne måneden']] as [period, title] (period)}
+						{@const levels = Object.entries(layout.workOverview[/** @type {'today' | 'week' | 'month'} */ (period)])}
+						<div class="work-row">
+							<span>{title}</span>
+							<span class="muted">
+								{levels.length ? levels.map(([level, count]) => `Nivå ${level}: ${count}`).join(' · ') : '–'}
+							</span>
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</div>
 	</div>
-	{#if player.backgroundImage}
-		<img src={player.backgroundImage} alt="" id="background" />
-	{/if}
-	<div id="backup-popup" class="popup" class:hidden={!showBackupReminder}>
-		<div class="popup-content">
-			<h2>Påminnelse</h2>
-			<p>
-				Det er på tide å lagre en backup!<br />
-				Vil du lagre en nå, eller vil du bli påminnet senere?
-			</p>
-			<div class="popup-actions">
-				<button
-					id="do-backup-btn"
-					class="button-1"
-					onclick={() => (location.href = '/saveandload.html')}>Lagre en backup!</button
-				>
-				<select id="snooze-select" bind:value={snoozeDays}>
-					<option value="1">Påminn meg om 1 dag</option>
-					<option value="3">Påminn meg om 3 dager</option>
-					<option value="7">Påminn meg om 1 uke</option>
-					<option value="14">Påminn meg om 2 uker</option>
-					<option value="30">Påminn meg om 1 måned</option>
-					<option value="90">Påminn meg om 3 måneder</option>
-				</select>
-				<button id="snooze-btn" class="button-2" onclick={snoozeBackup}>Utsett</button>
-			</div>
+
+	<div class="menu" class:open={menuOpen}>
+		<button class="menu-button dropbtn" aria-label="Meny" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
+			<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+		</button>
+		<nav class="pm-panel menu-panel dropdown-content" aria-label="Meny">
+			<a href="/index.html">Hovedmeny</a>
+			<a href="/dex.html">Pokédex</a>
+			<a href="/shop.html">Butikk</a>
+			<!-- Phones hide these two header shortcuts, so the menu offers them instead. -->
+			<a href="/badges.html" class="phone-only">Merker</a>
+			<a href="/player_profile.html" class="phone-only">Min profil</a>
+			<a href="/saveandload.html">Lagre / Last inn</a>
+			<a href="/faq.html">Spørsmål og svar</a>
+			<a href="/about.html">Om siden</a>
+			<a href="/about.html#contact">Kontakt oss</a>
+			<a href="/about.html#news">Nylige oppdateringer</a>
+			<button class="danger" onclick={resetPrompt}>Tilbakestill (slett alt)</button>
+		</nav>
+	</div>
+</header>
+
+{#if player.backgroundImage}
+	<img src={player.backgroundImage} alt="" id="background" />
+{/if}
+
+<div id="backup-popup" class="backdrop" class:hidden={!showBackupReminder}>
+	<div class="reminder" role="dialog" aria-labelledby="reminder-title">
+		<h2 id="reminder-title">Påminnelse</h2>
+		<p>Det er på tide å lagre en backup! Vil du lagre en nå, eller vil du bli påminnet senere?</p>
+		<button id="do-backup-btn" class="pm-button" onclick={() => (location.href = '/saveandload.html')}>Lagre en backup!</button>
+		<div class="snooze">
+			<select id="snooze-select" bind:value={snoozeDays} aria-label="Påminn meg om">
+				<option value="1">Påminn meg om 1 dag</option>
+				<option value="3">Påminn meg om 3 dager</option>
+				<option value="7">Påminn meg om 1 uke</option>
+				<option value="14">Påminn meg om 2 uker</option>
+				<option value="30">Påminn meg om 1 måned</option>
+				<option value="90">Påminn meg om 3 måneder</option>
+			</select>
+			<button id="snooze-btn" class="pm-button secondary" onclick={snoozeBackup}>Utsett</button>
 		</div>
 	</div>
 </div>
 
 <style>
+	/* ── The bar ─────────────────────────────────────────────────────────────── */
+	.pm-bar {
+		position: fixed;
+		inset: 0 0 auto 0;
+		z-index: 1000;
+		height: var(--pm-bar-height);
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0 8px;
+		background: var(--pm-red);
+		box-shadow: 0 3px 0 var(--pm-red-deep);
+		color: var(--pm-paper);
+	}
+	.pm-bar a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.pm-bar svg {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2.6;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.back,
+	.menu-button {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border: none;
+		border-radius: 50%;
+		background: transparent;
+		color: var(--pm-paper);
+		cursor: pointer;
+	}
+	.back:active,
+	.menu-button:active,
+	.menu.open .menu-button {
+		background: var(--pm-red-deep);
+	}
 
-	/* Touch screens: open on tap, and keep a tapped link or button from staying grey. */
-	.dropdown.open .dropdown-content,
-	.playercard.open .playercard-content {
+	.stat {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		height: 40px;
+		padding: 0 14px 0 6px;
+		border-radius: 999px;
+		background: var(--pm-red-deep);
+		flex-shrink: 0;
+	}
+	.stat img {
 		display: block;
 	}
-	@media (hover: none) {
-		.dropdown:not(.open) .dropdown-content,
-		.playercard:not(.open) .playercard-content {
-			display: none;
-		}
-		.topbar a:hover,
-		.dropdown:hover .dropbtn {
-			background-color: transparent;
-			color: inherit;
-		}
-		.dropdown-content a {
-			min-height: 44px;
-			display: flex;
-			align-items: center;
-		}
-		#backbutton {
-			min-width: 44px;
-			min-height: 44px;
-			box-sizing: border-box;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		}
-		/* 16px keeps iOS from zooming in when the list opens. */
-		#snooze-select {
-			min-height: 44px;
-			font-size: 16px;
-		}
+	.pm-stat-value {
+		font-family: var(--pm-display);
+		font-size: 20px;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
+	.badges {
+		padding: 0 6px;
+	}
+	.delta {
+		position: absolute;
+		left: 40px;
+		top: 34px;
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: var(--pm-gold);
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 15px;
+		animation: delta 0.5s ease-out both;
+		pointer-events: none;
+	}
+	@keyframes delta {
+		from { opacity: 0; transform: translateY(-6px); }
+		to { opacity: 1; transform: translateY(0); }
 	}
 
-	/* Phones: a single row that keeps coins and Pokémon counts visible. */
-	@media (max-width: 720px) {
-		.topbar {
-			display: flex;
-			align-items: center;
-			gap: 2px;
-		}
-		.topbar > a,
-		.topbar-icon-left,
-		.dropdown {
-			float: none;
-			top: 0;
-		}
-		#backbutton {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			min-width: 44px;
-			height: 50px;
-			padding: 0;
-		}
-		.topbar-icon-left {
-			display: flex;
-			align-items: center;
-			gap: 4px;
-			height: 50px;
-			padding: 0 6px;
-			flex-shrink: 0;
-		}
-		.topbar-icon-left img {
-			width: 34px;
-			height: 34px;
-		}
-		.topbar-icontext-left {
-			display: inline;
-			position: static;
-			top: 0;
-			font-size: 17px;
-		}
-		.playercard {
-			margin-left: auto;
-		}
-		.playerbtn {
-			padding: 0 4px;
-		}
-		.playerbtn #playerimage {
+	/* ── Panels: the trainer card and the menu ───────────────────────────────── */
+	.trainer {
+		position: relative;
+		margin-left: auto;
+	}
+	.trainer-button {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		height: 44px;
+		padding: 0 12px 0 4px;
+		border: none;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--pm-paper);
+		font: 600 18px var(--pm-body);
+		cursor: pointer;
+	}
+	.trainer.open .trainer-button,
+	.trainer-button:active {
+		background: var(--pm-red-deep);
+	}
+	.avatar#playerimage,
+	.avatar {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		background: var(--pm-paper);
+		object-fit: contain;
+		object-position: center top;
+	}
+	.avatar.large {
+		width: 72px;
+		height: 72px;
+		border-radius: 18px;
+		background: var(--pm-cream);
+	}
+	.menu {
+		position: relative;
+	}
+
+	.pm-panel {
+		display: none;
+		position: absolute;
+		top: calc(100% + 10px);
+		right: 0;
+		width: 300px;
+		padding: 10px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		color: var(--pm-ink);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		max-height: calc(100vh - var(--pm-bar-height) - 60px);
+		max-height: calc(100dvh - var(--pm-bar-height) - 60px);
+		overflow-y: auto;
+	}
+	.trainer.open .pm-panel,
+	.menu.open .pm-panel {
+		display: block;
+	}
+	@media (hover: hover) {
+		.trainer:hover .pm-panel,
+		.menu:hover .pm-panel {
 			display: block;
-			width: 34px;
-			height: 34px;
-		}
-		.playerbtn #playertext {
-			display: none;
-		}
-		.dropdown {
-			flex-shrink: 0;
-		}
-		.dropbtn img {
-			width: 40px;
-			height: 40px;
-		}
-		.dropdown-content {
-			position: fixed;
-			top: 50px;
-			right: 8px;
-			left: auto;
-			width: min(260px, calc(100vw - 16px));
-			/* Scroll inside the menu on short screens instead of running under the bottom bar. */
-			max-height: calc(100vh - 50px - 56px);
-			/* iOS counts the area under Safari's toolbar in 100vh; dvh does not (newer Safari). */
-			max-height: calc(100dvh - 50px - 56px);
-			overflow-y: auto;
-		}
-		.playercard-content {
-			position: fixed;
-			top: 50px;
-			left: 8px;
-			right: 8px;
-			min-width: 0;
-		}
-		.trainercard {
-			min-width: 0;
 		}
 	}
 
-	/* Narrow phones: the shortcuts give way to the coin and Pokémon counts, and move into the menu. */
-	.dropdown-content a.phone-only {
+	.menu-panel a,
+	.menu-panel button {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		min-height: 46px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 12px;
+		background: none;
+		color: var(--pm-ink);
+		font: 600 18px var(--pm-body);
+		text-align: left;
+		cursor: pointer;
+	}
+	.menu-panel a:hover,
+	.menu-panel button:hover,
+	.menu-panel a:active {
+		background: var(--pm-cream);
+	}
+	.menu-panel .danger {
+		margin-top: 6px;
+		border-top: 1px solid var(--pm-line);
+		border-radius: 0 0 12px 12px;
+		color: var(--pm-red-deep);
+	}
+	.menu-panel a.phone-only {
 		display: none;
 	}
-	@media (max-width: 420px) {
-		#badges {
+
+	.trainer-head {
+		display: flex;
+		gap: 14px;
+		align-items: center;
+		padding: 6px;
+	}
+	.pm-panel-title {
+		font-family: var(--pm-display);
+		font-size: 24px;
+	}
+	.muted {
+		color: var(--pm-ink-soft);
+	}
+	.link {
+		color: var(--pm-red-deep);
+		font-weight: 700;
+	}
+	.panel-label {
+		margin: 14px 6px 6px;
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+	.tiers {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 6px;
+	}
+	.tier {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 8px 2px;
+		border-radius: 12px;
+		background: var(--pm-cream);
+	}
+	.tier-count {
+		font-family: var(--pm-display);
+		font-size: 20px;
+	}
+	.tier-label {
+		color: var(--pm-ink-soft);
+		font-size: 12px;
+	}
+	.work-row {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 4px 6px;
+		font-size: 15px;
+	}
+
+	/* ── Cookie notice and backup reminder ───────────────────────────────────── */
+	.sheet {
+		position: fixed;
+		left: 12px;
+		right: 12px;
+		bottom: 56px;
+		z-index: 1100;
+		max-width: 520px;
+		margin: 0 auto;
+		padding: 18px 20px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.sheet h2,
+	.reminder h2 {
+		margin: 0 0 6px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 24px;
+	}
+	.sheet p,
+	.reminder p {
+		margin: 0 0 14px;
+		line-height: 1.45;
+	}
+	.sheet a:not(.pm-button) {
+		color: var(--pm-red-deep);
+	}
+	.actions {
+		display: flex;
+		gap: 10px;
+		flex-wrap: wrap;
+	}
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 1200;
+		display: grid;
+		place-items: center;
+		padding: 16px;
+		background: oklch(0.28 0.035 265 / 0.55);
+	}
+	.backdrop.hidden {
+		display: none;
+	}
+	.reminder {
+		width: min(440px, 100%);
+		padding: 22px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		text-align: center;
+	}
+	.snooze {
+		display: flex;
+		gap: 8px;
+		margin-top: 12px;
+	}
+	.snooze select {
+		flex: 1;
+		min-height: 48px;
+		padding: 0 10px;
+		border: 2px solid var(--pm-line);
+		border-radius: 12px;
+		background: var(--pm-paper);
+		color: var(--pm-ink);
+		font-size: 16px;
+	}
+
+	/* ── Phones ──────────────────────────────────────────────────────────────── */
+	@media (max-width: 720px) {
+		.trainer-name {
 			display: none;
 		}
-		.dropdown-content a.phone-only {
+		.trainer-button {
+			padding: 0 4px;
+		}
+		.pm-panel {
+			position: fixed;
+			top: calc(var(--pm-bar-height) + 8px);
+			left: 8px;
+			right: 8px;
+			width: auto;
+		}
+		.menu-panel {
+			left: auto;
+			width: min(300px, calc(100vw - 16px));
+		}
+	}
+	@media (max-width: 420px) {
+		.badges {
+			display: none;
+		}
+		.menu-panel a.phone-only {
 			display: flex;
-			align-items: center;
+		}
+		.stat {
+			padding-right: 10px;
+		}
+		.pm-stat-value {
+			font-size: 18px;
 		}
 	}
 	@media (max-width: 340px) {
-		.playercard {
+		.trainer {
 			display: none;
 		}
-		.dropdown {
+		.menu {
 			margin-left: auto;
 		}
 	}

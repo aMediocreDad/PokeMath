@@ -250,7 +250,7 @@
 			{/if}
 		{:else}
 			{#each filtered.slice(0, visibleCount) as item (item.entry)}
-				<PokemonCard card={item.card} count={countOf(item.entry)} show />
+				<PokemonCard card={item.card} count={countOf(item.entry)} />
 			{/each}
 		{/if}
 	</div>
