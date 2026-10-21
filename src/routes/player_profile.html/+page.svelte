@@ -3,6 +3,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { toast } from '#lib/toast.svelte.js';
 	import { ICON_MAP, BG_NAMES } from '#lib/data/cosmetics.js';
+	import { loadPokemonInfo, pokemonInfo } from '#lib/game/pokemon.js';
 
 	const P = 'images/playericons/';
 
@@ -18,7 +19,30 @@
 		initialised = true;
 		usernameInput = player.username || '';
 	});
-	onMount(() => (uuid = localStorage.getItem('UUID') || '–'));
+	/** Forms switched on in pokemon_info.json: the totals for the progress bars (live, 2026-10). */
+	let enabled = $state({ base: 0, alt: 0 });
+	/** Coins spent, from the Big Spender badge (id 20). */
+	let spent = $state(0);
+	onMount(() => {
+		uuid = localStorage.getItem('UUID') || '–';
+		try {
+			spent = (JSON.parse(localStorage.getItem('badges') ?? 'null') || { badges: [] }).badges.find((/** @type {{ id: number }} */ b) => b.id === 20)?.progress || 0;
+		} catch {
+			spent = 0;
+		}
+		loadPokemonInfo().then(() => {
+			let base = 0;
+			let alt = 0;
+			for (const variants of Object.values(pokemonInfo() ?? {})) {
+				for (const [key, v] of Object.entries(variants)) {
+					if (!v.enabled) continue;
+					if (key === '0') base++;
+					else alt++;
+				}
+			}
+			enabled = { base, alt };
+		});
+	});
 
 	/** @param {string} id */
 	const iconFor = (id) => ICON_MAP[id] ?? { id, name: id, img: P + id + '.png' };
@@ -37,16 +61,17 @@
 			if (entry[0] === 'S') (isAlt ? altS : baseS).add(id);
 			else (isAlt ? altN : baseN).add(id);
 		}
-		const totalBase = 1025;
+		const maxBase = enabled.base > 0 ? enabled.base : 1025;
+		const maxAlt = enabled.alt > 0 ? enabled.alt : null;
 		return [
-			{ label: 'Normal (base)', count: baseN.size, total: totalBase, color: '#4a90d9' },
-			{ label: 'Shiny (base)', count: baseS.size, total: totalBase, color: '#d4a017' },
-			{ label: 'Alt form', count: altN.size, total: null, color: '#9b59b6' },
-			{ label: 'Alt shiny', count: altS.size, total: null, color: '#e91e96' },
+			{ label: 'Normal (base)', count: baseN.size, total: maxBase, color: '#4a90d9' },
+			{ label: 'Shiny (base)', count: baseS.size, total: maxBase, color: '#d4a017' },
+			{ label: 'Alt form', count: altN.size, total: maxAlt, color: '#9b59b6' },
+			{ label: 'Alt shiny', count: altS.size, total: maxAlt, color: '#e91e96' },
 			{
 				label: 'Total unike',
 				count: baseN.size + baseS.size + altN.size + altS.size,
-				total: totalBase * 2,
+				total: (maxBase + (maxAlt || 0)) * 2,
 				color: '#2cbb63'
 			}
 		].map((bar) => ({
@@ -146,6 +171,10 @@
 			<div class="stat-label">Mynter</div>
 		</div>
 		<div class="stat-item pm-surface">
+			<div class="stat-value pm-price" id="statSpent">{player.loaded ? format(spent) : '–'}</div>
+			<div class="stat-label">Mynter brukt</div>
+		</div>
+		<div class="stat-item pm-surface">
 			<div class="stat-value" id="statCaught">{player.loaded ? format(player.caught) : '–'}</div>
 			<div class="stat-label">Pokémon fanget</div>
 		</div>
@@ -155,6 +184,10 @@
 				<div class="stat-label">Oppgaver nivå {i + 1}</div>
 			</div>
 		{/each}
+		<div class="stat-item pm-surface">
+			<div class="stat-value" id="statAdaptive">{player.loaded ? format(player.adaptiveSolved) : '–'}</div>
+			<div class="stat-label">Tilpasset nivå</div>
+		</div>
 		<div class="stat-item pm-surface">
 			<div class="stat-value" id="statCustom">{player.loaded ? format(player.customSolved) : '–'}</div>
 			<div class="stat-label">Egne oppgaver</div>

@@ -4,8 +4,8 @@
 	import { player } from '#lib/player.svelte.js';
 	import { loadPokemonInfo, pokemonInfo } from '#lib/game/pokemon.js';
 
-	// The legacy page stops at 1010, though the data goes to 1025; those are found by name.
-	const MAX_ID = 1010;
+	// Stepping wraps at the highest number in the data (live pokeviewer.js, 2026-10; it was 1010).
+	let MAX_ID = $state(1025);
 	const MIN_ID = 0;
 
 	/** @type {import('#lib/game/pokemon.js').PokemonInfo | null} */
@@ -76,6 +76,10 @@
 		started = true;
 		loadPokemonInfo().then(() => {
 			info = pokemonInfo();
+			const ids = Object.keys(info ?? {})
+				.map(Number)
+				.filter((n) => n > 0 && n <= 99999);
+			if (ids.length) MAX_ID = Math.max(...ids);
 			const id = new URLSearchParams(location.search).get('pokemonId');
 			if (id) {
 				searchText = id;

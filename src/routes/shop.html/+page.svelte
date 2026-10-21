@@ -100,6 +100,17 @@
 		getOrCreateUUID();
 	});
 
+	// Free icons count as owned (live shop.js, 2026-10). Like the live shop, they join the list in
+	// memory when the shop opens and are saved with the next purchase or change of icon.
+	let freeAdded = false;
+	$effect(() => {
+		if (!player.loaded || freeAdded) return;
+		freeAdded = true;
+		for (const item of ICON_ITEMS) {
+			if (item.price === 0 && !player.boughtPlayerIcons.includes(item.id)) player.boughtPlayerIcons.push(item.id);
+		}
+	});
+
 	/** @param {number} price */
 	function canAfford(price) {
 		if (player.money >= price) return true;
@@ -152,7 +163,7 @@
 
 	/** @param {import('#lib/data/cosmetics.js').IconItem} item */
 	function useIcon(item) {
-		if (!player.boughtPlayerIcons.includes(item.id)) return;
+		if (!player.boughtPlayerIcons.includes(item.id) && item.price !== 0) return;
 		if (item.id === player.playerIcon) return toast('Du bruker allerede denne figuren!', { bad: true });
 		player.playerIcon = item.id;
 		player.playerIconImg = item.img;

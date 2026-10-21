@@ -37,7 +37,11 @@
 		if (!file) return;
 		const contents = await file.text();
 		try {
-			restoreBackup(contents);
+			const result = restoreBackup(contents);
+			if (result.refused) {
+				alert(`Filen har ${result.incoming} Pokémon, men du har allerede ${result.current} her. Ingen data ble overskrevet – du beholder versjonen med flest Pokémon.`);
+				return;
+			}
 			player.load();
 			loadAchievements();
 			announceRestore();

@@ -350,7 +350,8 @@ export function legacyCardHtml(card, count) {
 /** Alternate and event forms in pokemon_info.json, for the Pokédex progress bars. */
 export function alternateFormCount() {
 	let count = 0;
-	for (const variants of Object.values(info ?? {})) count += Object.keys(variants).filter((k) => k !== '0').length;
+	// Only forms with an image count, as on the live Pokédex, which loads the filtered list.
+	for (const variants of Object.values(catchable ?? {})) count += Object.keys(variants).filter((k) => k !== '0').length;
 	return count;
 }
 

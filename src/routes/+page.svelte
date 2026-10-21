@@ -1,9 +1,9 @@
 <script>
 	// The front page: pick a stage. Ported from static/index.html and menu.js.
 	import { onMount } from 'svelte';
-	import { SPLASHES, EVENT_SPLASHES } from '#lib/data/splashes.js';
+	import { SPLASHES, EVENT_SPLASHES, APRIL_SPLASHES, HINTS } from '#lib/data/splashes.js';
 
-	const ALERT_ID = '2026-03-16';
+	const ALERT_ID = '2026-03-22';
 
 	const STAGES = [
 		{ id: 'stage-one', href: 'pokemath.html?stage=1', title: 'Nivå 1', lines: ['Pluss og minus', '0–10'] },
@@ -19,19 +19,27 @@
 	/** The starter set (1–3) whose evolutions decorate the five stages. */
 	let starterSet = $state(0);
 	let showAlert = $state(true);
+	let aprilFools = $state(false);
+	let hintIndex = $state(0);
 
 	/** @param {string[]} list */
 	const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 	onMount(() => {
 		month = new Date().getMonth();
-		// The same order of Math.random() calls as menu.js: the splash, then the starter set.
+		// The same order of Math.random() calls as the live page: the tip (an inline script in
+		// index.html runs first), then the splash and the starter set (menu.js).
+		hintIndex = Math.floor(Math.random() * HINTS.length);
+		const tips = setInterval(() => (hintIndex = (hintIndex + 1) % HINTS.length), 15000);
+		aprilFools = month === 3 && new Date().getDate() === 1;
 		if (month === 9) splash = pick(EVENT_SPLASHES.halloween);
+		else if (aprilFools) splash = pick(APRIL_SPLASHES);
 		else if (month === 2 || month === 3) splash = pick(EVENT_SPLASHES.easter);
 		else if (month === 11) splash = pick(EVENT_SPLASHES.christmas);
 		else splash = pick(SPLASHES);
 		starterSet = Math.floor(Math.random() * 3) + 1;
 		showAlert = localStorage.getItem('alertDismissed') !== ALERT_ID;
+		return () => clearInterval(tips);
 	});
 
 	const logoImage = $derived(
@@ -84,7 +92,7 @@
 	{/if}
 
 	<div id="logo" class="logo" style:background-image={logoImage ?? 'url(images/logo.png)'} role="img" aria-label="PokéMath">
-		<span id="logotext" class="splash">{splash}</span>
+		<span id="logotext" class="splash" class:upside-down={aprilFools}>{splash}</span>
 	</div>
 
 	<h1 class="pick">Velg nivå</h1>
@@ -93,23 +101,33 @@
 			{@render tile('xmas', 'christmas.html', 'images/events/christmas/calendar.png', 'Julekalender', ['Fra 1. til 24.', 'desember!'], 0, 'event')}
 		{/if}
 		{#if month === 2 || month === 3}
-			{@render tile('easter', 'easter.html', 'images/events/easter/Spr_4d_Egg.png', 'Påskeevent', ['Mars og april!', ''], 0, 'event')}
+			{@render tile('easter', 'easter.html', 'images/events/easter/Spr_4d_Egg.png', 'Våren er her!', ['Delta her!', ''], 0, 'event')}
 		{/if}
 		{#each STAGES as stage, i (stage.id)}
 			{@render tile(stage.id, stage.href, starterSet ? `images/starter-${starterSet}-${i + 1}.png` : '', stage.title, stage.lines, i + 1)}
 		{/each}
+		{@render tile('stage-adaptive', 'pokemath.html?adaptive=true', 'images/rotomdex.png', 'Tilpasset nivå', ['Alle regnearter', 'Tilpasser seg deg! (Beta)'], 0, 'custom')}
 		{@render tile('stage-custom', 'customizer.html', 'images/gear.png', 'Eget nivå', ['Velg regnearter', 'og tall selv'], 0, 'custom')}
 	</nav>
+
+	<p class="hint" id="stage-hint-box" aria-live="polite">
+		<span class="hint-label">Tips</span>
+		<!-- The tips are this file's own text, not user input. -->
+		<span id="stage-hint-text">{@html HINTS[hintIndex]}</span>
+	</p>
 </div>
 
 {#if showAlert}
 	<aside id="alertbox" class="news" data-alert-id={ALERT_ID} aria-labelledby="news-title">
 		<button class="close" onclick={closeAlert} aria-label="Lukk">×</button>
-		<h2 id="news-title">De svarte linjene er borte! <span class="date">16.03.2026</span></h2>
+		<h2 id="news-title">Våren er her! <span class="date">22.03.2026</span></h2>
 		<p>
-			Opplever du at de svarte linjene mangler, eller kan du ikke se penger eller navn? På PC kan du trykke CTRL+F5
-			for å laste inn ordentlig. På iPad: gå til <a href="./faq.html">FAQ</a>, trykk «Jeg ønsker å få nyeste
-			oppdatering» og så «Tøm cache».
+			Her kommer vårt vår-event! Denne gangen prøver vi å se hvor mange pokemon dere kan samle totalt som et lag. Alle
+			pokemon fanget i perioden 22.03 - 30.04 teller, og det spiller ingen rolle hvilket nivå du spiller på!
+		</p>
+		<p>
+			Det kan kanskje virke som om vi har satt høye mål, men vi tror på dere! Vi målte faktisk hvor mange pokemon dere
+			fanget på en vilkårlig uke, og det var mer enn 300 000 pokemon på bare 7 dager!
 		</p>
 		<p class="signature">– Mvh. PokeMorten</p>
 	</aside>
@@ -255,9 +273,6 @@
 		margin: 0 0 6px;
 		line-height: 1.4;
 	}
-	.news a {
-		color: var(--pm-red-deep);
-	}
 	.signature {
 		color: var(--pm-ink-soft);
 	}
@@ -321,5 +336,30 @@
 		.fallingsnowflake {
 			animation: none;
 		}
+	}
+
+	.splash.upside-down {
+		transform: rotate(180deg);
+		animation: none;
+	}
+	.hint {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		max-width: 640px;
+		margin: 20px auto 0;
+		padding: 12px 16px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: 0 0 0 1px var(--pm-line);
+		line-height: 1.4;
+	}
+	.hint-label {
+		flex-shrink: 0;
+		padding: 1px 9px;
+		border-radius: 999px;
+		background: var(--pm-gold);
+		font-family: var(--pm-display);
+		font-size: 14px;
 	}
 </style>

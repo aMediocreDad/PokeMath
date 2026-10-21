@@ -86,6 +86,13 @@
 	/** @param {number} n */
 	const format = (n) => Number(n).toLocaleString('no-NO');
 
+	/** A missing .webp avatar falls back to the .png, once. @param {Event} event */
+	function pngFallback(event) {
+		const img = /** @type {HTMLImageElement} */ (event.currentTarget);
+		const src = img.getAttribute('src') ?? '';
+		if (src.endsWith('.webp')) img.src = src.replace(/\.webp$/, '.png');
+	}
+
 	function snoozeBackup() {
 		const days = parseInt(snoozeDays, 10);
 		const until = new Date();
@@ -136,12 +143,12 @@
 
 	<div class="trainer" class:open={cardOpen}>
 		<button class="trainer-button" aria-expanded={cardOpen} onclick={() => (cardOpen = !cardOpen)}>
-			<img id="playerimage" class="avatar" src={player.playerImage} width="36" height="36" alt="" />
+			<img id="playerimage" class="avatar" src={player.playerImage} width="36" height="36" alt="" onerror={pngFallback} />
 			<span id="playertext" class="trainer-name">{layout.cheater ? 'Juksemaker' : player.username}</span>
 		</button>
 		<div class="pm-panel trainer-panel">
 			<div class="trainer-head">
-				<img class="avatar large" src={player.playerImage} alt="" />
+				<img class="avatar large" src={player.playerImage} alt="" onerror={pngFallback} />
 				<div>
 					<div class="pm-panel-title">{player.username}</div>
 					<div class="muted">Pokémon-trener</div>

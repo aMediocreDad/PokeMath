@@ -27,7 +27,14 @@ export function createBackup(username) {
  */
 export function restoreBackup(contents) {
 	const data = JSON.parse(atob(contents));
+	// Most Pokémon wins (live saveandload.js, 2026-10): a file with fewer Pokémon than this device
+	// has is not loaded.
+	const count = (/** @type {string | null | undefined} */ list) => (list || '').split('|').filter((p) => p.trim()).length;
+	const incoming = count(data.pokemonlist);
+	const current = count(localStorage.getItem('pokemonlist'));
+	if (incoming < current) return { refused: true, incoming, current };
 	for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value);
+	return { refused: false, incoming, current };
 }
 
 /**

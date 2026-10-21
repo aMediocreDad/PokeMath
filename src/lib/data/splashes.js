@@ -107,7 +107,7 @@ export const EVENT_SPLASHES = {
 		"Egg-cellent math skills!",
 		"Spring into action!",
 		"The Easter Pikachu awaits!",
-		"Hop to it – catch those Easter Pokémon!",
+		"Hop to it - catch those Easter Pokémon!",
 		"Flowers, eggs, and Pokémon!",
 		"April showers bring Pokémon powers!",
 		"Every egg has a surprise!",
@@ -134,3 +134,34 @@ export const EVENT_SPLASHES = {
 		"Ugly Christmas sweaters are awesome!"
 	]
 };
+
+/** On 1 April the front page shows one of these, upside down (live menu.js, 2026-10). */
+export const APRIL_SPLASHES = [
+	'Bidoof is in charge now.',
+	'We counted. There are too many Weedles.',
+	'Snorlax is blocking the server room.',
+	'MissingNo filed a complaint. HR is handling it.',
+	'Arceus called. He wants his powers back.',
+	'A Gastly was found in the codebase. We left it there.',
+	'Mew was behind the server this whole time.',
+	"Electrode used Self-Destruct. It's super effective.",
+	'The math was a lie.',
+	'Ditto has been impersonating your save file.',
+	'Magikarp was promoted to lead developer.',
+	'All Pokémon are now named Dave.'
+];
+
+/** Tips under the levels on the front page, one at a time (live index.html, 2026-10). They hold HTML. */
+export const HINTS = [
+	'Høyere nivåer gir større sjanse for å fange <strong>legendariske</strong> og <strong>mytiske</strong> Pokémon!',
+	'På høyere nivåer øker sjansen for å møte <strong>shiny</strong> Pokémon!',
+	'Spesielle <strong>varianter</strong> - som Alolan, Hisuian og Gigantamax - er mer vanlige på høyere nivåer.',
+	'Sjansen for <strong>alternative former</strong> og sesongvarianter øker jo vanskeligere du spiller.',
+	'Du kan kjøpe <strong>Stardust</strong> i butikken for å garantere at neste fangede Pokémon er shiny!',
+	'Gjentatte Pokémon du allerede har gir ekstra <strong>mynter</strong> - spesielt om de er shiny eller legendariske.',
+	'Oppgrader <strong>Shiny Charm</strong> i butikken for å øke sjansen for shiny Pokémon permanent.',
+	'Husk å lagre en <strong>backup</strong> av samlingen din! Du finner dette under Lagre / Last Inn.',
+	'Du kan bytte mellom bakgrunner og karakterer du har på <strong>Min Profil</strong>.',
+	'Butikken oppdateres hver mandag med nye figurer!',
+	'Det er lurt å jobbe med det du trenger å øve mer på!'
+];

@@ -81,10 +81,15 @@ class Player {
 
 	caught = $derived(this.pkmnList.length);
 
+	// As on the live site (global.js, 2026-10): icons are .webp now, so a saved .png path is read as
+	// .webp; the header falls back to .png if that image is missing. Icons bought before the site
+	// moved them out of unconverted/ still have that folder saved.
 	playerImage = $derived(
 		this.playerIcon
-			? // Icons bought before the site moved them out of unconverted/ still have the old path saved.
-				this.playerIconImg.replace('/playericons/unconverted/', '/playericons/') || `/images/playericons/${this.playerIcon}.png`
+			? (this.playerIconImg.replace('/playericons/unconverted/', '/playericons/') || `/images/playericons/${this.playerIcon}.webp`).replace(
+					/\.png$/,
+					'.webp'
+				)
 			: '/images/player.png'
 	);
 

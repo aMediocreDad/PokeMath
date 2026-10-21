@@ -118,6 +118,8 @@
 			<li>En tilfeldig generert, anonym spiller-ID (UUID)</li>
 			</ul>
 			<p>Disse dataene forlater ikke enheten din med mindre du aktivt deltar i funksjoner som Bingo (se under). Du kan slette alle lokale data ved å tømme nettleserens localStorage.</p>
+			<h3>IndexedDB-backup</h3>
+			<p>For å beskytte spillerdata mot utilsiktet sletting lager spillet automatisk en daglig sikkerhetskopi i nettleserens <strong>IndexedDB</strong> — en separat lagringsplass som ikke slettes ved vanlig «tøm historikk». Backupen inneholder samme informasjon som localStorage, forlater aldri enheten din, og sendes ikke til noen server. Hvis spillet oppdager at localStorage er tom, vil det tilby deg muligheten til å gjenopprette fra denne backupen. Du kan også velge å slette den.</p>
 			<h3>Spiller-ID (UUID)</h3>
 			<p>Når du bruker nettsiden genereres det automatisk en tilfeldig, anonym spiller-ID (UUID) som lagres i localStorage. Denne IDen inneholder ingen personlig informasjon, men brukes til å koble deg mot f.eks. bingo-premiering og hemmelige koder. UUIDen er teknisk sett unik per nettleser, men kan ikke brukes til å identifisere deg som person.</p>
 			<h3>Bingo og klasserom-funksjoner</h3>

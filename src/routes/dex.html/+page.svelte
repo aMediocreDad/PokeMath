@@ -11,7 +11,7 @@
 	const ALL_GENS = ['gen-1', 'gen-2', 'gen-3', 'gen-4', 'gen-5', 'gen-6', 'gen-7', 'gen-8', 'gen-9', 'gen-0'];
 	const SPECIAL_FILTERS = [
 		['Shiny', 'Shiny'], ['Legendarisk', 'Legendarisk'], ['Mytisk', 'Mytisk'], [' mega ', 'Mega'],
-		['gigantamax', 'Gigantamax'], ['alolan', 'Alolan'], ['galarian', 'Galarian'], ['hisuian', 'Hisuian'],
+		['gigantamax', 'Gigantamax'], ['alolan', 'Alolan'], ['galarian', 'Galarian'], ['hisuian', 'Hisuian'], ['-E', 'Vår'],
 		['-H', 'Halloween'], ['-C', 'Jul'], ['-U', 'Unik']
 	];
 	const TYPES = ['bug', 'dark', 'dragon', 'electric', 'fairy', 'fighting', 'fire', 'flying', 'ghost', 'grass', 'ground', 'ice', 'normal', 'poison', 'psychic', 'rock', 'steel', 'water'];

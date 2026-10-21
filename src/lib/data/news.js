@@ -1,5 +1,5 @@
-// The update log from the "Nyheter" section of static/about.html, newest first. Items are HTML,
-// since a few of them hold links.
+// The update log from the "Nyheter" section of the live about.html (pokemath.online, 2026-10),
+// newest first. Items are HTML, since a few of them hold links.
 /** @type {{ date: string, items: string[] }[]} */
 export const NEWS = [
 	{
@@ -17,7 +17,10 @@ export const NEWS = [
 			"Endret måten hemmelige koder fungerer. Nå er de server-baserte, og jeg kan lage de mye enklere. Enkelte lærere kan også nå lage egne koder!",
 			"Jeg kommer til å lage en kode som heter Stardust, bare jeg husker at jeg skal gjøre det...",
 			"Oppdaterte about.html, og privacy policy. Oppdaterte også cookie-consent knappen til å bli mer riktig.",
-			"Lagde en template databehandleravtale. Dette er for lærere som ønsker å bruke lærerkonto-funksjonen, og dermed behandle data om elever. Du finner den <a href=\"dpa.html\">her</a>."
+			"Lagde en template databehandleravtale. Dette er for lærere som ønsker å bruke lærerkonto-funksjonen, og dermed behandle data om elever. Du finner den <a href=\"dpa.html\">her</a>.",
+			"La inn en funksjon som prøver å lagre en backup i IndexedDB hver 3. time, for å forhindre datatap. Det er fortsatt lurt å lagre en backup manuelt av og til, spesielt før store oppdateringer!",
+			"La inn adaptiv-modus. Denne vanskelighetsgraden prøver å tilpasse seg ditt nivå ved å evaluere hvor raskt du svarer (riktig) på spørsmålene, og justere vanskelighetsgraden deretter. Det er fortsatt i en veldig tidlig fase, og det er mye som kan forbedres, men det er verdt å teste ut!",
+			"La in vår-eventet!"
 		]
 	},
 	{
