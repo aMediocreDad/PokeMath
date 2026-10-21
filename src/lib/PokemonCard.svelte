@@ -127,25 +127,6 @@
 		font-weight: 700;
 		text-transform: capitalize;
 	}
-	/* Type colours from the games. Light ones get dark text, so every label is readable. */
-	.t-normal { --type: #a8a878; }
-	.t-fire { --type: #f08030; --type-text: var(--pm-ink); }
-	.t-water { --type: #6890f0; }
-	.t-grass { --type: #78c850; --type-text: var(--pm-ink); }
-	.t-electric { --type: #f8d030; --type-text: var(--pm-ink); }
-	.t-ice { --type: #98d8d8; --type-text: var(--pm-ink); }
-	.t-fighting { --type: #c03028; }
-	.t-poison { --type: #a040a0; }
-	.t-ground { --type: #e0c068; --type-text: var(--pm-ink); }
-	.t-flying, .t-bird { --type: #a890f0; --type-text: var(--pm-ink); }
-	.t-psychic { --type: #f85888; --type-text: var(--pm-ink); }
-	.t-bug { --type: #a8b820; --type-text: var(--pm-ink); }
-	.t-rock { --type: #b8a038; --type-text: var(--pm-ink); }
-	.t-ghost { --type: #705898; }
-	.t-dark { --type: #705848; }
-	.t-dragon { --type: #7038f8; }
-	.t-steel { --type: #b8b8d0; --type-text: var(--pm-ink); }
-	.t-fairy { --type: #f0b6bc; --type-text: var(--pm-ink); }
 
 	@media (max-width: 480px) {
 		.pm-card {

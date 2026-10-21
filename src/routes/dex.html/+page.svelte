@@ -301,7 +301,7 @@
 >
 	{#each TYPES as type (type)}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
-		<a class="typecard2 type-{type}" class:active={typeFilter.includes(type)} data-filter={type} onclick={() => toggleType(type)}
+		<a class="typecard2 type-{type} t-{type}" class:active={typeFilter.includes(type)} data-filter={type} onclick={() => toggleType(type)}
 			>{type[0].toUpperCase() + type.slice(1)}</a
 		>
 	{/each}
@@ -555,25 +555,6 @@
 		}
 	}
 
-	/* Type colours, the same as on the cards. Light ones get dark text. */
-	.type-normal { --type: #a8a878; }
-	.type-fire { --type: #f08030; --type-text: var(--pm-ink); }
-	.type-water { --type: #6890f0; }
-	.type-grass { --type: #78c850; --type-text: var(--pm-ink); }
-	.type-electric { --type: #f8d030; --type-text: var(--pm-ink); }
-	.type-ice { --type: #98d8d8; --type-text: var(--pm-ink); }
-	.type-fighting { --type: #c03028; }
-	.type-poison { --type: #a040a0; }
-	.type-ground { --type: #e0c068; --type-text: var(--pm-ink); }
-	.type-flying { --type: #a890f0; --type-text: var(--pm-ink); }
-	.type-psychic { --type: #f85888; --type-text: var(--pm-ink); }
-	.type-bug { --type: #a8b820; --type-text: var(--pm-ink); }
-	.type-rock { --type: #b8a038; --type-text: var(--pm-ink); }
-	.type-ghost { --type: #705898; }
-	.type-dark { --type: #705848; }
-	.type-dragon { --type: #7038f8; }
-	.type-steel { --type: #b8b8d0; --type-text: var(--pm-ink); }
-	.type-fairy { --type: #f0b6bc; --type-text: var(--pm-ink); }
 
 	/* Stats bar at the bottom: counts, and progress bars that fold away. */
 	.pm-dexbar {

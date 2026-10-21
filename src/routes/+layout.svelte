@@ -31,8 +31,6 @@
 </svelte:head>
 
 <div id="header"><Header /></div>
-<!-- Right below the header: globalstyle.css gives .toast-container "top: 50" without a unit,
-     so toasts appear wherever the container sits in the page, as on the legacy pages. -->
 <Toaster />
 
 {@render children()}
@@ -178,6 +176,39 @@
 		border-radius: var(--pm-radius);
 		background: var(--pm-paper);
 		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+
+	/* Type colours from the games, set as --type on a .t-<type> element. Light ones get dark
+	   text (--type-text), so every label is readable. */
+	:global(.t-normal) { --type: #a8a878; }
+	:global(.t-fire) { --type: #f08030; --type-text: var(--pm-ink); }
+	:global(.t-water) { --type: #6890f0; }
+	:global(.t-grass) { --type: #78c850; --type-text: var(--pm-ink); }
+	:global(.t-electric) { --type: #f8d030; --type-text: var(--pm-ink); }
+	:global(.t-ice) { --type: #98d8d8; --type-text: var(--pm-ink); }
+	:global(.t-fighting) { --type: #c03028; }
+	:global(.t-poison) { --type: #a040a0; }
+	:global(.t-ground) { --type: #e0c068; --type-text: var(--pm-ink); }
+	:global(.t-flying), :global(.t-bird) { --type: #a890f0; --type-text: var(--pm-ink); }
+	:global(.t-psychic) { --type: #f85888; --type-text: var(--pm-ink); }
+	:global(.t-bug) { --type: #a8b820; --type-text: var(--pm-ink); }
+	:global(.t-rock) { --type: #b8a038; --type-text: var(--pm-ink); }
+	:global(.t-ghost) { --type: #705898; }
+	:global(.t-dark) { --type: #705848; }
+	:global(.t-dragon) { --type: #7038f8; }
+	:global(.t-steel) { --type: #b8b8d0; --type-text: var(--pm-ink); }
+	:global(.t-fairy) { --type: #f0b6bc; --type-text: var(--pm-ink); }
+
+	/* A type label, coloured by a .t-<type> class next to it. */
+	:global(.pm-type) {
+		display: inline-block;
+		padding: 2px 10px;
+		border-radius: 999px;
+		background: var(--type, oklch(0.6 0.02 265));
+		color: var(--type-text, var(--pm-paper));
+		font-size: 14px;
+		font-weight: 700;
+		text-transform: capitalize;
 	}
 
 	/* The bottom bar: the connection light and, on the game page, the bingo code. */
