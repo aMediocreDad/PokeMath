@@ -4,6 +4,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { notify } from '#lib/toast.svelte.js';
 	import { giveSpecificPokemon } from '#lib/game/prizes.js';
+	import Fireworks from '#lib/Fireworks.svelte';
 
 	const LEGENDARIES = [144, 145, 146, 150, 243, 244, 245, 249, 250, 377, 378, 379, 380, 381, 382, 383, 384,
 		480, 481, 482, 483, 484, 485, 486, 487, 488, 638, 639, 640, 641, 642, 643, 644, 645, 646, 716, 717, 718,
@@ -27,7 +28,7 @@
 			response = 'Du har allerede brukt denne koden!';
 			return;
 		}
-		response = 'Sjekker kode…';
+		response = 'Sjekker koden …';
 		let data;
 		try {
 			const r = await fetch('/redeem', {
@@ -130,22 +131,23 @@
 </script>
 
 <svelte:head>
-	<title>Pokémath</title>
+	<title>Pokémath - Koder</title>
 	<meta name="robots" content="noindex, nofollow" />
-	<!-- The legacy page also linked cookies.css, which does not exist on the live site either. -->
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
-	<link rel="stylesheet" href="/redeem.css?v=100" />
 </svelte:head>
 
-<div class="main">
-	<div class="redemptionContainer">
+<div class="main pm-page redeem">
+	<section class="code-card pm-surface">
+		<h1 class="pm-title">Har du en kode?</h1>
+		<p class="lead">Skriv den inn her for å få mynter, Pokémon eller andre premier. Hver kode virker én gang.</p>
 		<form id="redemptionForm" onsubmit={(e) => e.preventDefault()}>
 			<input
 				type="text"
 				id="secretCodeInput"
 				autocomplete="off"
-				placeholder="Skriv inn koden."
+				autocapitalize="characters"
+				spellcheck="false"
+				placeholder="KODE"
+				aria-label="Kode"
 				bind:value={code}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') {
@@ -154,29 +156,59 @@
 					}
 				}}
 			/>
-			<button type="button" onclick={checkCode}>Aktiver</button>
+			<button type="button" class="pm-button" onclick={checkCode}>Aktiver</button>
 		</form>
-		<div id="response">{response}</div>
-	</div>
+		<p id="response" class:good={response.startsWith('🎉')} aria-live="polite">{response}</p>
+	</section>
 	<!-- Each fireworks code adds three more, as on the legacy page. -->
 	{#each { length: fireworks }, i (i)}
-		<div>
-			<div class="firework"></div>
-			<div class="firework"></div>
-			<div class="firework"></div>
-		</div>
+		<Fireworks />
 	{/each}
 </div>
 
 <style>
+	.code-card {
+		max-width: 560px;
+		margin: 24px auto 0;
+		padding: 28px 24px 22px;
+		text-align: center;
+	}
+	.lead {
+		margin: -8px 0 20px;
+		color: var(--pm-ink-soft);
+		line-height: 1.45;
+	}
+	#redemptionForm {
+		display: flex;
+		gap: 10px;
+	}
 	/* 16px or larger, or iOS zooms the page when the field is focused. */
 	#secretCodeInput {
-		font-size: 18px;
-		min-height: 44px;
-		box-sizing: border-box;
+		flex: 1;
+		min-width: 0;
+		height: 52px;
+		padding: 0 16px;
+		border: 3px solid var(--pm-ink);
+		border-radius: 14px;
+		background: var(--pm-paper);
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 24px;
+		letter-spacing: 0.08em;
+		text-align: center;
+		text-transform: uppercase;
+		outline: none;
 	}
-	#redemptionForm button {
-		min-height: 44px;
-		min-width: 88px;
+	#secretCodeInput::placeholder {
+		color: var(--pm-line);
+	}
+	#response {
+		min-height: 1.5em;
+		margin: 14px 0 0;
+		color: var(--pm-red-deep);
+		font-weight: 700;
+	}
+	#response.good {
+		color: var(--pm-green-deep);
 	}
 </style>

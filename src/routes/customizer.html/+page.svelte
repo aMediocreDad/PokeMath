@@ -33,6 +33,14 @@
 			['ddec', 'divDecSel', 'Desimaler (0-5):']] }
 	]);
 
+	/** How each section shows its fields: two from–to rows, then the decimals. */
+	const LAYOUT = {
+		add: { symbol: '+', rows: [['Tall A', 'addMinSel', 'addMaxSel'], ['Tall B', 'addMinSelB', 'addMaxSelB']], dec: 'addDecSel' },
+		sub: { symbol: '−', rows: [['Tall A', 'subMinSel', 'subMaxSel'], ['Tall B', 'subMinSelB', 'subMaxSelB']], dec: 'subDecSel' },
+		mul: { symbol: '×', rows: [['Faktor A', 'mulMinSelA', 'mulMaxSelA'], ['Faktor B', 'mulMinSelB', 'mulMaxSelB']], dec: 'mulDecSel' },
+		div: { symbol: '÷', rows: [['Divisor', 'divMinDivSel', 'divMaxDivSel'], ['Svar', 'divMinKvoSel', 'divMaxKvoSel']], dec: 'divDecSel' }
+	};
+
 	/** @type {Record<string, boolean>} */
 	let enabled = $state({ add: false, sub: false, mul: false, div: false });
 	/** @type {Record<string, string>} */
@@ -130,98 +138,303 @@
 	<meta name="title" content="Pokémath - Egendefinert" />
 	<meta name="description" content="Lag ditt eget nivå." />
 	<meta name="robots" content="noindex, nofollow" />
-	<!-- The legacy page also linked cookies.css, which does not exist on the live site either. -->
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="/customizer.css?v=100" />
 </svelte:head>
 
-<div class="main">
-	<div class="columns is-mobile is-multiline">
-		<form class="customizerform">
+{#snippet numberInput(/** @type {string} */ key, /** @type {string} */ id, /** @type {boolean} */ dec)}
+	<input
+		type="number"
+		{id}
+		inputmode={dec ? 'numeric' : null}
+		min={dec ? 0 : null}
+		max={dec ? 5 : null}
+		required
+		autocomplete="off"
+		bind:value={() => values[key], (v) => (values[key] = v == null ? '' : String(v))}
+	/>
+{/snippet}
+
+<div class="main pm-page customizer">
+	<h1 class="pm-title">Eget nivå</h1>
+	<p class="lead">Slå på regneartene du vil øve på, og velg hvilke tall oppgavene skal ha.</p>
+
+	<form class="customizerform">
+		<div class="ops">
 			{#each SECTIONS as section (section.key)}
-				<div class="toggle-pill-color">
-					<!-- svelte-ignore a11y_missing_attribute -->
-					<a class="categoryname"> {section.title}</a>
-					<input type="checkbox" id={section.check} name={section.key} bind:checked={enabled[section.key]} />
-					<label for={section.check}> </label>
-				</div>
-				<div class="form-group col-md-6" id={section.section} style:display={enabled[section.key] ? '' : 'none'}>
-					{#each section.fields as [key, id, label] (key)}
-						<label for={id}> {label} </label>
-						<input
-							type="number"
-							{id}
-							class={section.key === 'add' || key.endsWith('dec') ? null : 'form-control'}
-							min={key.endsWith('dec') ? 0 : null}
-							max={key.endsWith('dec') ? 5 : null}
-							required
-							autocomplete="off"
-							bind:value={() => values[key], (v) => (values[key] = v == null ? '' : String(v))}
-						/>
-					{/each}
-					{#if section.key === 'sub'}
-						<!-- svelte-ignore a11y_missing_attribute -->
-						<a>Tillat negative differenser:</a>
-						<div class="toggle-pill-color">
-							<input type="checkbox" id="subtractionallownegative" name="san" bind:checked={allowNegative} />
-							<label for="subtractionallownegative"> </label>
+				{@const layout = LAYOUT[section.key]}
+				{@const keyOf = (/** @type {string} */ id) => section.fields.find((f) => f[1] === id)?.[0] ?? ''}
+				<section class="op pm-surface" class:on={enabled[section.key]}>
+					<label class="op-head" for={section.check}>
+						<span class="symbol" aria-hidden="true">{layout.symbol}</span>
+						<span class="categoryname">{section.title}</span>
+						<input type="checkbox" class="switch" id={section.check} name={section.key} bind:checked={enabled[section.key]} />
+					</label>
+					<div class="op-body" id={section.section} style:display={enabled[section.key] ? '' : 'none'}>
+						{#each layout.rows as [rowLabel, minId, maxId] (minId)}
+							<div class="range">
+								<span class="range-label">{rowLabel}</span>
+								<label for={minId}>fra</label>
+								{@render numberInput(keyOf(minId), minId, false)}
+								<label for={maxId}>til</label>
+								{@render numberInput(keyOf(maxId), maxId, false)}
+							</div>
+						{/each}
+						<div class="range">
+							<label class="range-label" for={layout.dec}>Desimaler</label>
+							{@render numberInput(keyOf(layout.dec), layout.dec, true)}
+							<span class="note">0 til 5</span>
 						</div>
-					{/if}
-				</div>
+						{#if section.key === 'sub'}
+							<label class="range negative" for="subtractionallownegative">
+								<span class="range-label">Svar under null</span>
+								<input type="checkbox" class="switch" id="subtractionallownegative" name="san" bind:checked={allowNegative} />
+							</label>
+						{/if}
+					</div>
+				</section>
 			{/each}
-			<button class="button-1" id="useform" onclick={play} type="button"> Bruk </button>
-			<button class="button-1" id="copyform" onclick={copyLink} type="button"> Kopier </button>
-			<button class="button-1" id="qrcreate" onclick={makeQr} type="button"> Lag QR-Kode </button>
-			<div>
-				<img
-					class="barcode"
-					id="barcode"
-					src={qrSrc || 'https://api.qrserver.com/v1/create-qr-code/?data=Pokemath.online&size=250x250'}
-					alt=""
-					title="QR Kode"
-					width="250"
-					height="250"
-					style:display={qrSrc ? '' : 'none'}
-				/>
-			</div>
-		</form>
-	</div>
-	<div class="columns is-multiline is-mobile">
+		</div>
+
+		<div class="actions">
+			<button class="pm-button" id="useform" onclick={play} type="button">Spill!</button>
+			<button class="pm-button secondary" id="copyform" onclick={copyLink} type="button">Kopier lenke</button>
+			<button class="pm-button secondary" id="qrcreate" onclick={makeQr} type="button">Lag QR-kode</button>
+		</div>
+		<img
+			class="barcode"
+			id="barcode"
+			src={qrSrc || 'https://api.qrserver.com/v1/create-qr-code/?data=Pokemath.online&size=250x250'}
+			alt="QR-kode til nivået"
+			title="QR Kode"
+			width="250"
+			height="250"
+			style:display={qrSrc ? '' : 'none'}
+		/>
+	</form>
+
+	<h2 class="pm-section-title">Lagrede oppsett <small>Opptil fem</small></h2>
+	<div class="presets">
 		{#each presets as preset, i (i)}
-			<div id="presetCard-{i + 1}" class="card" style="padding: 5px">
-				<h2 class="card-title">{preset.name ?? `Lagring #${i + 1}`}</h2>
-				<button class="button-1 save-btn" class:disabled={preset.name !== null} onclick={() => savePreset(i + 1)} type="button">
-					Lagre
-				</button>
-				<button class="button-1 load-btn" class:disabled={preset.name === null} onclick={() => loadPreset(i + 1)} type="button">
-					Last inn
-				</button>
-				<button class="button-2 del-btn" class:disabled={preset.name === null} onclick={() => deletePreset(i + 1)} type="button">
-					Slett
-				</button>
-				<h5>Preset #{i + 1}</h5>
+			<div id="presetCard-{i + 1}" class="preset pm-surface" class:empty={preset.name === null}>
+				<span class="slot">{i + 1}</span>
+				<h3 class="card-title">{preset.name ?? `Lagring #${i + 1}`}</h3>
+				<div class="preset-buttons">
+					<button class="pm-button small green save-btn" class:disabled={preset.name !== null} onclick={() => savePreset(i + 1)} type="button">Lagre</button>
+					<button class="pm-button small secondary load-btn" class:disabled={preset.name === null} onclick={() => loadPreset(i + 1)} type="button">Last inn</button>
+					<button class="pm-button small secondary del-btn" class:disabled={preset.name === null} onclick={() => deletePreset(i + 1)} type="button">Slett</button>
+				</div>
 			</div>
 		{/each}
 	</div>
 </div>
 
 <style>
-	@media (max-width: 360px) {
-		/* "Multiplikasjon" at 36px is wider than the smallest phones. */
-		.categoryname {
-			font-size: 28px;
+	.lead {
+		margin: -6px 0 20px;
+		color: var(--pm-ink-soft);
+		font-size: 18px;
+	}
+	.ops {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 14px;
+		align-items: start;
+	}
+	.op {
+		padding: 6px 16px;
+	}
+	.op.on {
+		box-shadow: var(--pm-shadow), 0 0 0 3px var(--pm-green);
+	}
+	.op-head {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		min-height: 60px;
+		cursor: pointer;
+	}
+	.symbol {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 12px;
+		background: var(--pm-cream);
+		font-family: var(--pm-display);
+		font-size: 30px;
+		line-height: 1;
+	}
+	.on .symbol {
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+	}
+	.categoryname {
+		flex: 1;
+		font-family: var(--pm-display);
+		font-size: 24px;
+	}
+
+	/* An on/off switch drawn on the checkbox itself, so the id, label and checked state stay as they were. */
+	.switch {
+		appearance: none;
+		-webkit-appearance: none;
+		position: relative;
+		flex-shrink: 0;
+		width: 56px;
+		height: 32px;
+		margin: 0;
+		border-radius: 999px;
+		background: var(--pm-line);
+		cursor: pointer;
+		transition: background 150ms ease-out;
+	}
+	.switch::after {
+		content: '';
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background: var(--pm-paper);
+		box-shadow: 0 1px 3px oklch(0.3 0.03 265 / 0.3);
+		transition: transform 150ms ease-out;
+	}
+	.switch:checked {
+		background: var(--pm-green-deep);
+	}
+	.switch:checked::after {
+		transform: translateX(24px);
+	}
+	.switch:focus-visible {
+		outline: 3px solid var(--pm-ink);
+		outline-offset: 2px;
+	}
+
+	.op-body {
+		padding: 4px 0 14px;
+		border-top: 1px solid var(--pm-line);
+	}
+	.range {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 10px;
+	}
+	.range-label {
+		width: 84px;
+		font-weight: 700;
+	}
+	.range label:not(.range-label) {
+		color: var(--pm-ink-soft);
+	}
+	.range input[type='number'] {
+		width: 0;
+		flex: 1;
+		min-width: 64px;
+		height: 44px;
+		padding: 0 10px;
+		border: 2px solid var(--pm-line);
+		border-radius: 10px;
+		background: var(--pm-cream);
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 20px;
+		text-align: center;
+	}
+	.range input[type='number']:focus {
+		border-color: var(--pm-ink);
+		outline: none;
+	}
+	.range input[id$='DecSel'] {
+		flex: 0 0 72px;
+	}
+	.note {
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+	}
+	.negative {
+		justify-content: space-between;
+		cursor: pointer;
+	}
+	.negative .range-label {
+		width: auto;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 20px;
+	}
+	.barcode {
+		display: block;
+		margin-top: 16px;
+		border-radius: 12px;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+
+	.presets {
+		display: grid;
+		gap: 10px;
+	}
+	.preset {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 12px;
+	}
+	.slot {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		background: var(--pm-cream);
+		font-family: var(--pm-display);
+	}
+	.card-title {
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+		overflow: hidden;
+		font-size: 17px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.preset.empty .card-title {
+		color: var(--pm-ink-soft);
+		font-weight: 400;
+	}
+	.preset-buttons {
+		display: flex;
+		gap: 6px;
+	}
+
+	@media (max-width: 560px) {
+		.ops {
+			grid-template-columns: 1fr;
+		}
+		.actions .pm-button {
+			flex: 1 1 auto;
+		}
+		.preset {
+			flex-wrap: wrap;
+		}
+		.preset-buttons {
+			width: 100%;
+		}
+		.preset-buttons .pm-button {
+			flex: 1;
+		}
+		.range-label {
+			width: 70px;
 		}
 	}
-	/* Touch screens: an invisible margin around the on/off switches makes them 44px to tap,
-	   without changing how they look. */
 	@media (pointer: coarse) {
-		.toggle-pill-color label {
-			position: relative;
-		}
-		.toggle-pill-color label::after {
-			content: '';
-			position: absolute;
-			inset: -10px -4px;
+		.pm-button.small {
+			min-height: 44px;
 		}
 	}
 </style>
