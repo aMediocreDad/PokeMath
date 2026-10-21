@@ -198,50 +198,50 @@
 	<title>PokéMath – Pokédex</title>
 	<meta name="description" content="Pokédexen til PokéMath – se alle pokémonene dine." />
 	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="/dex.css?v=103" />
-	<link rel="stylesheet" href="/pokemon.css?v=101" />
 </svelte:head>
 
 <svelte:document onclick={closePanels} />
 
-<div class="main" class:dex-bars-hidden={barsCollapsed}>
+<div class="main dex" class:dex-bars-hidden={barsCollapsed}>
 	<div id="filterButtons">
 		<input type="text" placeholder="Søk.." id="searchInput" bind:value={search} />
-		<!-- On phones the filters scroll sideways in one row; elsewhere this wrapper changes nothing. -->
-		<div class="filter-chips">
-
-		<button class="btn" class:active={allClean} data-filter="all" onclick={showAll}>Vis alle</button>
-		{#each SPECIAL_FILTERS as [key, label] (key)}
-			<button
-				class="btn"
-				class:filter-include={specialFilter[key] === 1}
-				class:filter-exclude={specialFilter[key] === 2}
-				data-filter={key}
-				onclick={() => cycleSpecial(key)}>{label}</button
-			>
-		{/each}
-		<button
-			class="btn"
-			id="duplicatesBtn"
-			class:filter-include={duplicates === 1}
-			class:filter-exclude={duplicates === 2}
-			onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
-		>
-
-		<button class="altbtn" id="typeDropdownBtn" class:active={openPanel === 'type'} onclick={(e) => togglePanel('type', e)}
-			>Typer &#x25BC;</button
-		>
-		<button class="altbtn" id="generationDropdown" class:active={openPanel === 'gen'} onclick={(e) => togglePanel('gen', e)}
-			>Generasjon &#x25BC;</button
-		>
-		<button class="altbtn" id="sortDropdownBtn" class:active={openPanel === 'sort'} onclick={(e) => togglePanel('sort', e)}
-			>Sorter &#x25BC;</button
-		>
+		<!-- The dropdowns sit next to the search; the filter chips scroll sideways in one row. On
+		     phones dropdowns and chips share that scrolling row, dropdowns first. -->
+		<div class="filter-row">
+			<div class="dropdowns">
+				<button class="altbtn" id="typeDropdownBtn" class:active={openPanel === 'type'} onclick={(e) => togglePanel('type', e)}
+					>Typer <span class="caret">▾</span></button
+				>
+				<button class="altbtn" id="generationDropdown" class:active={openPanel === 'gen'} onclick={(e) => togglePanel('gen', e)}
+					>Generasjon <span class="caret">▾</span></button
+				>
+				<button class="altbtn" id="sortDropdownBtn" class:active={openPanel === 'sort'} onclick={(e) => togglePanel('sort', e)}
+					>Sorter <span class="caret">▾</span></button
+				>
+			</div>
+			<div class="filter-chips">
+				<button class="btn" class:active={allClean} data-filter="all" onclick={showAll}>Vis alle</button>
+				{#each SPECIAL_FILTERS as [key, label] (key)}
+					<button
+						class="btn"
+						class:filter-include={specialFilter[key] === 1}
+						class:filter-exclude={specialFilter[key] === 2}
+						data-filter={key}
+						onclick={() => cycleSpecial(key)}>{label}</button
+					>
+				{/each}
+				<button
+					class="btn"
+					id="duplicatesBtn"
+					class:filter-include={duplicates === 1}
+					class:filter-exclude={duplicates === 2}
+					onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
+				>
+			</div>
 		</div>
 	</div>
 
-	<div class="columns is-multiline is-mobile" id="pokedex">
+	<div id="pokedex">
 		{#if !all}
 			{#if player.loaded}
 				{#each { length: 20 }, i (i)}<div class="skeleton"></div>{/each}
@@ -257,12 +257,12 @@
 	{#if all && visibleCount < filtered.length}
 		<div id="dex-sentinel" style="height:1px;width:100%;" use:loadMore></div>
 	{/if}
-	<div class="center" id="dexLoadStatus" style:opacity={all && filtered.length > 0 ? '0' : '1'}>
+	<div id="dexLoadStatus" style:opacity={all && filtered.length > 0 ? '0' : '1'}>
 		{#if all}{filtered.length > 0 ? `${filtered.length} Pokémon` : 'Ingen funnet'}{/if}
 	</div>
 </div>
 
-<div class="botbar" id="dex-botbar">
+<div class="pm-dexbar" id="dex-botbar">
 	<div class="dex-stats-row">
 		<button class="dex-progress-toggle" class:collapsed={barsCollapsed} id="progressToggleBtn" onclick={toggleBars} title="Vis/skjul fremdrift"
 			>&#x25B2;</button
@@ -348,61 +348,398 @@
 </div>
 
 <style>
-	.filter-chips {
+	.dex {
+		/* Room for the stats bar, which grows when the progress bars are open. */
+		margin-bottom: 190px;
+		transition: margin-bottom 0.3s ease;
+	}
+	.dex.dex-bars-hidden {
+		margin-bottom: 80px;
+	}
+
+	/* Filter bar: sticks under the header while the cards scroll. */
+	#filterButtons {
+		position: sticky;
+		top: var(--pm-bar-height);
+		z-index: 100;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		padding: 10px 16px;
+		background: var(--pm-paper);
+		box-shadow: 0 1px 0 var(--pm-line), 0 6px 12px -10px oklch(0.3 0.03 265 / 0.4);
+	}
+	.filter-row,
+	.dropdowns {
 		display: contents;
+	}
+	.dropdowns .altbtn {
+		order: 1;
+	}
+	.filter-chips {
+		order: 2;
+		display: flex;
+		gap: 6px;
+		flex: 1 1 100%;
+		min-width: 0;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-width: none;
+		/* Fade the right edge so it is clear there are more chips to scroll to. */
+		mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+	}
+	.filter-chips::-webkit-scrollbar {
+		display: none;
+	}
+	.filter-chips > :last-child {
+		margin-right: 32px;
+	}
+	#searchInput {
+		flex: 1 1 180px;
+		min-width: 140px;
+		height: 40px;
+		padding: 0 14px 0 40px;
+		border: 2px solid var(--pm-line);
+		border-radius: 999px;
+		background: var(--pm-cream) url('/images/compass.png') no-repeat 12px 50% / 20px;
+		color: var(--pm-ink);
+		font: inherit;
+		font-size: 16px;
+		outline: none;
+	}
+	#searchInput:focus {
+		border-color: var(--pm-ink);
+	}
+	.btn,
+	.altbtn {
+		flex: 0 0 auto;
+		height: 40px;
+		padding: 0 14px;
+		border: 2px solid transparent;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		color: var(--pm-ink);
+		font: inherit;
+		font-size: 15px;
+		font-weight: 700;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.altbtn {
+		border-color: var(--pm-line);
+		background: var(--pm-paper);
+	}
+	.btn.active,
+	.altbtn.active {
+		background: var(--pm-ink);
+		border-color: var(--pm-ink);
+		color: var(--pm-paper);
+	}
+	/* Tap once to show only these, twice to hide them. The ✓ and ✕ carry the meaning without colour. */
+	.btn.filter-include {
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+	}
+	.btn.filter-include::before {
+		content: '✓ ';
+	}
+	.btn.filter-exclude {
+		background: var(--pm-red-soft);
+		border-color: var(--pm-red);
+		color: var(--pm-red-deep);
+		text-decoration: line-through;
+	}
+	.btn.filter-exclude::before {
+		content: '✕ ';
+	}
+	.caret {
+		margin-left: 2px;
+		color: var(--pm-ink-soft);
+	}
+	.active .caret {
+		color: inherit;
+	}
+
+	/* Cards fill the row instead of keeping a fixed width. */
+	#pokedex {
+		--card-width: auto;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+		gap: 16px;
+		max-width: 1100px;
+		margin: 0 auto;
+		padding: 18px 16px;
+	}
+	.skeleton {
+		aspect-ratio: 3 / 4;
+		border-radius: 16px;
+		background: linear-gradient(90deg, var(--pm-line) 25%, var(--pm-paper) 50%, var(--pm-line) 75%) 0 0 / 200% 100%;
+		animation: shimmer 1.4s infinite;
+	}
+	@keyframes shimmer {
+		from { background-position: 200% 0; }
+		to { background-position: -200% 0; }
+	}
+	#dexLoadStatus {
+		padding: 6px;
+		color: var(--pm-ink-soft);
+		text-align: center;
+		transition: opacity 0.4s;
+	}
+
+	/* Dropdown panels. Their display is set inline, so it is not set here. */
+	.dex-dropdown-panel {
+		position: fixed;
+		z-index: 9999;
+		min-width: 180px;
+		max-height: 70vh;
+		overflow-y: auto;
+		padding: 10px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	#typecontent {
+		grid-template-columns: repeat(3, 1fr);
+		gap: 6px;
+		min-width: 300px;
+	}
+	.typecard2 {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 36px;
+		padding: 0 10px;
+		border: 3px solid transparent;
+		border-radius: 999px;
+		background: var(--type, oklch(0.6 0.02 265));
+		color: var(--type-text, var(--pm-paper));
+		font-size: 14px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.typecard2.active {
+		border-color: var(--pm-ink);
+		box-shadow: inset 0 0 0 2px var(--pm-paper);
+	}
+	.typecard2.active::before {
+		content: '✓ ';
+	}
+	#generationContent label,
+	#sortContent a {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 40px;
+		padding: 0 10px;
+		border-radius: 10px;
+		color: var(--pm-ink);
+		font-weight: 700;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	#generationContent input {
+		width: 20px;
+		height: 20px;
+		accent-color: var(--pm-red);
+	}
+	#sortContent a.active {
+		background: var(--pm-red-soft);
+		color: var(--pm-red-deep);
+	}
+	@media (hover: hover) {
+		#sortContent a:hover,
+		#generationContent label:hover {
+			background: var(--pm-cream);
+		}
+	}
+
+	/* Type colours, the same as on the cards. Light ones get dark text. */
+	.type-normal { --type: #a8a878; }
+	.type-fire { --type: #f08030; --type-text: var(--pm-ink); }
+	.type-water { --type: #6890f0; }
+	.type-grass { --type: #78c850; --type-text: var(--pm-ink); }
+	.type-electric { --type: #f8d030; --type-text: var(--pm-ink); }
+	.type-ice { --type: #98d8d8; --type-text: var(--pm-ink); }
+	.type-fighting { --type: #c03028; }
+	.type-poison { --type: #a040a0; }
+	.type-ground { --type: #e0c068; --type-text: var(--pm-ink); }
+	.type-flying { --type: #a890f0; --type-text: var(--pm-ink); }
+	.type-psychic { --type: #f85888; --type-text: var(--pm-ink); }
+	.type-bug { --type: #a8b820; --type-text: var(--pm-ink); }
+	.type-rock { --type: #b8a038; --type-text: var(--pm-ink); }
+	.type-ghost { --type: #705898; }
+	.type-dark { --type: #705848; }
+	.type-dragon { --type: #7038f8; }
+	.type-steel { --type: #b8b8d0; --type-text: var(--pm-ink); }
+	.type-fairy { --type: #f0b6bc; --type-text: var(--pm-ink); }
+
+	/* Stats bar at the bottom: counts, and progress bars that fold away. */
+	.pm-dexbar {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 900;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 6px 16px calc(8px + env(safe-area-inset-bottom));
+		background: var(--pm-ink);
+		color: var(--pm-paper);
+	}
+	.dex-stats-row {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+		max-width: 1100px;
+		margin: 0 auto;
+	}
+	.dex-progress-toggle {
+		min-width: 44px;
+		min-height: 44px;
+		border: none;
+		border-radius: 50%;
+		background: none;
+		color: var(--pm-paper);
+		font-size: 14px;
+		cursor: pointer;
+		transition: transform 0.25s;
+	}
+	.dex-progress-toggle.collapsed {
+		transform: rotate(180deg);
+	}
+	.statisticText {
+		padding-left: 24px;
+		background: url('/pokeball.svg') no-repeat left center / 18px;
+		color: var(--pm-paper);
+		font-family: var(--pm-display);
+		font-size: 18px;
+		white-space: nowrap;
+	}
+	.statisticText::after {
+		content: attr(data-text);
+		font-family: var(--pm-body);
+		font-size: 15px;
+		opacity: 0.8;
+	}
+	.dex-progress-bars {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		max-width: 1100px;
+		width: 100%;
+		margin: 0 auto;
+		max-height: 200px;
+		overflow: hidden;
+		transition: max-height 0.3s ease, opacity 0.3s ease;
+	}
+	.dex-progress-bars.collapsed {
+		max-height: 0;
+		opacity: 0;
+	}
+	.dex-pbar {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.dex-pbar-label {
+		flex-shrink: 0;
+		width: 72px;
+		font-size: 13px;
+		font-weight: 700;
+	}
+	.dex-pbar-track {
+		flex: 1;
+		min-width: 40px;
+		height: 8px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: oklch(1 0 0 / 0.16);
+	}
+	.dex-pbar-fill {
+		height: 100%;
+		border-radius: 999px;
+		transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+	}
+	.dex-pbar-text {
+		flex-shrink: 0;
+		width: 140px;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		text-align: right;
+		opacity: 0.75;
 	}
 
 	@media (max-width: 720px) {
+		#filterButtons {
+			padding: 8px 12px;
+		}
 		#searchInput {
 			flex: 1 1 100%;
 		}
-		.filter-chips {
+		.filter-row {
 			display: flex;
 			gap: 6px;
 			width: 100%;
 			overflow-x: auto;
 			-webkit-overflow-scrolling: touch;
 			scrollbar-width: none;
-			padding-bottom: 2px;
+			mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+			-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 		}
-		.filter-chips::-webkit-scrollbar {
+		.filter-row::-webkit-scrollbar {
 			display: none;
 		}
-		/* Keep "84 fanget." on one line, and all three counters on screen. */
+		.filter-chips {
+			display: contents;
+		}
+		.dropdowns .altbtn {
+			order: 0;
+		}
 		.dex-stats-row {
-			gap: 4px;
+			gap: 8px;
 		}
 		.statisticText {
 			font-size: 16px;
-			white-space: nowrap;
-			padding-right: 6px;
+		}
+		.statisticText::after {
+			font-size: 13px;
+		}
+		.dex-pbar-text {
+			width: 104px;
+		}
+	}
+	@media (max-width: 480px) {
+		#pokedex {
+			grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+			gap: 10px;
+			padding: 12px;
 		}
 	}
 	@media (max-width: 360px) {
 		.statisticText {
-			font-size: 13px;
+			font-size: 14px;
 		}
 	}
 
 	@media (pointer: coarse) {
-		/* 16px or larger, or iOS zooms the page when the search field is focused. */
-		#searchInput {
-			font-size: 16px;
-		}
 		.btn,
-		.altbtn {
+		.altbtn,
+		#searchInput {
 			height: 44px;
 		}
-		.dex-progress-toggle {
-			min-width: 44px;
-			min-height: 44px;
-		}
-		.typecard2 {
-			min-height: 44px;
-		}
+		.typecard2,
 		#generationContent label,
 		#sortContent a {
 			min-height: 44px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.skeleton {
+			animation: none;
 		}
 	}
 </style>

@@ -33,7 +33,7 @@
 	.pm-card {
 		display: flex;
 		flex-direction: column;
-		width: 136px;
+		width: var(--card-width, 136px);
 		padding: 8px 8px 10px;
 		border-radius: 16px;
 		background: var(--pm-paper);
@@ -149,7 +149,7 @@
 
 	@media (max-width: 480px) {
 		.pm-card {
-			width: 104px;
+			width: var(--card-width, 104px);
 			padding: 6px 6px 8px;
 		}
 		.name {
