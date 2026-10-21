@@ -13,21 +13,25 @@
 		progressTypeAchievement
 	} from '#lib/achievements.js';
 	import { setupGame, generateProblem, isCorrect, coinsForStage } from '#lib/game/problems.js';
-	import { loadPokemonInfo, rollPokemonId, pickForm, rollShiny, describe, catchTitle, catchFacts, baseName } from '#lib/game/pokemon.js';
+	import { createAdaptive, ADAPTIVE_LIVES } from '#lib/game/adaptive.js';
+	import { loadPokemonInfo, rollPokemonId, pickForm, rollShiny, describe, catchTitle, catchFacts } from '#lib/game/pokemon.js';
 	import { startBingo, storedBingoCode } from '#lib/bingo.js';
-	import { giveSpecificPokemon } from '#lib/game/prizes.js';
+	import { giveSpecificPokemon, countEventCatch } from '#lib/game/prizes.js';
 	import BingoLootbox from '#lib/game/BingoLootbox.svelte';
 	import PokemonCard from '#lib/PokemonCard.svelte';
 	import HalloweenEgg from '#lib/game/HalloweenEgg.svelte';
 	import XmasPresent from '#lib/game/XmasPresent.svelte';
 
-	const LIVES = 3;
+	/** Wrong answers that start the round over: three, or five on the adaptive level. */
+	let LIVES = $state(3);
+	/** @type {ReturnType<typeof createAdaptive> | null} The adaptive level, when ?adaptive=true. */
+	let adaptive = null;
 	const GOOD_MESSAGES = ['Flott jobbet!', 'Nice!', 'Ny pokémon!', 'Trykk på ballen!', 'Enda en til samlingen!', 'Fortsett sånn!', 'Stå på!', 'Du er super!', 'Oh, hva får du nå?', 'Eyy! Bra jobbet!'];
 
 	/** @type {import('#lib/game/problems.js').MathValues | null} */
 	let values = $state(null);
 	let winScore = $state(5);
-	/** @type {import('#lib/game/problems.js').Problem | null} */
+	/** @type {(import('#lib/game/problems.js').Problem & { startedAt?: number }) | null} */
 	let problem = $state(null);
 	let answer = $state('');
 	/** @type {HTMLInputElement | undefined} */
@@ -49,7 +53,7 @@
 	/** @type {import('#lib/game/pokemon.js').PokemonCard | null} The Pokémon on the catch screen. */
 	let caughtCard = $state(null);
 	let stageLabel = $state('');
-	/** Hearts left this round: three wrong answers start the round over. */
+	/** Hearts left this round: losing the last one starts the round over. */
 	const hearts = $derived(LIVES - wrongAnswers);
 	let lastSubmitTime = 0;
 
@@ -69,6 +73,9 @@
 
 	/** 0–11, set in the browser: October has the Halloween egg, December the Christmas present. */
 	let month = $state(-1);
+	/** 1 April: the problems are shown upside down, after a note once per session (live math.js). */
+	let aprilFools = $state(false);
+	let aprilNoteOpen = $state(false);
 	/** @type {{ progress: () => void } | undefined} */
 	let halloweenEgg = $state();
 	/** @type {{ progress: () => void } | undefined} */
@@ -89,7 +96,7 @@
 
 	function newProblem() {
 		if (!values) return;
-		problem = generateProblem(values);
+		problem = adaptive ? adaptive.generate() : generateProblem(values);
 		answer = '';
 		field?.focus();
 	}
@@ -127,11 +134,20 @@
 			incrementProgress(BADGE_IDS.bigEarner, coins);
 			logSolved(values.stage);
 			layout.workOverview = workOverview();
+			const solved = /** @type {NonNullable<typeof problem>} */ (problem);
 			flash('correct');
 			newProblem();
 
 			const tier = ['1', '2', '3', '4', '5'].indexOf(String(values.stage));
-			if (tier >= 0) {
+			if (adaptive) {
+				player.adaptiveSolved++;
+				player.save('adaptiveSolved');
+				// As on the live site this measures from the new problem's start, set just above, so
+				// a correct answer always counts as fast.
+				const elapsed = Date.now() - (problem?.startedAt ?? Date.now());
+				const limit = adaptive.timeLimit(solved);
+				values.stage = adaptive.record(solved.operator, elapsed <= limit * 0.5 ? 'fast' : elapsed <= limit ? 'golden' : 'slow');
+			} else if (tier >= 0) {
 				player.tiersSolved[tier]++;
 				player.save('tiersSolved');
 				incrementProgress(BADGE_IDS.stageMaster(tier + 1));
@@ -140,11 +156,14 @@
 				player.save('customSolved');
 			}
 		} else {
+			// Adaptive: a wrong answer always costs points, and a new problem comes after a moment.
+			if (adaptive) values.stage = adaptive.record(problem.operator, 'slow');
 			wrongAnswers++;
 			streak = 0;
 			answer = '';
 			field?.focus();
 			flash('wrong');
+			if (adaptive && wrongAnswers < LIVES) setTimeout(newProblem, 600);
 		}
 		checkLogic();
 	}
@@ -179,6 +198,7 @@
 		overlayOpen = false;
 		score = 0;
 		wrongAnswers = 0;
+		adaptive?.resetRound();
 		catchImage = '';
 		caughtCard = null;
 		showContinue = false;
@@ -219,6 +239,7 @@
 		streak = ctx.streak;
 
 		player.addPokemon(entry);
+		if (month === 2 || month === 3) countEventCatch();
 		trackEvent('/track-catch', {});
 		showCatch(entry);
 		reportToBingo(entry);
@@ -229,7 +250,8 @@
 		if (!bingo) return;
 		const params = new URLSearchParams(location.search);
 		const stageParam = params.get('stage');
-		const difficulty = stageParam ? `stage${stageParam}` : params.get('custom') ? 'custom' : null;
+		const difficulty =
+			params.get('adaptive') === 'true' ? 'tilpasset' : stageParam ? `stage${stageParam}` : params.get('custom') ? 'custom' : null;
 		bingo.reportCatch({ pokemonCode: entry, difficulty: difficulty || 'stage3', ...catchFacts(entry) });
 	}
 
@@ -356,6 +378,8 @@
 	onMount(() => {
 		loadPokemonInfo().then(() => (pokemonInfoReady = true));
 		month = new Date().getMonth();
+		aprilFools = month === 3 && new Date().getDate() === 1;
+		if (aprilFools && !sessionStorage.getItem('af_seen')) aprilNoteOpen = true;
 		// math.js draws a present delay here in December that it never uses. Drawing it keeps the
 		// random sequence, and so the game, identical to the original. It is stored because the
 		// minifier removes a bare Math.random() call.
@@ -367,6 +391,12 @@
 		values = setup.values;
 		winScore = setup.winScore;
 		stageLabel = setup.custom ? 'Eget nivå' : `Nivå ${setup.values.stage}`;
+		if (setup.adaptive) {
+			adaptive = createAdaptive();
+			values.stage = adaptive.stage();
+			LIVES = ADAPTIVE_LIVES;
+			stageLabel = 'Tilpasset nivå';
+		}
 		for (const message of setup.messages) toast(message.text, { bad: message.bad, canClose: !setup.cheated });
 
 		/** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -447,7 +477,7 @@
 			</span>
 		</div>
 
-		<p class="problem" class:shake={wrongAnimation}>
+		<p class="problem" class:shake={wrongAnimation} class:upside-down={aprilFools}>
 			{#if problem}{problem.numberOne} {problem.operator} {problem.numberTwo}{/if}
 		</p>
 
@@ -532,8 +562,32 @@
 	</div>
 </div>
 
+{#if aprilNoteOpen}
+	<div class="april" role="dialog" aria-modal="true" aria-labelledby="april-title">
+		<div class="april-box pm-surface">
+			<p class="april-kicker">Viktig melding fra PokeMath</p>
+			<h2 id="april-title">Banebrytende forskning endrer måten vi løser matte på</h2>
+			<p>
+				Forskere ved University of Wollongong i Australia har nylig dokumentert at å løse matteoppgaver <strong>opp-ned</strong> øker
+				aktiviteten i prefrontal cortex med <strong>340%</strong>, og resulterer i signifikant forbedret Pokémon-fangstrate.
+			</p>
+			<p>PokeMath tar forskning på alvor og har implementert dette funnet med umiddelbar virkning. Vi beklager eventuelle ulemper.</p>
+			<p class="april-source">Kilde: Journal of Inverted Mathematics, vol. 4, s. 1 (2025)</p>
+			<button
+				id="af-close"
+				class="pm-button"
+				onclick={() => {
+					aprilNoteOpen = false;
+					sessionStorage.setItem('af_seen', '1');
+					field?.focus();
+				}}>Forstått. La oss begynne.</button
+			>
+		</div>
+	</div>
+{/if}
+
 {#if prizeQueue.length}
-	<BingoLootbox prizes={prizeQueue} nameOf={baseName} onDone={() => (prizeQueue = [])} />
+	<BingoLootbox prizes={prizeQueue} onDone={() => (prizeQueue = [])} />
 {/if}
 
 {#if adminPopup}
@@ -904,4 +958,48 @@
 	.pos-bottom-left { top: auto; bottom: 16px; left: 16px; transform: none; }
 	.pos-bottom-center { top: auto; bottom: 16px; }
 	.pos-bottom-right { top: auto; bottom: 16px; left: auto; right: 16px; transform: none; }
+
+	.problem.upside-down {
+		transform: rotate(180deg);
+	}
+	.april {
+		position: fixed;
+		inset: 0;
+		z-index: 1400;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 20px;
+		background: oklch(0.2 0.03 265 / 0.65);
+	}
+	.april-box {
+		max-width: 400px;
+		padding: 26px 24px;
+	}
+	.april-kicker {
+		margin: 0 0 6px;
+		color: var(--pm-ink-soft);
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+	.april-box h2 {
+		margin: 0 0 12px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 22px;
+		line-height: 1.25;
+	}
+	.april-box p {
+		line-height: 1.55;
+	}
+	.april-source {
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		font-style: italic;
+	}
+	.april-box .pm-button {
+		width: 100%;
+	}
 </style>

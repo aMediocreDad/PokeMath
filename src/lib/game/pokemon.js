@@ -9,6 +9,14 @@ const SPECIAL_BONUS = 3;
 
 /** @type {PokemonInfo | null} */
 let info = null;
+/**
+ * What the ball can give: pokemon_info.json without the forms that have no image on the site
+ * (valid_images.json). Only catching uses it; the Pokédex and viewer still see every form.
+ * @type {PokemonInfo | null}
+ */
+let catchable = null;
+/** @type {number[]} Dex numbers the ball can roll, without #0 (MissingNo comes from codes only). */
+let validDexNums = [];
 /** @type {number[]} */
 let legendaries = [];
 /** @type {number[]} */
@@ -19,21 +27,39 @@ let specialforms = [];
 /** @type {Promise<void> | null} */
 let loading = null;
 
-/** Load static/pokemon_info.json once. It is fetched, not imported, to keep it out of the JS bundle. */
+/**
+ * Load static/pokemon_info.json and valid_images.json once. They are fetched, not imported, to keep
+ * them out of the JS bundle. As in the live pokestuff.js (2026-10), forms whose image id is not in
+ * valid_images.json are left out of catching; without the list, nothing is left out.
+ */
 export function loadPokemonInfo() {
-	loading ??= fetch('/pokemon_info.json')
-		.then((r) => r.json())
-		.then((/** @type {PokemonInfo} */ data) => {
-			info = data;
-			for (const [dex, variants] of Object.entries(data)) {
-				const base = variants['0'];
-				if (!base) continue;
-				const dexNum = parseInt(dex);
-				if (base.is_legendary) legendaries.push(dexNum);
-				if (base.is_mythical) mythics.push(dexNum);
-				if (Object.keys(variants).some((k) => /^\d+$/.test(k) && k !== '0')) specialforms.push(dexNum);
-			}
-		});
+	loading ??= Promise.all([
+		fetch('/pokemon_info.json').then((r) => r.json()),
+		fetch('/valid_images.json')
+			.then((r) => r.json())
+			.catch(() => null)
+	]).then(([/** @type {PokemonInfo} */ data, /** @type {number[] | null} */ validIds]) => {
+		info = data;
+		const valid = validIds?.length ? new Set(validIds) : null;
+		/** @type {PokemonInfo} */
+		const pool = {};
+		for (const [dex, variants] of Object.entries(data)) {
+			const kept = valid
+				? Object.fromEntries(Object.entries(variants).filter(([, v]) => valid.has(typeof v.imageid === 'number' ? v.imageid : parseInt(dex))))
+				: variants;
+			if (kept['0']) pool[dex] = kept;
+		}
+		catchable = pool;
+		for (const [dex, variants] of Object.entries(pool)) {
+			const base = variants['0'];
+			const dexNum = parseInt(dex);
+			if (!dexNum) continue;
+			validDexNums.push(dexNum);
+			if (base.is_legendary) legendaries.push(dexNum);
+			if (base.is_mythical) mythics.push(dexNum);
+			if (Object.keys(variants).some((k) => /^\d+$/.test(k) && k !== '0')) specialforms.push(dexNum);
+		}
+	});
 	return loading;
 }
 
@@ -82,8 +108,9 @@ function canCaptureMythic(ctx) {
  * @returns {number}
  */
 export function rollPokemonId(ctx) {
-	let id = Math.floor(Math.random() * (PKMN_NUM + (SPECIAL_BONUS + Number(ctx.stage)))) + 1;
-	if (id > PKMN_NUM) id = specialforms[Math.floor(Math.random() * specialforms.length)];
+	const pool = validDexNums.length ? validDexNums : Array.from({ length: PKMN_NUM }, (_, i) => i + 1);
+	const roll = Math.floor(Math.random() * (pool.length + SPECIAL_BONUS + Number(ctx.stage)));
+	const id = roll < pool.length ? pool[roll] : specialforms[Math.floor(Math.random() * specialforms.length)];
 	if (legendaries.includes(id) && !canCaptureLegendary(ctx)) return rollPokemonId(ctx);
 	if (mythics.includes(id) && !canCaptureMythic(ctx)) return rollPokemonId(ctx);
 	return id;
@@ -96,7 +123,7 @@ export function rollPokemonId(ctx) {
  * @returns {string} "25", or "25-1" for an alternate form.
  */
 export function pickForm(dexId, stage) {
-	const variants = info?.[String(dexId)];
+	const variants = catchable?.[String(dexId)];
 	if (!variants) return String(dexId);
 	const season = currentSeason();
 	const variantPool = Object.entries(variants).filter(([key, v]) => {
@@ -118,11 +145,11 @@ export function pickForm(dexId, stage) {
  * @returns {string | null}
  */
 export function pickEventForm(eventType) {
-	if (!info) return null;
+	if (!catchable) return null;
 	const pattern = new RegExp(`^${eventType}\\d+$`);
 	/** @type {string[]} */
 	const pool = [];
-	for (const [dex, variants] of Object.entries(info)) {
+	for (const [dex, variants] of Object.entries(catchable)) {
 		for (const [key, v] of Object.entries(variants)) {
 			if (pattern.test(key) && v.enabled) pool.push(`${dex}-${key}`);
 		}

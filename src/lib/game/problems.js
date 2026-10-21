@@ -84,6 +84,7 @@ function isInt(value) {
  * @property {number} winScore  Correct answers needed to catch a Pokémon.
  * @property {boolean} cheated  ?stage= was not a whole number.
  * @property {boolean} custom
+ * @property {boolean} [adaptive]  ?adaptive=true: the adaptive level sets the problems (adaptive.js).
  * @property {{ text: string, bad: boolean }[]} messages  Toasts to show.
  */
 
@@ -96,6 +97,12 @@ export function setupGame(params) {
 	const values = defaults();
 	/** @type {GameSetup['messages']} */
 	const messages = [];
+
+	// The adaptive level (live math.js, 2026-10) comes before the other modes and shows no toasts.
+	if (params.get('adaptive') === 'true') {
+		values.operations = ['+', '-', 'x', '/'];
+		return { values, winScore: 5, cheated: false, custom: false, adaptive: true, messages };
+	}
 
 	if (params.get('custom') == 'true') {
 		values.stage = 3;

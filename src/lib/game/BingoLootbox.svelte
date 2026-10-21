@@ -2,8 +2,10 @@
 	// The prize reveal after a bingo game, ported from the lootbox in static/pokestuff.js.
 	// Shows one spinning ball per prize; it opens on a tap or after 2.5 seconds.
 
-	/** @type {{ prizes: import('#lib/bingo.js').Prize[], nameOf: (id: number | undefined) => string | undefined, onDone: () => void }} */
-	let { prizes, nameOf, onDone } = $props();
+	import { pokemonInfo } from '#lib/game/pokemon.js';
+
+	/** @type {{ prizes: import('#lib/bingo.js').Prize[], onDone: () => void }} */
+	let { prizes, onDone } = $props();
 
 	let index = $state(0);
 	let revealed = $state(false);
@@ -51,20 +53,32 @@
 		}
 		if (prize.type === 'pokemon') {
 			const shiny = prize.shiny || (prize.entry || '').startsWith('S');
-			const name = prize.easterName || nameOf(prize.pokedexId) || 'Pokémon #' + prize.pokedexId;
-			const source = prize.source === 'admin' ? 'Gave fra admin:' : prize.source === 'easter' ? 'Påskepremie!' : 'Bingo-premie!';
+			// A form such as N667-U1 shows that form's image and name.
+			const forms = pokemonInfo()?.[String(prize.pokedexId)];
+			const variantKey = (prize.entry || '').match(/^[SN]?\d+[-_](\w+)$/)?.[1];
+			const variant = variantKey ? forms?.[variantKey] : undefined;
+			const imageId = variant?.imageid || prize.pokedexId;
+			const name = prize.easterName || variant?.name || forms?.['0']?.name || 'Pokémon #' + prize.pokedexId;
+			const source = prize.source === 'admin' ? 'Gave fra admin:' : prize.source === 'easter' ? 'Eventpremie!' : 'Bingo-premie!';
 			const kind =
 				prize.source === 'admin' || prize.source === 'easter'
 					? shiny ? 'Shiny ' : ''
 					: shiny ? '✨ Shiny ' : prize.legendary ? '⭐ Legendarisk ' : '🌟 Mytisk ';
 			return {
-				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${prize.pokedexId}.webp`,
+				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.webp`,
 				plainImage: false,
 				lines: [source, kind + name],
 				small: prize.easterCoins ? '+' + Number(prize.easterCoins).toLocaleString('no-NO') + ' mynter' : ''
 			};
 		}
-		// Stardust: the original shows an empty prize card.
+		if (prize.type === 'stardust') {
+			return {
+				image: '/images/stardust.png',
+				plainImage: true,
+				lines: [prize.source === 'admin' ? 'Gave fra admin:' : 'Bingo-premie!', '✨ Stardust ×' + (Number(prize.amount) || 1)],
+				small: ''
+			};
+		}
 		return { image: '', plainImage: false, lines: [], small: '' };
 	});
 </script>
@@ -150,10 +164,10 @@
 		animation: reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	}
 	.blootbox-prize img {
-		width: 110px;
-		height: 110px;
+		width: 200px;
+		height: 200px;
 		image-rendering: pixelated;
-		filter: drop-shadow(0 4px 16px rgba(255, 220, 50, 0.8));
+		filter: drop-shadow(0 4px 24px rgba(255, 220, 50, 0.9));
 	}
 	.blootbox-label {
 		color: #fff;
