@@ -38,18 +38,16 @@
 	<meta name="title" content="Pokémath - FAQ" />
 	<meta name="description" content="Ofte stilte spørsmål!" />
 	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" href="/faq.css?v=100" />
 </svelte:head>
 
-<div class="main">
+<div class="main pm-page faq">
  <div class="container">
-	<div class="faq-header">Ofte Stilte Spørsmål (FAQ)
-	</div>
+	<h1 class="pm-title faq-header">Ofte stilte spørsmål</h1>
 
 	<div class="faq-content">
 	  <div class="faq-question">
 		<input id="q1" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q1" class="panel-title">Hvorfor sletter dere pokemonene mine?</label>
 		<div class="panel-content">
 			<p>Kort forklart: Det gjør vi ikke.</p>
@@ -68,7 +66,7 @@
 	  
 	  <div class="faq-question">
 		<input id="q2" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q2" class="panel-title">Kan dere legge til trading / pokemon battles?</label>
 		<div class="panel-content">
 			<p>Foreløbig kan vi ikke det.<br>
@@ -79,7 +77,7 @@
 	  
 	  <div class="faq-question">
 		<input id="q3" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q3" class="panel-title">Hvordan tjener PokeMath penger?</label>
 		<div class="panel-content">
 			<p>PokeMath tjener ikke penger, med unntak av donasjoner fra lærere og foreldre som setter pris på arbeidet.<br>
@@ -96,7 +94,7 @@
 
 	  <div class="faq-question">
 		<input id="q4" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q4" class="panel-title">Jeg har mistet alle mine pokemon. Kan jeg få de tilbake?</label>
 		<div class="panel-content">
 			<p>Hvis du er uheldig og har slettet alle dine pokemon, så er det dessverre ingenting vi kan gjøre.<br>
@@ -106,7 +104,7 @@
 	  </div>
 	  <div class="faq-question">
 		<input id="q5" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q5" class="panel-title">Vennene mine har funksjoner som ikke jeg har. Hvordan kan jeg få de?</label>
 		<div class="panel-content">
 			<p>Det kan hende at nettleseren "husker" en gammel versjon av nettsiden, og for å spare data, så bruker nettleseren den versjonen, istedet for å laste inn den nye.<br><br>
@@ -118,7 +116,7 @@
 	  </div>
 	  <div class="faq-question">
 		<input id="q6" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q6" class="panel-title">Når jeg bruker QR-Kode så har jeg ingen av pokemonene mine! Hvorfor?</label>
 		<div class="panel-content">
 			<p>Dette skjer om man bruker en QR-Kode app som har en egen nettleser.<br>
@@ -128,7 +126,7 @@
 	  </div>
 	<div class="faq-question">
 		<input id="q7" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q7" class="panel-title">Hei PokeMorten - Hva er din favoritt pokemon?</label>
 		<div class="panel-content">
 			<p><img src="/images/pokemon/normal/258.png" alt="Mudkip"></p>
@@ -136,7 +134,7 @@
 	  </div>
 	<div class="faq-question">
 		<input id="q8" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q8" class="panel-title">Hvorfor starter ikke sesong-eventet på min enhet? (Halloween, Jul, Påske, osv.)</label>
 		<div class="panel-content">
 			<p>Noen av disse er avhengige av datoen på din enhet for å fungere. Akkuratt nå leses den datoen som:</p>
@@ -147,13 +145,13 @@
 	</div>
 	<div class="faq-question">
 		<input id="q9" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q9" class="panel-title">Jeg ønsker å få nyeste oppdatering</label>
 		<div class="panel-content">
 			<p><strong>OBS: Ta backup av dataen din før du tømmer nettlesercachen!</strong><br>
 			Gå til <a href="./saveandload.html">Lagre / Last inn</a> og last ned en lagringsfil først.</p>
 			<p>Klikk knappen under for å forsøke å tømme nettlesercachen for PokeMath automatisk:</p>
-			<button class="button-1" id="clearCacheBtn" onclick={clearCache}>Tøm cache</button>
+			<button class="pm-button small secondary" id="clearCacheBtn" onclick={clearCache}>Tøm cache</button>
 			<p id="clearCacheMsg" style="font-style:italic;">{cacheMessage}</p>
 
 			<p><strong>Manuell hurtigoppdatering per enhet:</strong></p>
@@ -168,7 +166,7 @@
 	</div>
 	<div class="faq-question">
 		<input id="q99" type="checkbox" class="panel">
-		<div class="plus">+</div>
+		<div class="plus" aria-hidden="true">+</div>
 		<label for="q99" class="panel-title">Jeg har et spørsmål som ikke står her!</label>
 		<div class="panel-content">
 			<p>Ta kontakt med oss! Bruk siden <a href="about.html#contact">Kontakt oss</a>!</p>
@@ -178,14 +176,100 @@
 </div>
 
 <style>
-	/* Long questions wrap inside the box instead of running off the side of a phone. */
-	.panel-title {
-		box-sizing: border-box;
-		overflow-wrap: break-word;
+	.container {
+		max-width: 780px;
+		margin: 0 auto;
 	}
-	@media (max-width: 720px) {
+	/* Each question is a card; the hidden checkbox opens it and the + turns into a ×. */
+	.faq-question {
+		position: relative;
+		margin-bottom: 10px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.panel {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.panel-title {
+		display: block;
+		box-sizing: border-box;
+		min-height: 56px;
+		padding: 16px 56px 16px 18px;
+		font-family: var(--pm-display);
+		font-size: 20px;
+		line-height: 1.25;
+		overflow-wrap: break-word;
+		cursor: pointer;
+	}
+	.panel:focus-visible ~ .panel-title {
+		outline: 3px solid var(--pm-ink);
+		outline-offset: -3px;
+		border-radius: var(--pm-radius);
+	}
+	.plus {
+		position: absolute;
+		top: 12px;
+		right: 14px;
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: var(--pm-cream);
+		font-family: var(--pm-display);
+		font-size: 24px;
+		line-height: 1;
+		pointer-events: none;
+		transition: transform 200ms ease-out;
+	}
+	.panel:checked ~ .plus {
+		transform: rotate(45deg);
+		background: var(--pm-red);
+		color: var(--pm-paper);
+	}
+	.panel-content {
+		display: none;
+		padding: 0 18px 16px;
+		font-size: 17px;
+		line-height: 1.5;
+	}
+	.panel:checked ~ .panel-content {
+		display: block;
+	}
+	.panel-content p {
+		margin: 0 0 10px;
+	}
+	.panel-content a {
+		color: var(--pm-red-deep);
+		font-weight: 700;
+	}
+	.panel-content ul {
+		padding-left: 20px;
+	}
+	.panel-content li {
+		margin-bottom: 6px;
+	}
+	.panel-content img {
+		width: 160px;
+	}
+	kbd {
+		padding: 1px 6px;
+		border-radius: 6px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 -2px 0 var(--pm-line);
+		font-family: inherit;
+		font-weight: 700;
+	}
+	.cost-display {
+		font-weight: 700;
+	}
+
+	@media (max-width: 480px) {
 		.panel-title {
-			font-size: 22px;
+			font-size: 18px;
 		}
 	}
 </style>

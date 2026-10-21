@@ -1,4 +1,4 @@
-// Toast notifications, rendered by Toaster.svelte with the .toast styles in static/globalstyle.css.
+// Toast notifications and prize pop-ups, rendered and styled by Toaster.svelte.
 
 /** @typedef {{ id: number, text: string, bad: boolean, canClose: boolean }} ToastItem */
 
