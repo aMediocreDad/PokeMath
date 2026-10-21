@@ -1,7 +1,6 @@
 <script>
 	// The top bar, cookie notice and backup reminder (static/header.html on the legacy pages).
-	// It has its own class names, so the legacy header rules in globalstyle.css do not apply;
-	// the ids the legacy scripts and the tests rely on are kept.
+	// The ids the legacy scripts and the tests rely on are kept.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { player } from '#lib/player.svelte.js';
@@ -192,6 +191,16 @@
 </div>
 
 <style>
+	/* The background bought in the shop, fixed behind the whole page. */
+	#background {
+		position: fixed;
+		inset: 0;
+		z-index: -2;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		pointer-events: none;
+	}
 	/* ── The bar ─────────────────────────────────────────────────────────────── */
 	.pm-bar {
 		position: fixed;

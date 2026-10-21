@@ -67,7 +67,8 @@
 		position: fixed;
 		top: calc(var(--pm-bar-height) + 10px);
 		right: 12px;
-		z-index: 10000;
+		/* Above the header and its panels (1000–1200), under the game's catch screen (1300). */
+		z-index: 1250;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;

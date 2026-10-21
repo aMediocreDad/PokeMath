@@ -25,11 +25,6 @@
 	});
 </script>
 
-<svelte:head>
-	<!-- Linked rather than imported: the stylesheet points at images/ and fonts/, which are not in the repo. -->
-	<link rel="stylesheet" href="/globalstyle.css?v=100" />
-</svelte:head>
-
 <div id="header"><Header /></div>
 <Toaster />
 
@@ -63,16 +58,41 @@
 		--pm-shadow: 0 1px 0 oklch(0.86 0.025 80), 0 10px 24px -12px oklch(0.4 0.05 60 / 0.35);
 		--pm-bar-height: 56px;
 	}
+	/* Source Sans Pro, served from /fonts like on the legacy pages (the files are not in the repo). */
+	@font-face {
+		font-family: 'Source Sans Pro';
+		font-weight: 400;
+		font-display: swap;
+		src: url('/fonts/source-sans-pro-400.woff2') format('woff2');
+	}
+	@font-face {
+		font-family: 'Source Sans Pro';
+		font-weight: 600;
+		font-display: swap;
+		src: url('/fonts/source-sans-pro-600.woff2') format('woff2');
+	}
+	@font-face {
+		font-family: 'Source Sans Pro';
+		font-weight: 700;
+		font-display: swap;
+		src: url('/fonts/source-sans-pro-700.woff2') format('woff2');
+	}
+	:global(html) {
+		scroll-behavior: smooth;
+	}
+	/* Links get their look from where they sit (buttons, cards, menus), so no default underline. */
+	:global(a:link),
+	:global(a:visited) {
+		text-decoration: none;
+	}
 	:global(body) {
+		margin: 0;
 		background: var(--pm-cream);
 		color: var(--pm-ink);
 		font-family: var(--pm-body);
 		/* The header is fixed; keep content clear of it and of the bottom bar. */
 		padding-top: var(--pm-bar-height);
 		padding-bottom: 56px;
-	}
-	:global(.main) {
-		margin-top: 0;
 	}
 
 	/* A chunky button that presses in, the one primary style. */

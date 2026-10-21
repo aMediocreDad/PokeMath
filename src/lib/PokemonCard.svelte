@@ -79,9 +79,6 @@
 	}
 	.count {
 		right: 6px;
-		/* globalstyle.css pins .card-counter to the bottom corner; the legacy cards still use it. */
-		bottom: auto;
-		text-shadow: none;
 		padding: 0 7px;
 		border-radius: 999px;
 		background: var(--pm-paper);

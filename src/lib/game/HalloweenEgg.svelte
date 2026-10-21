@@ -118,8 +118,11 @@
 		border-radius: 999px;
 		background: oklch(0.85 0.06 55);
 	}
-	/* globalstyle.css already stretches this over the track and animates its scale. */
 	.halloween-progress-inner {
+		position: absolute;
+		inset: 0;
+		transform-origin: left center;
+		transition: transform 0.4s ease-out;
 		border-radius: 999px;
 		background: oklch(0.68 0.17 50);
 		opacity: 1;
