@@ -48,7 +48,7 @@ export default defineConfig({
 			adapter: adapter(),
 			prerender: {
 				// Pages nothing links to: reached from emails, QR codes or typed in by teachers.
-				entries: ['*', '/lærer/index.html', '/lærer/reset-password.html', '/lærer/bingo_settings.html', '/verify-email.html'],
+				entries: ['*', '/lærer/index.html', '/lærer/reset-password.html', '/lærer/bingo_settings.html', '/verify-email.html', '/bingo_join.html', '/lærer/bingo_host.html'],
 				// images/ and fonts/ are not in the repository, so links to them cannot be checked here.
 				handleHttpError: ({ path, message }) => {
 					if (/^\/(images|fonts)\//.test(path)) return;

@@ -3,9 +3,9 @@
 import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
 
 /** @param {string | null | undefined} s */
-const code6 = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
+export const code6 = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
 /** @param {unknown} value */
-const isUuidLike = (value) =>
+export const isUuidLike = (value) =>
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 
 /** The lobby code, from bingoJoinedCode or the older bingoCode key. */
