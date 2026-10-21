@@ -114,6 +114,71 @@
 		outline: 3px solid var(--pm-ink);
 		outline-offset: 3px;
 	}
+	:global(.pm-button.small) {
+		min-height: 40px;
+		padding: 0 16px;
+		border-radius: 12px;
+		font-size: 18px;
+	}
+	:global(.pm-button.green) {
+		background: var(--pm-green-deep);
+		box-shadow: 0 4px 0 oklch(0.42 0.12 145);
+	}
+	/* Looks switched off but stays tappable, so a tap can say why (not enough coins, already owned). */
+	:global(.pm-button.disabled) {
+		background: var(--pm-line);
+		color: var(--pm-ink-soft);
+		box-shadow: 0 4px 0 oklch(0.76 0.03 80);
+	}
+
+	/* A coin and an amount, for prices. */
+	:global(.pm-price) {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-family: var(--pm-display);
+		font-size: 18px;
+		white-space: nowrap;
+	}
+	:global(.pm-price::before) {
+		content: '';
+		width: 22px;
+		height: 22px;
+		background: url('/money.svg') center / contain no-repeat;
+	}
+
+	/* Page layout shared by the menu pages: a centred column with a big title. */
+	:global(.pm-page) {
+		max-width: 960px;
+		margin: 0 auto;
+		padding: 20px 16px 40px;
+	}
+	:global(.pm-title) {
+		margin: 4px 0 18px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: clamp(28px, 5vw, 38px);
+		line-height: 1.1;
+	}
+	:global(.pm-section-title) {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		margin: 32px 0 12px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 24px;
+	}
+	:global(.pm-section-title small) {
+		color: var(--pm-ink-soft);
+		font-family: var(--pm-body);
+		font-size: 15px;
+	}
+	:global(.pm-surface) {
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
 
 	/* The bottom bar: the connection light and, on the game page, the bingo code. */
 	.pm-botbar {

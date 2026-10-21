@@ -189,19 +189,58 @@
 	<meta name="title" content="Pokémath - Butikk" />
 	<meta name="description" content="Butikken til Pokemath hvor man kan kjøpe oppgraderinger." />
 	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="/shop.css?v=102" />
 </svelte:head>
 
-{#snippet hover(/** @type {string} */ text)}
-	<!-- Focusable, so a tap opens the explanation on touch screens (it opened on hover only). -->
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-	<span class="hovertext" data-hover={text} tabindex="0" role="note" aria-label={text}>?</span>
-{/snippet}
+<!--
+	Class names such as shopObject, shopButton, pricetag, buy, use and disabled are the hooks the
+	parity tests share with the legacy shop; the look comes from the pm- classes and the styles below.
+-->
+<div class="main pm-page shop">
+	<h1 class="pm-title">Butikk</h1>
 
-<div class="main">
+	<h2 class="pm-section-title">Oppgraderinger</h2>
+	<div class="upgrades">
+		{#each UPGRADES as upgrade (upgrade.key)}
+			{@const level = player[upgrade.key]}
+			{@const price = upgradePrice(upgrade.key, level)}
+			{@const maxed = level >= upgrade.max}
+			<div id={upgrade.id} class="shopObject item pm-surface" data-price="0" data-level="0">
+				<img src={upgrade.image} width="64" height="64" alt="" />
+				<h3>{upgrade.title}</h3>
+				<p class="help">{upgrade.help}</p>
+				<div class="level">
+					<span class="{upgrade.key} levelIndicator" data-level={level}>Nivå {level} av {upgrade.max}</span>
+					<span class="level-bar" aria-hidden="true"><span style:width="{(level / upgrade.max) * 100}%"></span></span>
+				</div>
+				<div class="buy-row">
+					{#if maxed}
+						<span class="pricetag maxed" data-price={price}>Maks nivå</span>
+					{:else}
+						<span class="pricetag pm-price" data-price={price}>{price.toLocaleString('no-NO')}</span>
+					{/if}
+					<button
+						class="pm-button small shopButton upgrade"
+						class:disabled={!(player.money >= price && level < upgrade.max)}
+						onclick={() => buyUpgrade(upgrade)}>Oppgrader</button
+					>
+				</div>
+			</div>
+		{/each}
+		<div id="shinyBaitShop" class="shopObject item pm-surface">
+			<img src="images/stardust.png" width="64" height="64" alt="" />
+			<h3>Stardust</h3>
+			<p class="help">Den neste Pokémonen du fanger blir garantert shiny! Hvert kjøp gjelder én fangst.</p>
+			<div class="level"><span class="shinyBaitStock">Du har: {player.shinyBaitCount}</span></div>
+			<div class="buy-row">
+				<span class="pricetag shinyBaitPrice pm-price" data-price={baitPrice.toLocaleString('no-NO')}>{baitPrice.toLocaleString('no-NO')}</span>
+				<button class="pm-button small shopButton" class:disabled={player.money < baitPrice} onclick={buyStardust}>Kjøp</button>
+			</div>
+		</div>
+	</div>
+
+	<h2 class="pm-section-title">Bakgrunner <small>Brukes på hele nettsiden</small></h2>
 	<div class="carousel-wrap" id="bgWrap">
-		<button class="carousel-btn" onclick={() => carouselStep(-1)}>&#8249;</button>
+		<button class="carousel-btn prev" onclick={() => carouselStep(-1)} aria-label="Forrige bakgrunn">‹</button>
 		<div class="carousel">
 			<div class="carousel-track" data-idx={carouselIndex} style:transform={carouselMoved ? `translateX(-${carouselIndex * 100}%)` : null}>
 				{#each BG_ITEMS as item (item.id)}
@@ -209,137 +248,312 @@
 					<div class="carousel-cell" style="background-image:url('images/backgrounds/{item.id}.png')">
 						<div class="carousel-caption" id={item.id}>
 							<h3>{item.name}</h3>
-							<!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
-							<a class="pricetag" data-price={item.price}></a>
-							<br /><br />
-							<button
-								class="button-1 buy"
-								class:disabled={owned || parsePrice(item.price) > player.money}
-								onclick={() => buyBackground(item)}>Kjøp</button
-							>
-							<button class="button-1 use" class:disabled={!owned} onclick={() => useBackground(item.id)}>Bruk</button>
-							<br />
-							{@render hover('Denne bakgrunnen kan du bruke på hele nettsiden!')}
+							{#if owned}
+								<span class="owned pricetag" data-price={item.price}>{item.id === player.background ? 'I bruk' : 'Eid'}</span>
+							{:else}
+								<span class="pricetag pm-price" data-price={item.price}>{item.price}</span>
+							{/if}
+							<span class="caption-buttons">
+								<button
+									class="pm-button small green buy"
+									class:disabled={owned || parsePrice(item.price) > player.money}
+									onclick={() => buyBackground(item)}>Kjøp</button
+								>
+								<button class="pm-button small secondary use" class:disabled={!owned} onclick={() => useBackground(item.id)}>Bruk</button>
+							</span>
 						</div>
 					</div>
 				{/each}
 			</div>
 		</div>
-		<button class="carousel-btn" onclick={() => carouselStep(1)}>&#8250;</button>
+		<button class="carousel-btn next" onclick={() => carouselStep(1)} aria-label="Neste bakgrunn">›</button>
 	</div>
-	<button class="button-1 use centerposition" onclick={removeBackground}>Fjern Bakgrunn</button>
-	<br />
-
-	<div class="shopButtons columns is-multiline is-mobile">
-		<br />
-		{#each UPGRADES as upgrade (upgrade.key)}
-			{@const level = player[upgrade.key]}
-			{@const price = upgradePrice(upgrade.key, level)}
-			<div id={upgrade.id} class="shopObject card" data-price="0" data-level="0">
-				<img src={upgrade.image} width="75" height="75" alt="" />
-				<h3>{upgrade.title}</h3>
-				<!-- svelte-ignore a11y_missing_attribute -->
-				<a class="{upgrade.key} levelIndicator" data-level={level}>Nivå: </a>
-				<br />
-				<!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
-				<a class="pricetag" data-price={price}></a>
-				<br />
-				<br />
-				<button
-					class="button-1 shopButton upgrade"
-					class:disabled={!(player.money >= price && level < upgrade.max)}
-					onclick={() => buyUpgrade(upgrade)}>Oppgrader</button
-				>
-				{@render hover(upgrade.help)}
-			</div>
-		{/each}
-		<div id="shinyBaitShop" class="shopObject card">
-			<img src="images/stardust.png" width="75" height="75" alt="" />
-			<h3>Stardust</h3>
-			<!-- svelte-ignore a11y_missing_attribute -->
-			<a class="shinyBaitStock">Du Har: {player.shinyBaitCount}</a>
-			<br />
-			<!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
-			<a class="pricetag shinyBaitPrice" data-price={baitPrice.toLocaleString('no-NO')}></a>
-			<br />
-			<br />
-			<button class="button-1 shopButton" class:disabled={player.money < baitPrice} onclick={buyStardust} style="min-width:88px"
-				>Kjøp</button
-			>
-			{@render hover('Den neste pokemonen du fanger vil garantert være shiny! Hvert kjøp gjelder bare for 1 fangst. Du kan kjøpe flere av denne.')}
-		</div>
+	<div class="remove-row">
+		<button class="pm-button small secondary use centerposition" onclick={removeBackground}>Fjern bakgrunn</button>
 	</div>
 
 	<div class="icon-shop">
 		<div class="icon-shop-header">
-			<h2 class="icon-shop-title">Figurer</h2>
-			<a href="/player_profile.html" class="button-1" style="text-decoration:none;">Min profil</a>
+			<h2 class="pm-section-title icon-shop-title">Figurer</h2>
+			<a href="/player_profile.html" class="pm-button small secondary">Min profil</a>
 		</div>
 
-		<div class="icon-shop-box">
-			{#each iconSections as section (section.gridId)}
-				{@const hidden = section.gridId === 'exclusiveIconGrid' && section.items.length === 0}
-				<div class="icon-section" id={section.id || null} style:display={hidden ? 'none' : null}>
-						<h3>
-							{section.title}
-							{#if section.note}<small class="week-note">{section.note}</small>{/if}
-						</h3>
-						<div class="icon-grid" id={section.gridId}>
-							{#each section.items as item (item.id)}
-								{@const owned = player.boughtPlayerIcons.includes(item.id)}
-								<!-- Free icons have no price tag, which the legacy shop treated as always usable. -->
-								{@const hasPrice = item.price !== 0}
-								<div class="icon-card" id={item.id}>
-									<img src={item.img} class="icon-card-img" alt={item.name} loading="lazy" />
-									<div class="icon-card-name">{item.name}</div>
-									{#if hasPrice}
-										<!-- svelte-ignore a11y_missing_attribute, a11y_consider_explicit_label -->
-										<a class="pricetag" data-price={item.price}>{item.price.toLocaleString('no-NO')}</a>
-									{/if}
-									<div class="icon-card-actions">
-										{#if hasPrice}
-											<button
-												class="button-1 buy"
-												class:disabled={owned || item.price === -1 || item.price > player.money}
-												onclick={() => buyIcon(item)}>Kjøp</button
-											>
-										{/if}
-										<button
-											class="button-1 use"
-											class:disabled={!(owned || !hasPrice || item.price === -1)}
-											onclick={() => useIcon(item)}>Bruk</button
-										>
-									</div>
-								</div>
-							{/each}
+		{#each iconSections as section (section.gridId)}
+			{@const hidden = section.gridId === 'exclusiveIconGrid' && section.items.length === 0}
+			<div class="icon-section" id={section.id || null} style:display={hidden ? 'none' : null}>
+				<h3 class="sub-title">
+					{section.title}
+					{#if section.note}<small class="week-note">{section.note}</small>{/if}
+				</h3>
+				<div class="icon-grid" id={section.gridId}>
+					{#each section.items as item (item.id)}
+						{@const owned = player.boughtPlayerIcons.includes(item.id)}
+						<!-- Free icons have no price tag, which the legacy shop treated as always usable. -->
+						{@const hasPrice = item.price !== 0}
+						<div class="icon-card pm-surface" class:in-use={item.id === player.playerIcon} id={item.id}>
+							<img src={item.img} class="icon-card-img" alt="" loading="lazy" />
+							<div class="icon-card-name">{item.name}</div>
+							{#if hasPrice && !owned && item.price !== -1}
+								<span class="pricetag pm-price" data-price={item.price}>{item.price.toLocaleString('no-NO')}</span>
+							{:else}
+								<span class="owned">{item.id === player.playerIcon ? 'I bruk' : owned || !hasPrice ? 'Din' : ''}</span>
+							{/if}
+							<div class="icon-card-actions">
+								{#if hasPrice}
+									<button
+										class="pm-button small green buy"
+										class:disabled={owned || item.price === -1 || item.price > player.money}
+										onclick={() => buyIcon(item)}>Kjøp</button
+									>
+								{/if}
+								<button
+									class="pm-button small secondary use"
+									class:disabled={!(owned || !hasPrice || item.price === -1)}
+									onclick={() => useIcon(item)}>Bruk</button
+								>
+							</div>
 						</div>
-					</div>
-			{/each}
-		</div>
+					{/each}
+				</div>
+			</div>
+		{/each}
 	</div>
-
-	<div style="height:60px"></div>
 </div>
 
 <style>
-	.hovertext:focus::before {
-		opacity: 1;
-		visibility: visible;
+	.upgrades {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 14px;
+	}
+	.item {
+		display: grid;
+		grid-template-columns: 64px 1fr;
+		grid-template-areas: 'img title' 'img help' 'level level' 'buy buy';
+		column-gap: 14px;
+		row-gap: 4px;
+		padding: 16px;
+	}
+	.item img {
+		grid-area: img;
+		width: 64px;
+		height: 64px;
+		object-fit: contain;
+	}
+	.item h3 {
+		grid-area: title;
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 22px;
+	}
+	.help {
+		grid-area: help;
+		margin: 0;
+		color: var(--pm-ink-soft);
+		font-size: 15px;
+		line-height: 1.35;
+	}
+	.level {
+		grid-area: level;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: 10px;
+		font-size: 14px;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+	.level-bar {
+		flex: 1;
+		height: 8px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 0 0 1px var(--pm-line);
+	}
+	.level-bar span {
+		display: block;
+		min-width: 4px;
+		height: 100%;
+		border-radius: 999px;
+		background: var(--pm-gold);
+	}
+	.buy-row {
+		grid-area: buy;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		margin-top: 12px;
+	}
+	.maxed,
+	.owned {
+		color: var(--pm-green-deep);
+		font-family: var(--pm-display);
+		font-size: 18px;
 	}
 
-	@media (max-width: 720px) {
-		/* Tall enough for the name, price and buttons, which spilled over the next button before. */
-		.carousel {
-			width: calc(100vw - 112px);
-			height: max(56vw, 230px);
-		}
-		.shopButtons {
-			padding: 12px;
-		}
+	/* Backgrounds: one big preview at a time, with round arrows on each side. */
+	.carousel-wrap {
+		position: relative;
+	}
+	.carousel {
+		overflow: hidden;
+		border-radius: var(--pm-radius);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.carousel-track {
+		display: flex;
+		transition: transform 300ms cubic-bezier(0.25, 1, 0.5, 1);
+	}
+	.carousel-cell {
+		position: relative;
+		flex: 0 0 100%;
+		aspect-ratio: 16 / 7;
+		min-height: 220px;
+		background-size: cover;
+		background-position: center;
+	}
+	.carousel-caption {
+		position: absolute;
+		left: 12px;
+		right: 12px;
+		bottom: 12px;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 14px;
+		padding: 10px 14px;
+		border-radius: 14px;
+		background: oklch(0.995 0.004 85 / 0.92);
+		box-shadow: var(--pm-shadow);
+	}
+	.carousel-caption h3 {
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 20px;
+	}
+	.caption-buttons {
+		display: flex;
+		gap: 8px;
+		margin-left: auto;
+	}
+	.carousel-btn {
+		position: absolute;
+		top: 50%;
+		z-index: 2;
+		width: 48px;
+		height: 48px;
+		margin-top: -24px;
+		border: none;
+		border-radius: 50%;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		color: var(--pm-ink);
+		font-size: 30px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.carousel-btn.prev {
+		left: -12px;
+	}
+	.carousel-btn.next {
+		right: -12px;
+	}
+	.remove-row {
+		margin-top: 14px;
+		text-align: center;
 	}
 
+	/* Player icons */
+	.icon-shop-header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+	}
+	.sub-title {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		margin: 18px 0 10px;
+		font-size: 18px;
+	}
+	.sub-title small {
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+		font-weight: 400;
+	}
+	.icon-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 12px;
+	}
+	.icon-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 6px;
+		padding: 12px 10px;
+		text-align: center;
+	}
+	.icon-card.in-use {
+		box-shadow: var(--pm-shadow), 0 0 0 3px var(--pm-green);
+	}
+	.icon-card-img {
+		width: 100%;
+		max-width: 120px;
+		aspect-ratio: 1;
+		object-fit: contain;
+		border-radius: 12px;
+		background: var(--pm-cream);
+	}
+	.icon-card-name {
+		font-family: var(--pm-display);
+		font-size: 18px;
+	}
+	.icon-card .owned {
+		min-height: 22px;
+		font-size: 16px;
+	}
+	.icon-card-actions {
+		display: flex;
+		gap: 6px;
+		margin-top: auto;
+	}
+
+	@media (max-width: 480px) {
+		.upgrades {
+			grid-template-columns: 1fr;
+		}
+		.carousel-cell {
+			aspect-ratio: auto;
+			min-height: 260px;
+		}
+		.carousel-btn {
+			top: 70px;
+		}
+		.carousel-btn.prev {
+			left: 6px;
+		}
+		.carousel-btn.next {
+			right: 6px;
+		}
+		.caption-buttons {
+			width: 100%;
+			margin-left: 0;
+		}
+		.caption-buttons .pm-button {
+			flex: 1;
+		}
+		.icon-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
 	@media (pointer: coarse) {
-		.icon-card-actions .button-1 {
+		.pm-button.small {
 			min-height: 44px;
 		}
 	}
