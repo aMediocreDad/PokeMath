@@ -1,7 +1,8 @@
 // Player icons and backgrounds, with their shop prices, copied from static/shop.html.
 // Prices: 0 is free, -1 is exclusive (only from codes and prizes).
 
-const W = 'images/playericons/unconverted/';
+// The site moved these out of unconverted/; the live shop.html reads them from playericons/.
+const W = 'images/playericons/';
 const P = 'images/playericons/';
 
 /** @typedef {{ id: string, name: string, price: string }} BackgroundItem  price as shown, e.g. "25 000" */

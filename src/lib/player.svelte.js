@@ -79,7 +79,8 @@ class Player {
 
 	playerImage = $derived(
 		this.playerIcon
-			? this.playerIconImg || `/images/playericons/${this.playerIcon}.png`
+			? // Icons bought before the site moved them out of unconverted/ still have the old path saved.
+				this.playerIconImg.replace('/playericons/unconverted/', '/playericons/') || `/images/playericons/${this.playerIcon}.png`
 			: '/images/player.png'
 	);
 
