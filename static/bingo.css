@@ -124,16 +124,224 @@ td img {
 
 /* ── Host layout (bingo_host.html) ────────────────────────────────────────── */
 
-/* 3-column grid: players | board | log */
-.host-grid {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 280px;
-  gap: 14px;
-  align-items: start;
+html:has(.bingo-host-page) { height: 100%; overflow: hidden; }
+
+.bingo-host-page {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 1440px;
+  height: 100vh;
+  overflow: hidden;
+  background: #f0f0f0;
+  box-sizing: border-box;
+}
+
+/* ── Topbar ── */
+.host-topbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+  background: #fff;
+  border-bottom: 1.5px solid rgba(204,26,26,0.13);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: height 0.22s ease, padding 0.22s ease, opacity 0.22s ease;
+  height: 70px;
+  box-sizing: border-box;
+}
+.host-topbar.topbar-collapsed {
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-start;
+}
+.topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  white-space: nowrap;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.topbar-size-control {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.topbar-size-label {
+  font-size: 0.68em;
+  color: #999;
+  user-select: none;
+  white-space: nowrap;
+}
+.topbar-size-slider {
+  width: 90px;
+  accent-color: #cc1a1a;
+  cursor: pointer;
+}
+
+.topbar-logo-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar-logo {
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+.topbar-logo-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.topbar-logo-info .pokebingo-header { font-size: 1em; }
+.topbar-logo-info .host-difficulty-label { font-size: 0.72em; margin: 0; }
+
+.topbar-code-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.topbar-code-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.host-code-value {
+  font-size: 1.5em;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: #cc1a1a;
+  font-family: 'Courier New', monospace;
+  line-height: 1;
+}
+
+/* ── Topbar strip (always visible, toggle topbar) ── */
+.topbar-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 13px;
+  background: rgba(204,26,26,0.05);
+  border-bottom: 1px solid rgba(204,26,26,0.09);
+  flex-shrink: 0;
+}
+.topbar-strip-btn {
+  background: none;
+  border: none;
+  font-size: 9px;
+  color: rgba(204,26,26,0.6);
+  cursor: pointer;
+  padding: 0 20px;
+  line-height: 13px;
+  width: 100%;
+  text-align: center;
+}
+.topbar-strip-btn:hover { color: #cc1a1a; background: rgba(204,26,26,0.06); }
+
+/* ── 3-column grid ── */
+.host-grid {
+  --col-left: 190px;
+  --col-right: 210px;
+  display: grid;
+  grid-template-columns: var(--col-left) minmax(0, 1fr) var(--col-right);
+  grid-template-rows: 1fr;
+  transition: grid-template-columns 0.25s ease;
+  gap: 8px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  padding: 8px 10px;
+  box-sizing: border-box;
   font-family: 'Source Sans Pro', 'Segoe UI', sans-serif;
 }
+
+/* ── Center column ── */
+.host-center {
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Panel collapse ── */
+.host-panel { position: relative; transition: opacity 0.22s; }
+
+.panel-header-label { flex: 1; }
+
+.panel-sort-bar {
+  display: flex;
+  gap: 4px;
+  padding: 5px 7px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  flex-shrink: 0;
+}
+
+.panel-toggle-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 1em;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.panel-toggle-btn:hover { color: #fff; }
+
+/* Expand tab (shown only when collapsed) */
+.panel-expand-tab {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 12px;
+}
+.panel-expand-btn {
+  background: none;
+  border: none;
+  color: #cc1a1a;
+  font-size: 1.3em;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px;
+}
+.panel-expand-btn:hover { color: #aa1414; }
+
+/* Collapsed state */
+.host-panel.panel-collapsed { opacity: 1; }
+.host-panel.panel-collapsed .panel-header,
+.host-panel.panel-collapsed .panel-sort-bar,
+.host-panel.panel-collapsed #players,
+.host-panel.panel-collapsed #events { display: none; }
+.host-panel.panel-collapsed .panel-expand-tab { display: flex; }
 
 /* Shared side panels */
 .host-panel {
@@ -200,8 +408,8 @@ td img {
 .player-dot.disconnected { background: #bbb; }
 
 .player-icon {
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   image-rendering: pixelated;
   flex-shrink: 0;
@@ -230,7 +438,11 @@ td img {
 }
 .log-entry.log-match {
   border-left-color: #2cbb63;
-  background: rgba(44,187,99,0.05);
+  background: rgba(44,187,99,0.08);
+}
+.log-entry.log-match-repeat {
+  border-left-color: #6aabff;
+  background: rgba(100,160,255,0.06);
 }
 .log-entry .log-time { color: #999; font-size: 0.9em; }
 .log-entry .log-match-pill {
@@ -244,28 +456,7 @@ td img {
   margin-left: 4px;
 }
 
-/* ── Center column ── */
-.host-center {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* ── Header ── */
-.host-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: #fff;
-  border: 1.5px solid rgba(204,26,26,0.13);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  padding: 12px 16px;
-}
-
+/* ── PokeBingo header text ── */
 .pokebingo-header {
   margin: 0;
   font-family: 'Source Sans Pro', sans-serif;
@@ -280,44 +471,6 @@ td img {
   padding: 0;
   text-shadow: none;
 }
-
-.host-code-box { text-align: right; }
-.host-code-label {
-  font-size: 0.75em;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #999;
-}
-.host-code-value {
-  font-size: 2em;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: #cc1a1a;
-  font-family: 'Courier New', monospace;
-  line-height: 1.1;
-}
-.host-code-hint {
-  font-size: 0.75em;
-  color: #aaa;
-  margin-top: 2px;
-}
-
-/* ── Controls bar ── */
-.host-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  background: #fff;
-  border: 1.5px solid rgba(204,26,26,0.13);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  padding: 10px 14px;
-}
-
-.host-controls-left { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .host-btn {
   padding: 7px 16px;
@@ -363,11 +516,11 @@ td img {
 
 /* ── Bingo board ── */
 #bingoCard {
-  width: 100%;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 6px;
   margin: 0;
+  width: 100%;
   background: #fff;
   border: 1.5px solid rgba(204,26,26,0.13);
   border-radius: 12px;
@@ -377,9 +530,11 @@ td img {
 
 #bingoCard td {
   position: relative;
+  box-sizing: border-box;
   width: auto;
-  height: 120px;
-  padding: 8px;
+  height: var(--cell-size, 120px);
+  overflow: hidden;
+  padding: calc(max(2px, var(--cell-size, 120px) * 0.04));
   text-align: center;
   vertical-align: middle;
   background: #fafafa;
@@ -387,7 +542,7 @@ td img {
   border-radius: 10px;
   cursor: pointer;
   font-family: 'Source Sans Pro', sans-serif;
-  font-size: 0.82em;
+  font-size: calc(max(9px, var(--cell-size, 80px) * 0.13));
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
@@ -412,27 +567,78 @@ td img {
   border-color: #cc1a1a;
 }
 
-#bingoCard td img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto 3px;
+/* ── Cell background image + overlay layout ── */
+#bingoCard td .cell-bg {
+  position: absolute;
+  inset: 4px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.28;
+  z-index: 0;
+  transition: opacity 0.22s ease;
+}
+#bingoCard td.toggled .cell-bg { opacity: 0.28; filter: brightness(5) saturate(0); }
+
+#bingoCard td .cell-overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 2px;
 }
 
-.task-description { font-size: 0.85em; opacity: 0.75; }
+.cell-name {
+  font-size: calc(max(9px, var(--cell-size, 80px) * 0.185));
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  background: rgba(255,255,255,0.52);
+  padding: 1px 4px;
+  border-radius: 4px;
+  max-width: 100%;
+  word-break: break-word;
+}
+#bingoCard td.toggled .cell-name { background: rgba(0,0,0,0.18); color: #fff; }
+
+.task-description {
+  font-size: calc(max(8px, var(--cell-size, 80px) * 0.11));
+  opacity: 0.8;
+  text-align: center;
+  background: rgba(255,255,255,0.42);
+  padding: 0 3px;
+  border-radius: 3px;
+  max-width: 100%;
+  word-break: break-word;
+}
+#bingoCard td.toggled .task-description { background: rgba(0,0,0,0.15); color: #fff; }
+
+/* ── Letter task ── */
+.cell-letter {
+  font-size: calc(min(2.4em, var(--cell-size, 120px) * 0.42px));
+  font-weight: 900;
+  color: #cc1a1a;
+  line-height: 1;
+  display: block;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+#bingoCard td.toggled .cell-letter { color: #fff; }
 
 /* ── Hit badge ── */
 .hit-badge {
   position: absolute;
-  top: 5px;
-  left: 5px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
+  top: 3px;
+  left: 3px;
+  min-width: calc(max(13px, min(18px, var(--cell-size, 80px) * 0.20)));
+  height: calc(max(13px, min(18px, var(--cell-size, 80px) * 0.20)));
+  padding: 0 3px;
   border-radius: 999px;
   font-weight: 800;
-  font-size: 11px;
+  font-size: calc(max(8px, min(10px, var(--cell-size, 80px) * 0.11)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -464,6 +670,49 @@ td img {
   color: #fff;
   text-shadow: 0 2px 6px rgba(0,0,0,0.25);
   margin: 4px 0;
+}
+
+/* ── Large-board: hide description, keep image + name ── */
+#bingoCard.board-tiny .task-description { display: none; }
+
+/* ── Cell hover tooltip ── */
+#cell-tooltip {
+  position: fixed;
+  bottom: 18px;
+  left: 18px;
+  background: #fff;
+  border: 1.5px solid rgba(204,26,26,0.18);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  z-index: 9500;
+  max-width: 220px;
+  pointer-events: none;
+  text-align: center;
+  animation: tooltipIn 0.12s ease;
+}
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tooltip-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto 8px;
+}
+.tooltip-name {
+  font-weight: 700;
+  font-size: 0.95em;
+  color: #222;
+  margin-bottom: 4px;
+}
+.tooltip-desc {
+  font-size: 0.8em;
+  color: #777;
+  line-height: 1.4;
 }
 
 /* ── Toast ── */
@@ -511,5 +760,5 @@ td img {
 }
 
 @media (max-width: 900px) {
-  #bingoCard td { height: 90px; }
+  .host-grid { grid-template-columns: 1fr; }
 }

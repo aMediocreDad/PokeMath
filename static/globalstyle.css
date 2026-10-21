@@ -73,16 +73,105 @@ a.playerbtn #playertext {
   object-position: top;
 }
 
-@media (max-width: 720px) {
- .topbar-icontext-left {
-     display: none;
+/* ── 421px–720px: icon + label column layout ── */
+@media (min-width: 421px) and (max-width: 720px) {
+  .topbar {
+    display: flex !important;
+    height: 62px !important;
+    align-items: center !important;
   }
-  #playerimage {
-    display: none;
- }
- a.playerbtn {
-    display: none;
- }
+  /* Reset all float/position hacks */
+  .topbar a, .topbar-icon-left {
+    float: none !important;
+    position: static !important;
+    top: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2px 8px !important;
+    gap: 2px;
+  }
+  /* Show text labels below icons */
+  .topbar-icontext-left {
+    display: block !important;
+    position: static !important;
+    top: 0 !important;
+    font-size: 10px !important;
+    color: #f2f2f2 !important;
+    padding: 0 !important;
+  }
+  /* Player icon + truncated username */
+  a.playerbtn {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    padding: 2px 8px !important;
+  }
+  #playerimage { display: block !important; width: 28px !important; height: 28px !important; }
+  #playertext {
+    display: block !important;
+    position: static !important;
+    top: 0 !important;
+    font-size: 10px !important;
+    max-width: 70px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    padding: 0 !important;
+  }
+  /* Smaller icons */
+  #money img, #caught img, #badges img, #gearimage {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  .dropdown { float: none !important; margin-left: auto !important; }
+  .dropdown .dropbtn { height: 62px !important; }
+  .main { margin-top: 62px !important; }
+}
+
+/* ── Compact single-row topbar on small screens ── */
+@media (max-width: 420px) {
+  .topbar {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    height: 50px !important;
+    align-items: center !important;
+  }
+  /* Reset desktop positioning hacks */
+  .topbar a, .topbar-icon-left {
+    height: auto !important;
+    padding: 0 4px !important;
+    position: static !important;
+    top: 0 !important;
+    float: none !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  /* Scale down icons */
+  #money img, #caught img, #badges img, #gearimage {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  /* Show player icon (no username text) */
+  #playercard { display: flex !important; align-items: center !important; }
+  a.playerbtn { display: flex !important; height: auto !important; padding: 0 4px !important; }
+  #playerimage { display: block !important; width: 28px !important; height: 28px !important; }
+  #playertext  { display: none !important; }
+  /* Show coin count inline, hide dex count */
+  .topbar-icontext-left { display: none !important; }
+  #cointext {
+    display: block !important;
+    position: static !important;
+    top: 0 !important;
+    font-size: 10px !important;
+    color: #f2f2f2 !important;
+    padding: 0 2px !important;
+    min-width: 20px !important;
+  }
+  /* Push gear to the right */
+  .dropdown { float: none !important; margin-left: auto !important; }
 }
 
 
@@ -653,31 +742,47 @@ a.tag:hover {
   display: none;
   position: absolute;
   right: 0;
-  width: 160px;
   left: auto;
-  float: right;
-  padding-right: 0px;
-  min-width: 160px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
-  z-index: 1;
+  width: 200px;
+  min-width: 200px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.35);
+  z-index: 10000;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
 }
 
 /* Links inside the dropdown */
 .dropdown-content a {
-  background-color: #333;
+  background-color: #2a2a2a;
   color: #f2f2f2;
-  padding: 8px;
+  padding: 10px 16px;
   text-decoration: none;
   height: fit-content;
   display: block;
   text-align: left;
-  font-size: 16;
-  margin-top: auto;
+  font-size: 15px;
+  transition: background-color 0.15s;
 }
 
-/* Add a grey background color to dropdown links on hover */
 .dropdown-content a:hover {
-  background-color: #ddd;
+  background-color: #444;
+  color: #fff;
+}
+
+.dropdown-danger {
+  color: #ff7070 !important;
+}
+.dropdown-danger:hover {
+  background-color: #5a1a1a !important;
+  color: #ffaaaa !important;
+}
+
+.dropdown-divider {
+  all: unset;
+  display: block;
+  height: 1px;
+  background-color: #555;
+  margin: 4px 0;
 }
 
 /* Show the dropdown menu on hover */

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>PokeMath Bingo – Innstillinger</title>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="stylesheet" href="/lærer/bingo_settings.css?v=1">
+  <link rel="stylesheet" href="/lærer/bingo_settings.css?v=108">
 </head>
 <body>
   <main class="page">
@@ -54,6 +54,25 @@
         </label>
 
         <label class="field">
+          <span>Minimum arbeidsnivå</span>
+          <select id="minLevel">
+            <option value="alle" selected>Alle nivåer godkjent</option>
+            <option value="stage1">Nivå 1 eller høyere</option>
+            <option value="stage2">Nivå 2 eller høyere</option>
+            <option value="stage3">Nivå 3 eller høyere</option>
+            <option value="stage4">Nivå 4 eller høyere</option>
+            <option value="stage5">Kun nivå 5</option>
+            <option value="tilpasset">Bare tilpasset nivå</option>
+          </select>
+          <small>Pokémon fanget på lavere nivå vises i loggen, men teller ikke på brettet.</small>
+        </label>
+
+        <label class="field" id="allowAdaptiveRow" style="display:none;flex-direction:row;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="allowAdaptive">
+          <span>Tillat tilpasset nivå <small style="font-weight:400;">(elever som bruker «Tilpasset Nivå» får også godkjent sine fangster)</small></span>
+        </label>
+
+        <label class="field">
           <span>Klasse-navn (valgfritt)</span>
           <input id="className" type="text" maxlength="40" placeholder="F.eks. 7A">
           <small>Kun for visning (ikke sensitiv info).</small>
@@ -72,6 +91,6 @@
     </section>
   </main>
 
-  <script src="/lærer/bingo_settings.js?v=1"></script>
+  <script src="/lærer/bingo_settings.js?v=108"></script>
 </body>
 </html>

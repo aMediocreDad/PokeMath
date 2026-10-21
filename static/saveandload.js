@@ -153,13 +153,21 @@ function handleFileSelect(event) {
             const jsonData = atob(base64Data);
             const localStorageData = JSON.parse(jsonData);
 
+            // Most-pokemon wins: never overwrite with a save that has fewer pokemon
+            const incomingCount = (localStorageData.pokemonlist || '').split('|').filter(p => p.trim()).length;
+            const currentCount  = (localStorage.getItem('pokemonlist') || '').split('|').filter(p => p.trim()).length;
+            if (incomingCount < currentCount) {
+                alert(`Filen har ${incomingCount} Pokémon, men du har allerede ${currentCount} her. Ingen data ble overskrevet – du beholder versjonen med flest Pokémon.`);
+                return;
+            }
+
             // Restore LocalStorage fields
             for (const [key, value] of Object.entries(localStorageData)) {
                 localStorage.setItem(key, value);
             }
 
             loadAll();
-            triggerAchievementOverlay("images/up-arrow.png", 
+            triggerAchievementOverlay("images/up-arrow.png",
                 "Dataen har blitt lastet inn! Bruker: " + state.username + " med " + state.pkmnCaught + " Pokémon");
             //alert("LocalStorage restored successfully!");
         } catch (jsonError) {

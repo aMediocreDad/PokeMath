@@ -39,10 +39,41 @@ const tasks = [
     { id: 20017, name: "Plante", image: null, text: null, textClass: null, description: "Fang en plantepokemon", difficulty: "medium" },
     { id: 20018, name: "Katt", image: null, text: "🐱", textClass: null, description: "Fang en kattepokemon", difficulty: "medium" },
     { id: 20019, name: "Mus", image: null, text: "🐭", textClass: null, description: "Fang en mus- eller rottepokemon", difficulty: "medium" },
-    { id: 20020, name: "Eeveelution", image: "images/pokemon/normal/133.png", text: null, textClass: null, description: "Fang en Eevee eller en av dens evolusjoner", difficulty: "medium" },
+    { id: 20020, name: "Eeveelution", image: "images/pokemon/normal/133.webp", text: null, textClass: null, description: "Fang en Eevee eller en av dens evolusjoner", difficulty: "medium" },
     { id: 20021, name: "Alien", image: null, text: "👽", textClass: null, description: "Fang en pokemon fra en annen dimensjon (kosmisk eller Ultra Beast)", difficulty: "medium" },
     { id: 20022, name: "Maskin", image: null, text: "⚙️", textClass: null, description: "Fang en maskin-pokemon (robot, pokéball eller mekanisk)", difficulty: "medium" },
     { id: 20023, name: "Gårdsdyr", image: null, text: "🐄", textClass: null, description: "Fang en pokemon basert på et gårdsdyr (ku, sau, hest, osv.)", difficulty: "medium" },
+    // Letter tasks — difficulty based on how many Pokémon start with that letter
+    // easy: C(86) S(83) G(66) D(61) B(55) M(54) P(50)
+    { id: 60003, name: "Starter på C", image: null, text: "C", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven C", difficulty: "easy" },
+    { id: 60019, name: "Starter på S", image: null, text: "S", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven S", difficulty: "easy" },
+    { id: 60007, name: "Starter på G", image: null, text: "G", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven G", difficulty: "easy" },
+    { id: 60004, name: "Starter på D", image: null, text: "D", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven D", difficulty: "easy" },
+    { id: 60002, name: "Starter på B", image: null, text: "B", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven B", difficulty: "easy" },
+    { id: 60013, name: "Starter på M", image: null, text: "M", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven M", difficulty: "easy" },
+    { id: 60016, name: "Starter på P", image: null, text: "P", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven P", difficulty: "easy" },
+    // medium: A(45) T(45) F(40) L(38) R(35) H(34) E(26) K(25)
+    { id: 60001, name: "Starter på A", image: null, text: "A", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven A", difficulty: "medium" },
+    { id: 60020, name: "Starter på T", image: null, text: "T", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven T", difficulty: "medium" },
+    { id: 60006, name: "Starter på F", image: null, text: "F", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven F", difficulty: "medium" },
+    { id: 60012, name: "Starter på L", image: null, text: "L", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven L", difficulty: "medium" },
+    { id: 60018, name: "Starter på R", image: null, text: "R", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven R", difficulty: "medium" },
+    { id: 60008, name: "Starter på H", image: null, text: "H", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven H", difficulty: "medium" },
+    { id: 60005, name: "Starter på E", image: null, text: "E", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven E", difficulty: "medium" },
+    { id: 60011, name: "Starter på K", image: null, text: "K", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven K", difficulty: "medium" },
+    // hard: V(24) W(20) N(19) I(19) O(14) Z(13)
+    { id: 60022, name: "Starter på V", image: null, text: "V", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven V", difficulty: "hard" },
+    { id: 60023, name: "Starter på W", image: null, text: "W", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven W", difficulty: "hard" },
+    { id: 60014, name: "Starter på N", image: null, text: "N", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven N", difficulty: "hard" },
+    { id: 60009, name: "Starter på I", image: null, text: "I", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven I", difficulty: "hard" },
+    { id: 60015, name: "Starter på O", image: null, text: "O", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven O", difficulty: "hard" },
+    { id: 60026, name: "Starter på Z", image: null, text: "Z", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven Z", difficulty: "hard" },
+    // extreme: Y(4) X(3) Q(7) J(7) U(7)
+    { id: 60025, name: "Starter på Y", image: null, text: "Y", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven Y", difficulty: "extreme" },
+    { id: 60024, name: "Starter på X", image: null, text: "X", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven X", difficulty: "extreme" },
+    { id: 60017, name: "Starter på Q", image: null, text: "Q", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven Q", difficulty: "extreme" },
+    { id: 60010, name: "Starter på J", image: null, text: "J", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven J", difficulty: "extreme" },
+    { id: 60021, name: "Starter på U", image: null, text: "U", textClass: "letter-task", description: "Fang en pokemon som starter på bokstaven U", difficulty: "extreme" },
     // ...
     { id: 30001, name: "Shiny", image: "images/shinycharm.png", text: null, textClass: null, description: "Fang en Shiny pokemon", difficulty: "hard" },
     { id: 30002, name: "Legendary", image: "images/lure_legend.svg", text: null, textClass: null, description: "Fang en legendarisk pokemon", difficulty: "hard" },
@@ -55,7 +86,7 @@ function generateRandomNumberTask() {
     return {
         id: 50000 + randomNumber,
         name: `Pokédex #${randomNumber}`,
-        image: `images/pokemon/normal/${randomNumber}.png`,
+        image: `images/pokemon/normal/${randomNumber}.webp`,
         description: `Få pokemonen med Pokédex ID #${randomNumber}`,
         difficulty: "hard" // you can set the difficulty as per your choice
     };
@@ -156,6 +187,13 @@ function attachRulesToTasks(tasksArr) {
       if (t.id === 20022){ t.rule = { kind: "category", category: "machine" }; continue; }
       if (t.id === 20023){ t.rule = { kind: "category", category: "farm" }; continue; }
   
+      // Letter tasks (60001–60026)
+      if (t.id >= 60001 && t.id <= 60026) {
+        const letter = (t.text || "").toUpperCase();
+        if (letter) { t.rule = { kind: "nameStartsWith", letter }; }
+        continue;
+      }
+
       // Shiny / Legendary / Mythic
       if (t.id === 30001){ t.rule = { kind: "flag", flag: "shiny" }; continue; }
       if (t.id === 30002){ t.rule = { kind: "flag", flag: "legendary" }; continue; }
@@ -199,7 +237,7 @@ function attachRulesToTasks(tasksArr) {
     return [...used].map(id => ({
       id: 50000 + id,
       name: `#${id}`,
-      image: `images/pokemon/normal/${id}.png`,
+      image: `images/pokemon/normal/${id}.webp`,
       text: null, textClass: null,
       description: `Fang pokémon #${id}`,
       difficulty: "unik",

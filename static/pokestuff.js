@@ -10,22 +10,52 @@ let pkmnInfoData = null;
 let legendaries = [];
 let mythics = [];
 let specialforms = [];
+let validDexNums = []; // dex numbers with valid base images
+let totalEnabledBase = 0; // enabled base ('0') forms, before image filtering
+let totalEnabledAlt  = 0; // enabled non-base forms, before image filtering
 
-fetch('pokemon_info.json')
-  .then(r => r.json())
-  .then(data => {
-    pkmnInfoData = data;
-    for (const [dex, variants] of Object.entries(data)) {
-      const base = variants['0'];
-      if (!base) continue;
-      const dexNum = parseInt(dex);
-      if (base.is_legendary) legendaries.push(dexNum);
-      if (base.is_mythical) mythics.push(dexNum);
-      const hasNumericVariants = Object.keys(variants).some(k => /^\d+$/.test(k) && k !== '0');
-      if (hasNumericVariants) specialforms.push(dexNum);
+Promise.all([
+  fetch('pokemon_info.json').then(r => r.json()),
+  fetch('/valid_images.json').then(r => r.json()).catch(() => null)
+]).then(([data, validIds]) => {
+  // Count enabled forms before any filtering so profile bars have an accurate total
+  for (const variants of Object.values(data)) {
+    for (const [key, v] of Object.entries(variants)) {
+      if (!v.enabled) continue;
+      if (key === '0') totalEnabledBase++;
+      else             totalEnabledAlt++;
     }
-    document.dispatchEvent(new Event('pokemonInfoLoaded'));
-  });
+  }
+
+  const validSet = (validIds && validIds.length > 0) ? new Set(validIds) : null;
+
+  if (validSet) {
+    for (const dex of Object.keys(data)) {
+      const dexNum = parseInt(dex);
+      const variants = data[dex];
+      for (const key of Object.keys(variants)) {
+        const v = variants[key];
+        const imgId = (typeof v.imageid === 'number') ? v.imageid : dexNum;
+        if (!validSet.has(imgId)) delete variants[key];
+      }
+      if (!variants['0']) delete data[dex];
+    }
+  }
+
+  pkmnInfoData = data;
+  for (const [dex, variants] of Object.entries(data)) {
+    const base = variants['0'];
+    if (!base) continue;
+    const dexNum = parseInt(dex);
+    if (!dexNum) continue; // skip ID 0 (MissingNo) — only obtainable via codes
+    validDexNums.push(dexNum);
+    if (base.is_legendary) legendaries.push(dexNum);
+    if (base.is_mythical) mythics.push(dexNum);
+    const hasNumericVariants = Object.keys(variants).some(k => /^\d+$/.test(k) && k !== '0');
+    if (hasNumericVariants) specialforms.push(dexNum);
+  }
+  document.dispatchEvent(new Event('pokemonInfoLoaded'));
+});
 
 function getCurrentSeason() {
   const month = new Date().getMonth() + 1;
@@ -123,11 +153,10 @@ function canCaptureMythic() {
  * @returns 
  */
 function createRandomPokemon(){
-  let randomPokemon = Math.floor(Math.random() * (pkmnNum + (specialbonus + Number(mathValues.stage))))+1
-  if(randomPokemon > pkmnNum) {
-    //Get extra special roll
-    randomPokemon = specialforms[Math.floor(Math.random() * specialforms.length)]
-  }
+  const pool = validDexNums.length > 0 ? validDexNums : Array.from({length: pkmnNum}, (_, i) => i + 1);
+  const rollMax = pool.length + specialbonus + Number(mathValues.stage);
+  const roll = Math.floor(Math.random() * rollMax);
+  let randomPokemon = roll < pool.length ? pool[roll] : specialforms[Math.floor(Math.random() * specialforms.length)];
 
   if(legendaries.includes(randomPokemon)) {
     //Legendaries should be 5x more rare than any other pokemon. Let us see if they get to keep it, or we will reroll.
@@ -243,13 +272,46 @@ function addToPokedex(id) {
   const pkmncaught = document.getElementById("balltext")
   pkmncaught.textContent = state.pkmnCaught
   state.pkmnList.push(entry);
+  // Easter event: increment local counter and notify global API
+  if (window.easterEvent) {
+    const year = new Date().getFullYear();
+    if (parseInt(localStorage.getItem('easterYear') || '0') !== year) {
+      localStorage.setItem('easterYear', year);
+      localStorage.setItem('easterCaught', '0');
+      localStorage.setItem('easterClaimed', '[]');
+      localStorage.setItem('easterLocalTs', '{}');
+    }
+    const prev = parseInt(localStorage.getItem('easterCaught') || '0');
+    const next = prev + 1;
+    localStorage.setItem('easterCaught', next);
+    const seg = Math.floor(next / 50);
+    if (next % 50 === 0 && seg >= 1 && seg <= 10) {
+      try {
+        const ts = JSON.parse(localStorage.getItem('easterLocalTs') || '{}');
+        if (!ts[seg]) { ts[seg] = Date.now(); localStorage.setItem('easterLocalTs', JSON.stringify(ts)); }
+      } catch {}
+    }
+    try {
+      const uuid     = localStorage.getItem('UUID');
+      const token    = localStorage.getItem('token');
+      const username = localStorage.getItem('username') || null;
+      if (uuid && token) fetch('/api/easter/catch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uuid, token, username })
+      }).catch(() => {});
+    } catch {}
+  }
   if (typeof trackEvent === "function") trackEvent("/track-catch", {});
   loadFromList(entry,false,true,false);
   const bingoFn = window.bingoSendCatch || window.bingoReportCatch;
   if (typeof bingoFn === "function") {
     const params = new URLSearchParams(window.location.search);
     const stage = params.get("stage");
-    const difficulty = stage ? `stage${stage}` : (params.get("custom") ? "custom" : null);
+    const difficulty = params.get("adaptive") === "true" ? "tilpasset"
+      : stage ? `stage${stage}`
+      : params.get("custom") ? "custom"
+      : null;
 
     const raw = String(entry || "").replace(/^[NS]/i, "");
     const baseId = Number(raw.split("-")[0]);
@@ -291,32 +353,6 @@ function addSpecificToPokedex(entry) {
   const pkmncaught = document.getElementById("balltext")
   pkmncaught.textContent = state.pkmnCaught
   state.pkmnList.push(entry);
-  // Easter event: increment local counter and notify global API
-  if (window.easterEvent) {
-    const year = new Date().getFullYear();
-    if (parseInt(localStorage.getItem('easterYear') || '0') === year) {
-      const prev = parseInt(localStorage.getItem('easterCaught') || '0');
-      const next = prev + 1;
-      localStorage.setItem('easterCaught', next);
-      // Mark timestamp when a local segment is first reached
-      const seg = Math.floor(next / 50); // segment that just completed (1-indexed when next%50===0)
-      if (next % 50 === 0 && seg >= 1 && seg <= 10) {
-        try {
-          const ts = JSON.parse(localStorage.getItem('easterLocalTs') || '{}');
-          if (!ts[seg]) { ts[seg] = Date.now(); localStorage.setItem('easterLocalTs', JSON.stringify(ts)); }
-        } catch {}
-      }
-    }
-    // Global API (rate-limited server-side by UUID)
-    try {
-      const uuid = typeof getOrCreateUUID === 'function' ? getOrCreateUUID() : null;
-      if (uuid) fetch('/api/easter/catch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uuid })
-      }).catch(() => {});
-    } catch {}
-  }
   if (typeof trackEvent === "function") trackEvent("/track-catch", {});
   if(checkACookieExists("cookies")) {
     window.localStorage.setItem('pokemonlist',JSON.stringify(state.pkmnList.join('|')))
@@ -353,7 +389,7 @@ function _ensureBingoLootboxStyles() {
     ".blootbox-ball{width:110px;height:110px;border-radius:50%;background:linear-gradient(180deg,#cc1a1a 50%,#fff 50%);border:5px solid #222;box-shadow:0 0 40px rgba(204,26,26,0.6),inset 0 -4px 8px rgba(0,0,0,0.3);position:relative;}",
     ".blootbox-ball::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:#fff;border:5px solid #222;box-shadow:0 0 0 3px #fff;}",
     ".blootbox-prize{display:flex;flex-direction:column;align-items:center;gap:12px;animation:blootboxReveal 0.6s cubic-bezier(0.22,1,0.36,1) forwards;}",
-    ".blootbox-prize img{width:110px;height:110px;image-rendering:pixelated;filter:drop-shadow(0 4px 16px rgba(255,220,50,0.8));}",
+    ".blootbox-prize img{width:200px;height:200px;image-rendering:pixelated;filter:drop-shadow(0 4px 24px rgba(255,220,50,0.9));}",
     ".blootbox-prize .blootbox-label{color:#fff;font-size:1.4em;font-weight:800;text-shadow:0 2px 8px rgba(0,0,0,0.7);text-align:center;max-width:320px;}",
     ".blootbox-tap{color:rgba(255,255,255,0.55);font-size:0.9em;margin-top:20px;}"
   ].join("");
@@ -402,10 +438,18 @@ function _showSingleLootbox(prize, onDone) {
       } else if (prize.type === "pokemon") {
         var isShiny = prize.shiny || (prize.entry || "").startsWith("S");
         var folder = isShiny ? "shiny" : "normal";
-        imgEl.src = "/images/pokemon/" + folder + "/" + prize.pokedexId + ".png";
-        var name = prize.easterName || pkmnInfoData?.[String(prize.pokedexId)]?.['0']?.name || "Pokémon #" + prize.pokedexId;
+        // Resolve variant imageid so e.g. N667-U1 shows the correct form image
+        var imageId = prize.pokedexId;
+        var variantKey = (prize.entry || "").match(/^[SN]?\d+[-_](\w+)$/)?.[1];
+        if (variantKey) {
+          var variantImageId = pkmnInfoData?.[String(prize.pokedexId)]?.[variantKey]?.imageid;
+          if (variantImageId) imageId = variantImageId;
+        }
+        imgEl.src = "/images/pokemon/" + folder + "/" + imageId + ".webp";
+        var variantName = variantKey ? pkmnInfoData?.[String(prize.pokedexId)]?.[variantKey]?.name : null;
+        var name = prize.easterName || variantName || pkmnInfoData?.[String(prize.pokedexId)]?.['0']?.name || "Pokémon #" + prize.pokedexId;
         var sourceLabel = prize.source === "admin"  ? "Gave fra admin:"
-                        : prize.source === "easter" ? "Påskepremie!"
+                        : prize.source === "easter" ? "Eventpremie!"
                         : "Bingo-premie!";
         var typeLabel   = prize.source === "admin" || prize.source === "easter"
                         ? (isShiny ? "Shiny " : "")
@@ -414,6 +458,12 @@ function _showSingleLootbox(prize, onDone) {
         if (prize.easterCoins) {
           label += "<br><span style='font-size:0.75em;opacity:0.85'>+" + Number(prize.easterCoins).toLocaleString("no-NO") + " mynter</span>";
         }
+      } else if (prize.type === "stardust") {
+        imgEl.src = "/images/stardust.png";
+        imgEl.style.filter = "none";
+        var dustAmt = Number(prize.amount) || 1;
+        var dustPrefix = prize.source === "admin" ? "Gave fra admin:" : "Bingo-premie!";
+        label = dustPrefix + "<br>✨ Stardust ×" + dustAmt;
       }
 
       var labelEl = document.createElement("div");
@@ -667,12 +717,12 @@ function loadFromList(entry, firstLoad = false, capture = false, returnString) {
     repeatMultiplier = repeatMultiplier * 2
     shinyTag = `pokemon-shiny`
     shinyText = `Shiny `
-    imageLink = `images/pokemon/shiny/${imageId}.png`
+    imageLink = `images/pokemon/shiny/${imageId}.webp`
     if(capture) {
       incrementProgress(23,1);
     }
   } else {
-    imageLink = `images/pokemon/normal/${imageId}.png`
+    imageLink = `images/pokemon/normal/${imageId}.webp`
   }
 
   generationText = "gen-"+ getGenerationForId(id,pkmnName);

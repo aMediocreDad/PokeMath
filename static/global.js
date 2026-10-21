@@ -243,7 +243,8 @@ let state = {
   tier3Solved: 0,
   tier4Solved: 0,
   tier5Solved: 0,
-  customSolved: 0
+  customSolved: 0,
+  adaptiveSolved: 0
 }
 
 let shopOptions = {
@@ -307,15 +308,110 @@ function loadPlayerIcon(){
     let src = localStorage.getItem('playerIconImg');
     if (!src || src.trim() === '') {
       // Legacy fallback for old-format icons
-      src = "/images/playericons/" + shopOptions.playerIcon + ".png";
+      src = "/images/playericons/" + shopOptions.playerIcon + ".webp";
     }
-    document.getElementById("playerimage").setAttribute('src', src);
-    document.getElementById("playerimagebig").setAttribute('src', src);
+    // Auto-upgrade any cached .png path to .webp
+    if (src.endsWith('.png')) src = src.replace(/\.png$/, '.webp');
+    const fallback = src.replace(/\.webp$/, '.png');
+    const setIcon = (s) => {
+      document.getElementById("playerimage").setAttribute('src', s);
+      document.getElementById("playerimagebig").setAttribute('src', s);
+    };
+    const testImg = new Image();
+    testImg.onload = () => setIcon(src);
+    testImg.onerror = () => setIcon(fallback);
+    testImg.src = src;
   } else {
     document.getElementById("playerimage").setAttribute('src',"/images/player.png")
     document.getElementById("playerimagebig").setAttribute('src',"/images/player.png")
   }
 }
+
+// ── IndexedDB Backup ──────────────────────────────────────────────────────────
+const IDB_NAME    = "PokemathBackup";
+const IDB_STORE   = "snapshots";
+const IDB_KEY     = "daily";
+const IDB_INTERVAL_MS = 3 * 60 * 60 * 1000;
+const IDB_KEYS = [
+  'money','pkmncaught','pokemonlist','username',
+  'tier1Solved','tier2Solved','tier3Solved','tier4Solved','tier5Solved','customSolved','adaptiveSolved',
+  'adaptiveSkills','adaptivePoints',
+  'boughtPlayerIcons','playerIcon','boughtBackgrounds','shopBackground',
+  'claimedSecrets','shinyLevel','legendLevel','mythicLevel','specialLevel','coinLevel',
+  'shinyBaitCount','shinyBaitPurchases','badges'
+];
+
+function _idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror  = e => reject(e.target.error);
+  });
+}
+
+async function idbMaybeSave() {
+  try {
+    const db = await _idbOpen();
+    const existing = await new Promise((res, rej) => {
+      const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+    const now = Date.now();
+    if (existing && (now - existing.timestamp) < IDB_INTERVAL_MS) { db.close(); return; }
+    const data = {};
+    for (const key of IDB_KEYS) {
+      const val = localStorage.getItem(key);
+      if (val !== null) data[key] = val;
+    }
+    if (!data.pokemonlist) { db.close(); return; } // nothing worth saving
+    await new Promise((res, rej) => {
+      const req = db.transaction(IDB_STORE,'readwrite').objectStore(IDB_STORE).put({ timestamp: now, data }, IDB_KEY);
+      req.onsuccess = () => res();
+      req.onerror   = e => rej(e.target.error);
+    });
+    db.close();
+  } catch(e) { console.warn("IDB backup failed:", e); }
+}
+
+async function idbCheckBackup() {
+  try {
+    const db = await _idbOpen();
+    const result = await new Promise((res, rej) => {
+      const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(IDB_KEY);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+    db.close();
+    return result || null;
+  } catch(e) { console.warn("IDB check failed:", e); return null; }
+}
+
+async function idbDeleteBackup() {
+  try {
+    const db = await _idbOpen();
+    await new Promise((res, rej) => {
+      const req = db.transaction(IDB_STORE,'readwrite').objectStore(IDB_STORE).delete(IDB_KEY);
+      req.onsuccess = () => res();
+      req.onerror   = e => rej(e.target.error);
+    });
+    db.close();
+  } catch(e) { console.warn("IDB delete failed:", e); }
+}
+
+async function idbCheckAndPrompt() {
+  const backup = await idbCheckBackup();
+  if (!backup || !backup.data || !backup.data.pokemonlist) return;
+  const modal = document.getElementById('idb-restore-modal');
+  if (!modal) return;
+  const dateStr = new Date(backup.timestamp).toLocaleDateString('nb-NO', { day:'numeric', month:'long', year:'numeric' });
+  const count   = backup.data.pokemonlist.split('|').filter(p => p.trim()).length;
+  document.getElementById('idb-restore-date').textContent  = dateStr;
+  document.getElementById('idb-restore-count').textContent = count;
+  modal.style.display = 'flex';
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function saveAll(){
   if(checkACookieExists("cookies")) {
@@ -347,6 +443,8 @@ function saveAll(){
     window.localStorage.setItem('tier4Solved', state.tier4Solved)
     window.localStorage.setItem('tier5Solved', state.tier5Solved)
     window.localStorage.setItem('customSolved', state.customSolved)
+    window.localStorage.setItem('adaptiveSolved', state.adaptiveSolved)
+    if (typeof saveAdaptiveSkills === 'function') saveAdaptiveSkills();
   }
 
   // Validate shop options
@@ -369,6 +467,7 @@ function saveAll(){
   window.localStorage.setItem('coinLevel', shopOptions.coinLevel || 0);
   window.localStorage.setItem('shinyBaitCount', shopOptions.shinyBaitCount || 0);
   window.localStorage.setItem('shinyBaitPurchases', shopOptions.shinyBaitPurchases || 0);
+  idbMaybeSave();
 }
 
 const getCookieValue = (name) => (
@@ -381,7 +480,15 @@ function checkACookieExists(name) {
   return false;
 }
 
+let _uuidInflight = null;
+
 async function getOrCreateUUID(retryLimit = 3) {
+  if (_uuidInflight) return _uuidInflight;
+  _uuidInflight = _doGetOrCreateUUID(retryLimit).finally(() => { _uuidInflight = null; });
+  return _uuidInflight;
+}
+
+async function _doGetOrCreateUUID(retryLimit = 3) {
   let uuid = localStorage.getItem("UUID");
   let token = localStorage.getItem("token");
 
@@ -392,13 +499,21 @@ async function getOrCreateUUID(retryLimit = 3) {
   }
 
   try {
-    const { valid, unique, token: newToken } = await validateUUID(uuid, token, retryLimit);
-    
-    if (unique) { //UUID was unique, so it has not been saved to MySQL before
+    const { valid, unique, reassign, token: newToken } = await validateUUID(uuid, token, retryLimit);
+
+    if (reassign && retryLimit > 0) {
+      // This UUID belongs to someone else — start fresh with a new UUID
+      localStorage.removeItem("UUID");
+      localStorage.removeItem("token");
+      log("getOrCreateUUID - UUID mismatch, generating new UUID");
+      return getOrCreateUUID(retryLimit - 1);
+    }
+
+    if (unique) {
       localStorage.setItem("UUID", uuid);
       localStorage.setItem("token", newToken);
       updateConnectionIndicator("good");
-      log("getOrCreateUUID - UUID was Unique, got new token" + uuid);
+      log("getOrCreateUUID - UUID was Unique, got new token " + uuid);
       return { uuid, token: newToken };
     }
 
@@ -594,6 +709,7 @@ async function uploadUserStats() {
         tier4Solved: state.tier4Solved,
         tier5Solved: state.tier5Solved,
         customSolved: state.customSolved,
+        adaptiveSolved: state.adaptiveSolved,
       },
       shopOptions: {
         background: shopOptions.background,
@@ -720,6 +836,7 @@ function loadAll() {
   state.tier4Solved = getStorageInt('tier4Solved')
   state.tier5Solved = getStorageInt('tier5Solved')
   state.customSolved = getStorageInt('customSolved')
+  state.adaptiveSolved = getStorageInt('adaptiveSolved')
   /**
   if(document.getElementById("pokedex")!=null){
     document.getElementById("pokedex").innerHTML = getStorageString('pokedex')
@@ -743,9 +860,19 @@ function loadAll() {
   document.getElementById("t4solved").textContent = state.tier4Solved;
   document.getElementById("t5solved").textContent = state.tier5Solved;
   //document.getElementById("csolved").textContent = state.customSolved;
+  const tadaptive = document.getElementById("tadaptivesolved");
+  if (tadaptive) tadaptive.textContent = state.adaptiveSolved;
   loadShop();
   cleanupCorruptedData();
   document.dispatchEvent(new Event('loadAllComplete'));
+
+  // Ensure every user has a valid UUID + token on every page load
+  getOrCreateUUID().catch(() => {});
+
+  // Check if localStorage appears empty (cleared), and offer IDB restore
+  if (localStorage.getItem('pokemonlist') === null) {
+    idbCheckAndPrompt();
+  }
 
   //Backup popup!
   const popup = document.getElementById("backup-popup");
@@ -1207,7 +1334,40 @@ document.addEventListener("DOMContentLoaded", () => {
   const botbarEl = document.getElementById("botbar");
 
   const p1 = headerEl
-    ? fetch("/header.html").then(r => r.text()).then(h => { headerEl.innerHTML = h; })
+    ? fetch("/header.html").then(r => r.text()).then(h => {
+        headerEl.innerHTML = h;
+        // Wire up idb-restore-modal buttons (scripts inside innerHTML don't execute)
+        const modal      = document.getElementById('idb-restore-modal');
+        const restoreBtn = document.getElementById('idb-restore-btn');
+        const deleteBtn  = document.getElementById('idb-delete-btn');
+        const closeBtn   = document.getElementById('idb-close-btn');
+        if (restoreBtn) {
+          restoreBtn.addEventListener('click', async () => {
+            const backup = await idbCheckBackup();
+            if (backup) {
+              const backupCount  = (backup.data.pokemonlist || '').split('|').filter(p => p.trim()).length;
+              const currentCount = (localStorage.getItem('pokemonlist') || '').split('|').filter(p => p.trim()).length;
+              if (backupCount < currentCount) {
+                if (!confirm(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`)) return;
+              }
+              for (const [k, v] of Object.entries(backup.data)) localStorage.setItem(k, v);
+              if (modal) modal.style.display = 'none';
+              location.reload();
+            }
+          });
+        }
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', async () => {
+            await idbDeleteBackup();
+            if (modal) modal.style.display = 'none';
+          });
+        }
+        if (closeBtn) {
+          closeBtn.addEventListener('click', () => {
+            if (modal) modal.style.display = 'none';
+          });
+        }
+      })
     : Promise.resolve();
 
   const p2 = botbarEl

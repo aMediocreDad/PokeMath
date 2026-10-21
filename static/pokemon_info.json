@@ -10,7 +10,7 @@
         "???"
       ],
       "enabled": true,
-      "catchable": true,
+      "catchable": false,
       "is_legendary": false,
       "is_mythical": false,
       "is_ultra_beast": false,

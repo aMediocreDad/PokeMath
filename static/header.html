@@ -28,8 +28,9 @@
 				<text id="balltext" class="topbar-icontext-left">0</text>
 			</a>
 			<a href="/badges.html" id="badges" class="topbar-icon-left">
-				<img id="badgeimage" src="/images/badges/1.png" width="50" 
+				<img id="badgeimage" src="/images/badges/1.png" width="50"
 				height="50"/>
+				<text class="topbar-icontext-left">Merker</text>
 			</a>
 			<div id="playercard" class="topbar-icon-left playercard">
 				<a class="playerbtn"><img id="playerimage" src="/images/player.png" width="50" 
@@ -53,6 +54,7 @@
 								<div class="tc-stat"><span class="tc-stat-n" id="t3solved">0</span><span class="tc-stat-l">Niv. 3</span></div>
 								<div class="tc-stat"><span class="tc-stat-n" id="t4solved">0</span><span class="tc-stat-l">Niv. 4</span></div>
 								<div class="tc-stat"><span class="tc-stat-n" id="t5solved">0</span><span class="tc-stat-l">Niv. 5</span></div>
+								<div class="tc-stat"><span class="tc-stat-n" id="tadaptivesolved">0</span><span class="tc-stat-l">Tilpasset</span></div>
 							</div>
 						</div>
 					</div>
@@ -68,16 +70,18 @@
 				  <i class="fa fa-caret-down"></i>
 				</button>
 				<div class="dropdown-content">
-				  <a href="/index.html">Hovedmeny</a>
-				  <a href="/dex.html">Pokedex</a>
+				  <a href="/player_profile.html">Min profil</a>
+				  <a href="/dex.html">Pokédex</a>
 				  <a href="/shop.html">Butikk</a>
-				  <a href="/about.html">Om siden</a>
-				  <a href="/about.html#contact">Kontakt oss</a>
-				  <a href="/about.html#news">Nylige oppdateringer</a>
+				  <hr class="dropdown-divider">
+				  <a href="/index.html">Hovedmeny</a>
 				  <a href="/saveandload.html">Lagre / Last Inn</a>
 				  <a href="/faq.html">FAQ</a>
-				  <a href="/#"> </a>
-				  <a onclick="resetPrompt()">Tilbakestill (Slett alt)</a>
+				  <a href="/about.html#news">Nylige oppdateringer</a>
+				  <a href="/about.html">Om siden</a>
+				  <a href="/about.html#contact">Kontakt oss</a>
+				  <hr class="dropdown-divider">
+				  <a class="dropdown-danger" onclick="resetPrompt()">Tilbakestill (Slett alt)</a>
 				</div>
 			</div>
 		</div>
@@ -103,6 +107,18 @@
 		</div>
 	</div>
 	<div id="notification-container"></div>
+<div id="idb-restore-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:10000; align-items:center; justify-content:center;">
+  <div class="popup-content" style="max-width:440px; text-align:center;">
+    <h2>Ingen spillerdata funnet</h2>
+    <p>Vi finner ingen spillerdata på denne enheten, men vi har en backup lagret fra <strong id="idb-restore-date"></strong> med <strong id="idb-restore-count"></strong> Pokémon.</p>
+    <p>Ønsker du å gjenopprette profilen din fra denne backupen, eller slette den?</p>
+    <div class="popup-actions">
+      <button class="button-1" id="idb-restore-btn">Gjenopprett profil</button>
+      <button class="button-2" id="idb-delete-btn">Slett backup</button>
+      <button class="button-3" id="idb-close-btn">Lukk</button>
+    </div>
+  </div>
+</div>
 	<div id="id01" class="modal">
 		<span onclick="document.getElementById('id01').style.display='none'" class="close" title="Close Modal">&times;</span>
 		<form class="modal-content">

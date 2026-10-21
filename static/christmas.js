@@ -42,7 +42,7 @@ const openDoor = (path, event) => {
 
     const pk = doorPokemon[path];
     if (pk) {
-        parent.style.backgroundImage = `url(./images/pokemon/normal/${pk.imageid}.png)`;
+        parent.style.backgroundImage = `url(./images/pokemon/normal/${pk.imageid}.webp)`;
     } else {
         parent.style.backgroundImage = `url(./images/events/christmas/${path}.png)`;
     }
@@ -147,7 +147,7 @@ function openHatch(date) {
     }
 
     const overlayImg = doorPokemon[number]
-        ? "images/pokemon/normal/" + doorPokemon[number].imageid + ".png"
+        ? "images/pokemon/normal/" + doorPokemon[number].imageid + ".webp"
         : "images/events/christmas/" + number + ".png";
     triggerAchievementOverlay(overlayImg, message);
 
@@ -272,7 +272,7 @@ const createCalendar = async () => {
 
         const pk = doorPokemon[courseNumber];
         const coursePath = pk
-            ? `./images/pokemon/normal/${pk.imageid}.png`
+            ? `./images/pokemon/normal/${pk.imageid}.webp`
             : `./images/events/christmas/${courseNumber}.png`;
 
         const storedHatches = getStorageString('xmasOpened');

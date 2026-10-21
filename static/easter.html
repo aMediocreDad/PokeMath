@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pokémath - Påskeevent</title>
+  <title>Pokémath - Våren er her!</title>
   <meta name="robots" content="noindex, nofollow">
-  <link rel="stylesheet" href="globalstyle.css?v=100">
-  <link rel="stylesheet" href="easter.css?v=1">
+  <link rel="stylesheet" href="globalstyle.css?v=108">
+  <link rel="stylesheet" href="easter.css?v=108">
 </head>
 <body>
   <div id="header"></div>
   <div class="easter-page">
-    <h1>Påskeevent 2026</h1>
-    <p>Fang Pokémon ved å løse matteoppgaver og lås opp påskepremier!</p>
+    <h1>Våren er her!</h1>
+    <p>Fang Pokémon ved å løse matteoppgaver og lås opp vårpremier!</p>
 
     <div class="easter-countdown" id="easterCountdown">Laster…</div>
 
@@ -24,15 +24,25 @@
 
     <!-- Global bar -->
     <div class="easter-bar-section">
-      <div class="easter-bar-title">Global progresjon <span class="easter-bar-count"><span id="globalCount">–</span> / 2 500 000</span></div>
+      <div class="easter-bar-title">Global progresjon <span class="easter-bar-count"><span id="globalCount">–</span> / 1 500 000</span></div>
       <div class="easter-global-total" id="globalBar"></div>
       <div class="easter-segments" id="globalSegs"></div>
     </div>
 
-    <div class="easter-info">Fang Pokémon ved å løse matteoppgaver for å fylle opp baren din!<br>Global fremgang oppdateres automatisk hvert 10. sekund.</div>
+    <!-- Extra global goals (only visible once 1.5M is reached) -->
+    <div id="extra-goals-section" style="display:none;">
+      <div class="extra-goals-header">
+        <span class="extra-goals-badge">⭐ EKSTRA</span>
+        <span class="extra-goals-title">Globale bonusmål</span>
+        <span class="extra-goals-sub">Dere knuste målet! Her er ekstra belønninger!</span>
+      </div>
+      <div id="extra-goals-cards" class="extra-goals-cards"></div>
+    </div>
+
+    <div class="easter-info">Fang Pokémon ved å løse matteoppgaver for å fylle opp baren din!<br>Global fremgang oppdateres automatisk hvert 60. sekund.</div>
   </div>
-  <script src="global.js?v=100"></script>
-  <script src="pokestuff.js?v=100"></script>
-  <script src="easter.js?v=1"></script>
+  <script src="global.js?v=108"></script>
+  <script src="pokestuff.js?v=108"></script>
+  <script src="easter.js?v=108"></script>
 </body>
 </html>

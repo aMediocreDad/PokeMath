@@ -1,10 +1,16 @@
 // ── Constants ────────────────────────────────────────────────────────────────
 const EASTER_END = new Date('2026-04-30T23:59:59');
 const LOCAL_CAP  = 500;
-const GLOBAL_CAP = 2_500_000;
+const GLOBAL_CAP = 1_500_000;
 const SEG_COUNT  = 10;
 const LOCAL_STEP = LOCAL_CAP / SEG_COUNT;   // 50
 const GLOBAL_STEP = GLOBAL_CAP / SEG_COUNT; // 250 000
+
+const EXTRA_PRIZES = [
+  { threshold: 3_000_000, entry: 'S421-E1', imageid: 50161, name: 'Shiny Blossom Cherrim',       coins: 150_000 },
+  { threshold: 4_000_000, entry: 'S915-E1', imageid: 50167, name: 'Shiny Egg Forager Lechonk',   coins: 200_000 },
+  { threshold: 5_000_000, entry: 'S132-E1', imageid: 50227, name: 'Shiny Cracked Ditto',         coins: 300_000 },
+];
 
 const LOCAL_PRIZES = [
   { entry:'N659-E1', imageid:50143, name:'Nibbling Bunnelby',       coins:   1000 },
@@ -16,7 +22,7 @@ const LOCAL_PRIZES = [
   { entry:'N115-E1', imageid:50093, name:'Egg Hunter Kangaskhan',   coins:  10000 },
   { entry:'N719-E1', imageid:50097, name:'Spring Blooming Diancie', coins:  15000 },
   { entry:'N492-E1', imageid:50060, name:'Bouquet Shaymin',         coins:  20000 },
-  { entry:'S795-E1', imageid:50099, name:'✨ Shiny Flower Pheromosa',coins:  50000 },
+  { entry:'S795-E1', imageid:50099, name:'Shiny Flower Pheromosa',  coins:  50000 },
 ];
 
 const GLOBAL_PRIZES = [
@@ -29,7 +35,7 @@ const GLOBAL_PRIZES = [
   { entry:'N777-E1', imageid:50166, name:'Easter Togedemaru',       coins:  30000 },
   { entry:'N915-E1', imageid:50167, name:'Egg Forager Lechonk',     coins:  50000 },
   { entry:'N132-E1', imageid:50227, name:'Cracked Ditto',           coins:  75000 },
-  { entry:'S719-E1', imageid:50097, name:'✨ Shiny Spring Diancie', coins: 100000 },
+  { entry:'S719-E1', imageid:50097, name:'Shiny Spring Diancie',   coins: 100000 },
 ];
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
@@ -61,6 +67,15 @@ function getGlobalClaimed() {
   catch { return []; }
 }
 
+function getExtraClaimed() {
+  try { return JSON.parse(localStorage.getItem('easterExtraClaimed') || '[]'); }
+  catch { return []; }
+}
+
+function saveExtraClaimed(arr) {
+  localStorage.setItem('easterExtraClaimed', JSON.stringify(arr));
+}
+
 function saveLocalClaimed(arr) {
   localStorage.setItem('easterClaimed', JSON.stringify(arr));
 }
@@ -77,7 +92,7 @@ function fmtTs(ms) {
 }
 
 function fmtCoins(n) {
-  return n.toLocaleString('no-NO') + ' 🪙';
+  return n.toLocaleString('no-NO') + ' mynter';
 }
 
 // ── Countdown ────────────────────────────────────────────────────────────────
@@ -86,7 +101,7 @@ function updateCountdown() {
   const diff = EASTER_END - now;
   const el = document.getElementById('easterCountdown');
   if (diff <= 0) {
-    el.textContent = '⏰ Eventet er avsluttet.';
+    el.textContent = 'Eventet er avsluttet.';
     return;
   }
   const days = Math.floor(diff / 86400000);
@@ -160,7 +175,7 @@ function renderSegments(containerId, prizes, caught, claimed, timestamps, step, 
     // Claimable: show bouncing egg sprite. Locked: show "?" box. Claimed: show pokemon.
     let imgHtml;
     if (isClaimed) {
-      imgHtml = `<img class="easter-ms-img" src="images/pokemon/normal/${prize.imageid}.png" alt="${prize.name}" title="${prize.name}" loading="lazy">`;
+      imgHtml = `<img class="easter-ms-img" src="images/pokemon/normal/${prize.imageid}.webp" alt="${prize.name}" title="${prize.name}" loading="lazy">`;
     } else if (isClaimable) {
       imgHtml = `<button class="easter-egg-btn" data-idx="${i}" data-global="${isGlobal ? 1 : 0}" title="Klikk for å åpne!"><img class="easter-ms-egg" src="images/events/easter/Spr_4d_Egg.png" alt="Egg"></button>`;
     } else {
@@ -191,6 +206,106 @@ function renderSegments(containerId, prizes, caught, claimed, timestamps, step, 
 
   wrap.appendChild(grid);
   container.appendChild(wrap);
+}
+
+// ── Extra goals rendering ─────────────────────────────────────────────────────
+function renderExtraGoals() {
+  const section = document.getElementById('extra-goals-section');
+  if (!section) return;
+
+  // Only show once main global goal is reached
+  if (globalTotal < GLOBAL_CAP) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  const claimed = getExtraClaimed();
+  const container = document.getElementById('extra-goals-cards');
+  if (!container) return;
+  container.innerHTML = '';
+
+  EXTRA_PRIZES.forEach((prize, idx) => {
+    const isReached   = globalTotal >= prize.threshold;
+    const isClaimed   = claimed.includes(idx);
+    const isClaimable = isReached && !isClaimed;
+
+    const thresholdLabel = (prize.threshold / 1_000_000).toLocaleString('no-NO') + 'M';
+    const progress = Math.min(globalTotal / prize.threshold * 100, 100).toFixed(1);
+
+    let imgHtml;
+    if (isClaimed) {
+      imgHtml = `<img class="easter-ms-img" src="images/pokemon/normal/${prize.imageid}.webp" alt="${prize.name}" title="${prize.name}" loading="lazy">`;
+    } else if (isClaimable) {
+      imgHtml = `<button class="easter-egg-btn extra-egg-btn" data-extra-idx="${idx}" title="Klikk for å åpne!"><img class="easter-ms-egg" src="images/events/easter/Spr_4d_Egg.png" alt="Egg"></button>`;
+    } else {
+      imgHtml = `<div class="easter-ms-unknown">?</div>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'extra-goal-card' +
+      (isClaimed ? ' extra-claimed' : isReached ? ' extra-reached' : ' extra-locked');
+    card.innerHTML = `
+      <div class="extra-goal-label">⭐ Ekstra mål</div>
+      <div class="extra-goal-threshold">${thresholdLabel} Pokémon fanget globalt</div>
+      <div class="extra-goal-img">${imgHtml}</div>
+      <div class="extra-goal-name">${isClaimed || isReached ? prize.name : '???'}</div>
+      <div class="extra-goal-coins">${fmtCoins(prize.coins)}</div>
+      <div class="extra-goal-bar-wrap">
+        <div class="extra-goal-bar-track">
+          <div class="extra-goal-bar-fill" style="width:${progress}%"></div>
+        </div>
+        <div class="extra-goal-bar-label">${globalTotal.toLocaleString('no-NO')} / ${prize.threshold.toLocaleString('no-NO')}</div>
+      </div>
+      ${isClaimed ? '<div class="extra-goal-status claimed-status">✓ Hentet</div>' : ''}
+    `;
+    container.appendChild(card);
+  });
+
+  container.querySelectorAll('.extra-egg-btn').forEach(btn => {
+    btn.addEventListener('click', () => claimExtraPrize(parseInt(btn.dataset.extraIdx)));
+  });
+}
+
+function claimExtraPrize(idx) {
+  const prize = EXTRA_PRIZES[idx];
+  if (!prize) return;
+  const claimed = getExtraClaimed();
+  if (claimed.includes(idx)) return;
+  if (globalTotal < prize.threshold) return;
+  claimed.push(idx);
+  saveExtraClaimed(claimed);
+
+  if (typeof addSpecificToPokedex === 'function') addSpecificToPokedex(prize.entry);
+
+  if (typeof state !== 'undefined') {
+    state.totalScore += prize.coins;
+    const moneyEl = document.querySelector('.money');
+    if (moneyEl) {
+      moneyEl.dataset.added = '+' + prize.coins;
+      moneyEl.dataset.total = state.totalScore;
+      moneyEl.textContent = '';
+      if (state.totalScore) moneyEl.classList.add('animate');
+      setTimeout(() => moneyEl.classList.remove('animate'), 1000);
+    }
+    if (typeof saveAll === 'function') saveAll();
+  }
+
+  const lootboxPrize = {
+    type: 'pokemon',
+    entry: prize.entry,
+    pokedexId: prize.imageid,
+    shiny: true,
+    legendary: false,
+    source: 'easter',
+    easterCoins: prize.coins,
+    easterName: prize.name
+  };
+  if (typeof _showSingleLootbox === 'function') {
+    _showSingleLootbox(lootboxPrize, () => refresh());
+  } else {
+    refresh();
+  }
 }
 
 // ── Claim prize ───────────────────────────────────────────────────────────────
@@ -253,29 +368,64 @@ function claimPrize(segIndex, isGlobal) {
 let globalTotal = 0;
 let globalMilestones = [];
 
-async function fetchGlobal() {
+async function fetchGlobal(retryOnFail = true) {
   try {
     const r = await fetch('/api/easter/global');
-    if (!r.ok) return;
+    if (!r.ok) {
+      if (retryOnFail) setTimeout(() => fetchGlobal(false), 15000);
+      return;
+    }
     const d = await r.json();
     globalTotal = d.total || 0;
     globalMilestones = d.milestones || [];
     document.getElementById('globalCount').textContent = globalTotal.toLocaleString('no-NO');
     refresh();
-  } catch {}
+  } catch {
+    if (retryOnFail) setTimeout(() => fetchGlobal(false), 15000);
+  }
+}
+
+// ── Animated count-up ────────────────────────────────────────────────────────
+function animateCount(el, from, to, duration = 600) {
+  if (!el) return;
+  if (from === to) return;
+  const start = performance.now();
+  const diff = to - from;
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease in-out
+    el.textContent = Math.round(from + diff * ease).toLocaleString('no-NO');
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = to.toLocaleString('no-NO');
+  }
+  requestAnimationFrame(step);
 }
 
 // ── Main refresh ──────────────────────────────────────────────────────────────
+let _lastLocal  = null;
+let _lastGlobal = null;
+
 function refresh() {
-  const localCaught  = getLocalCaught();
-  const localClaimed = getLocalClaimed();
-  const localTs      = getLocalTimestamps();
+  const localCaught   = getLocalCaught();
+  const localClaimed  = getLocalClaimed();
+  const localTs       = getLocalTimestamps();
   const globalClaimed = getGlobalClaimed();
 
-  document.getElementById('localCount').textContent = localCaught;
+  const localEl  = document.getElementById('localCount');
+  const globalEl = document.getElementById('globalCount');
 
-  renderSegments('localSegs',  LOCAL_PRIZES,  localCaught,  localClaimed,  localTs,      LOCAL_STEP,  false, null);
-  renderSegments('globalSegs', GLOBAL_PRIZES, globalTotal,  globalClaimed, {},            GLOBAL_STEP, true,  globalMilestones);
+  const prevLocal  = _lastLocal  ?? 0;
+  const prevGlobal = _lastGlobal ?? 0;
+
+  animateCount(localEl,  prevLocal,  localCaught);
+  animateCount(globalEl, prevGlobal, globalTotal);
+
+  _lastLocal  = localCaught;
+  _lastGlobal = globalTotal;
+
+  renderSegments('localSegs',  LOCAL_PRIZES,  localCaught,  localClaimed,  localTs, LOCAL_STEP,  false, null);
+  renderSegments('globalSegs', GLOBAL_PRIZES, globalTotal,  globalClaimed, {},      GLOBAL_STEP, true,  globalMilestones);
+  renderExtraGoals();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -302,6 +452,16 @@ document.addEventListener('loadAllComplete', () => {
   updateCountdown();
   setInterval(updateCountdown, 1000);
   _startFetchTimer();
+
+  // Auto-refresh local bar when localStorage changes in another tab
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'easterCaught' || e.key === 'easterClaimed' || e.key === 'easterGlobalClaimed' || e.key === 'easterExtraClaimed') {
+      refresh();
+    }
+  });
+
+  // Also poll localStorage every 5s to catch same-tab updates
+  setInterval(refresh, 5000);
 
   // Pause polling while tab is hidden — resume (and fetch immediately) when visible again
   document.addEventListener('visibilitychange', () => {
