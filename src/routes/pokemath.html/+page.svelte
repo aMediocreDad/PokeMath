@@ -104,10 +104,10 @@
 	function handleSubmit(event) {
 		event.preventDefault();
 		if (!values || !problem) return;
-		if (answer === '') return field?.focus();
+		if (isBlank(answer)) return field?.focus();
 		if (score === winScore) return;
 
-		if (isCorrect(values, problem, Number(answer))) {
+		if (isCorrect(values, problem, toNumber(answer))) {
 			score++;
 			streak++;
 			if (values.stage == 0) {
@@ -280,9 +280,36 @@
 	}
 
 	function swapNegative() {
-		answer = String(-Number(answer));
+		answer = answer.startsWith('-') ? answer.slice(1) : '-' + answer;
 		field?.focus();
 	}
+
+	// The answer is typed as text so phones show a keypad with a decimal key. Norwegian keypads
+	// type a comma for it, so "2,5" means 2.5.
+	/** @param {string} text */
+	const toNumber = (text) => Number(text.replace(',', '.'));
+	/** Nothing to check yet: the old number field reported "-" or "." as empty too. @param {string} text */
+	const isBlank = (text) => text === '' || text === '-' || /^-?[.,]$/.test(text);
+
+	/**
+	 * Keep only what a number can contain: a leading minus, digits and one decimal separator.
+	 * @param {Event & { currentTarget: HTMLInputElement }} event
+	 */
+	function onAnswerInput(event) {
+		let text = event.currentTarget.value.replace(/[^\d.,-]/g, '');
+		const negative = text.startsWith('-');
+		text = text.replace(/-/g, '');
+		const separator = text.search(/[.,]/);
+		if (separator >= 0) text = text.slice(0, separator + 1) + text.slice(separator + 1).replace(/[.,]/g, '');
+		answer = (negative ? '-' : '') + text;
+		event.currentTarget.value = answer;
+	}
+
+	/**
+	 * Tapping a button would take focus from the field and close the keyboard after every answer.
+	 * @param {MouseEvent} event
+	 */
+	const keepFocus = (event) => event.preventDefault();
 
 	/** @param {KeyboardEvent} event */
 	function onFieldKeydown(event) {
@@ -406,21 +433,23 @@
 			{#if problem}{problem.numberOne} {problem.operator} {problem.numberTwo}{/if}
 		</p>
 		<div class="input">
-			<button class="flip-btn" onclick={swapNegative}>+/-</button>
+			<button class="flip-btn" onmousedown={keepFocus} onclick={swapNegative} aria-label="Bytt fortegn">+/-</button>
 			<form class="our-form" onsubmit={handleSubmit}>
 				<input
-					type="number"
-					pattern="^\d*(\.\d{'{'}0,5{'}'})?$"
-					step="any"
-					inputmode="numeric"
+					type="text"
+					inputmode="decimal"
+					enterkeyhint="done"
 					class="our-field"
 					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
+					aria-label="Svar"
 					bind:this={field}
 					value={answer}
-					oninput={(e) => (answer = e.currentTarget.value)}
+					oninput={onAnswerInput}
 					onkeydown={onFieldKeydown}
 				/>
-				<button style="height: 50px">Svar</button>
+				<button class="answer-button" onmousedown={keepFocus}>Svar</button>
 			</form>
 		</div>
 
@@ -494,6 +523,52 @@
 {/if}
 
 <style>
+	/* The game panel: padding and borders inside the width, so the progress boxes fit on phones. */
+	.main-ui {
+		box-sizing: border-box;
+	}
+
+	/* The answer row: a field and buttons big enough for fingers. */
+	.input {
+		height: auto;
+		gap: 8px;
+		align-items: stretch;
+		margin: 0 auto;
+		max-width: 420px;
+	}
+	.our-form {
+		display: flex;
+		flex: 1;
+		gap: 8px;
+		min-width: 0;
+	}
+	.our-field {
+		flex: 1;
+		min-width: 0;
+		height: 56px;
+		box-sizing: border-box;
+		/* At least 16px, or iOS zooms the page when the field is focused. */
+		font-size: 26px;
+		text-align: center;
+	}
+	.flip-btn,
+	.answer-button {
+		min-width: 56px;
+		height: 56px;
+		font-size: 20px;
+		touch-action: manipulation;
+	}
+	.answer-button {
+		padding: 0 18px;
+		font-weight: 700;
+	}
+
+	@media (max-width: 480px) {
+		.problem {
+			font-size: 3.6rem;
+		}
+	}
+
 	/* The message a PokeMorten admin can push to every player in a bingo game. */
 	#bingo-admin-popup {
 		position: fixed;

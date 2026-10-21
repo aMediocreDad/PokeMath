@@ -83,3 +83,33 @@
 		></div>
 	</div>
 </div>
+
+<style>
+	/* Phones: a smaller egg in the bottom corner. At full size in the top corner it covered the
+	   answer field and the +/- button. */
+	@media (max-width: 720px) {
+		.halloween-egg {
+			top: auto;
+			bottom: 58px;
+			width: 120px;
+			height: 120px;
+		}
+		.halloween-egg.hide-egg {
+			transform: translateX(-100px);
+		}
+		.halloween-egg-image {
+			width: 96px;
+			height: 96px;
+		}
+		/* The bar is what you tap to open a full egg, so it stays a usable size. */
+		.halloween-egg-progress {
+			width: 92px;
+			height: 24px;
+			max-height: 24px;
+		}
+		.halloween-egg-closer {
+			width: 24px;
+			max-width: 24px;
+		}
+	}
+</style>
