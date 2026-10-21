@@ -32,3 +32,22 @@
 		</div>
 	</div>
 </a>
+
+<style>
+	/* Phones: slightly smaller cards, so three fit in a row instead of two. */
+	@media (max-width: 480px) {
+		.card {
+			max-width: 104px;
+			margin-left: 3px;
+			margin-right: 3px;
+		}
+		.card-image,
+		.card-image .card-image {
+			width: 104px;
+			height: 104px;
+		}
+		.card-footer-item {
+			font-size: 14px;
+		}
+	}
+</style>

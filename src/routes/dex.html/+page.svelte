@@ -47,7 +47,9 @@
 	const countOf = (entry) => player.pkmnList.filter((e) => e === entry).length;
 
 	onMount(() => {
-		barsCollapsed = localStorage.getItem('dexBarsCollapsed') === '1';
+		const stored = localStorage.getItem('dexBarsCollapsed');
+		// On phones the progress bars start folded away unless the player opened them before.
+		barsCollapsed = stored === null ? matchMedia('(max-width: 720px)').matches : stored === '1';
 	});
 
 	// Build the list once both the save and pokemon_info.json are there (_tryInitDex()).
@@ -206,6 +208,8 @@
 <div class="main" class:dex-bars-hidden={barsCollapsed}>
 	<div id="filterButtons">
 		<input type="text" placeholder="Søk.." id="searchInput" bind:value={search} />
+		<!-- On phones the filters scroll sideways in one row; elsewhere this wrapper changes nothing. -->
+		<div class="filter-chips">
 
 		<button class="btn" class:active={allClean} data-filter="all" onclick={showAll}>Vis alle</button>
 		{#each SPECIAL_FILTERS as [key, label] (key)}
@@ -234,6 +238,7 @@
 		<button class="altbtn" id="sortDropdownBtn" class:active={openPanel === 'sort'} onclick={(e) => togglePanel('sort', e)}
 			>Sorter &#x25BC;</button
 		>
+		</div>
 	</div>
 
 	<div class="columns is-multiline is-mobile" id="pokedex">
@@ -341,3 +346,63 @@
 		>
 	{/each}
 </div>
+
+<style>
+	.filter-chips {
+		display: contents;
+	}
+
+	@media (max-width: 720px) {
+		#searchInput {
+			flex: 1 1 100%;
+		}
+		.filter-chips {
+			display: flex;
+			gap: 6px;
+			width: 100%;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			padding-bottom: 2px;
+		}
+		.filter-chips::-webkit-scrollbar {
+			display: none;
+		}
+		/* Keep "84 fanget." on one line, and all three counters on screen. */
+		.dex-stats-row {
+			gap: 4px;
+		}
+		.statisticText {
+			font-size: 16px;
+			white-space: nowrap;
+			padding-right: 6px;
+		}
+	}
+	@media (max-width: 360px) {
+		.statisticText {
+			font-size: 13px;
+		}
+	}
+
+	@media (pointer: coarse) {
+		/* 16px or larger, or iOS zooms the page when the search field is focused. */
+		#searchInput {
+			font-size: 16px;
+		}
+		.btn,
+		.altbtn {
+			height: 44px;
+		}
+		.dex-progress-toggle {
+			min-width: 44px;
+			min-height: 44px;
+		}
+		.typecard2 {
+			min-height: 44px;
+		}
+		#generationContent label,
+		#sortContent a {
+			min-height: 44px;
+		}
+	}
+</style>
