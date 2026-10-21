@@ -101,30 +101,89 @@
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<div class="main">
-	<h1 class="center">Lagre og Last Opp (Beta)</h1>
-	<div id="downloadSection" class="center datasection img-downloadSection">
-		<h2>Lagre</h2>
-		<p>
-			Her kan du lagre dataen din som en fil, og laste ned til din enhet.<br />
-			Denne funksjonen er under utvikling, og det kan derfor hende at den ikke alltid fungerer.<br />
-			Det kan hende at filen er korrupt (altså, den kan ikke leses), eller andre feil.<br /><br />
-			Hvis du møter på slike feil, vennligst rapporter de til oss via "Kontakt Oss".
-		</p>
-		<p>Vennligst ikke del lagringsdataen din med andre spillere.</p>
-		<button onclick={download} class="button-1">Last ned</button>
+<div class="main pm-page backup">
+	<h1 class="pm-title">Lagre og hent</h1>
+	<p class="lead">Ta vare på Pokémonene dine. Lagre en kopi som en fil, og hent den tilbake på en annen enhet eller hvis noe forsvinner.</p>
+
+	<div class="cards">
+		<section id="downloadSection" class="panel pm-surface">
+			<img src="/images/down-arrow.png" width="56" height="56" alt="" />
+			<h2>Lagre en kopi</h2>
+			<p>Last ned fremdriften din som en <code>.pkmth</code>-fil. Ikke del filen med andre spillere.</p>
+			<button onclick={download} class="pm-button">Last ned</button>
+		</section>
+
+		<section id="uploadSection" class="panel pm-surface">
+			<img src="/images/up-arrow.png" width="56" height="56" alt="" />
+			<h2>Hent fra fil</h2>
+			<p>Velg en fil du har lagret før for å få tilbake Pokémonene dine.</p>
+			<p class="warning"><strong>Obs!</strong> Alt du har nå blir erstattet av det som er i filen. Det kan ikke angres.</p>
+			<label for="fileInput" class="pm-button secondary">
+				Velg fil …
+				<input id="fileInput" type="file" name="file" onchange={upload} />
+			</label>
+		</section>
 	</div>
-	<div id="uploadSection" class="center datasection img-uploadSection">
-		<h2>Last opp</h2>
-		<p>Her kan du laste opp dataen fra en fil du har lastet ned fra før, for å få tilbake pokemonene dine.</p>
-		<h3>ADVARSEL:</h3>
-		<p>
-			Hvis du laster opp en .pkmth fil her, vil alt du har inne fra før bli overskrevet, og slettet. <br />
-			Det er ingen måte å få det tilbake på, hvis du ikke har lagret en annen fil.
-		</p>
-		<label for="fileInput" class="button-1">
-			Velg fil...
-			<input id="fileInput" type="file" name="file" onchange={upload} />
-		</label>
-	</div>
+
+	<p class="beta">Dette er en ny funksjon. Hvis noe går galt, kontakt oss og send med filen.</p>
 </div>
+
+<style>
+	.lead {
+		max-width: 60ch;
+		margin: -6px 0 20px;
+		color: var(--pm-ink-soft);
+		font-size: 18px;
+		line-height: 1.45;
+	}
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: 16px;
+		align-items: start;
+	}
+	.panel {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 10px;
+		padding: 20px;
+	}
+	.panel img {
+		width: 56px;
+		height: 56px;
+		object-fit: contain;
+	}
+	h2 {
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 26px;
+	}
+	p {
+		margin: 0;
+		line-height: 1.45;
+	}
+	.warning {
+		padding: 10px 12px;
+		border-radius: 12px;
+		background: var(--pm-red-soft);
+		color: var(--pm-red-deep);
+	}
+	.pm-button {
+		margin-top: 6px;
+	}
+	/* The file picker stays in the page for screen readers and tests, but the label is the button. */
+	#fileInput {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+	.beta {
+		margin-top: 20px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+	}
+</style>

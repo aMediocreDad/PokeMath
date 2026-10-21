@@ -115,172 +115,443 @@
 <svelte:head>
 	<title>Pokémath - Min profil</title>
 	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" href="/menustyle.css?v=100" />
-	<link rel="stylesheet" href="/player_profile.css?v=1" />
 </svelte:head>
 
-<div class="main profile-page">
-	<h1 class="profile-title">Min profil</h1>
+<div class="main pm-page profile-page">
+	<h1 class="pm-title">Min profil</h1>
 
-	<section class="profile-card">
-		<h2>Brukernavn</h2>
-		<div class="username-row">
-			<input
-				id="usernameInput"
-				class="username-input"
-				type="text"
-				maxlength="22"
-				placeholder="Ditt brukernavn"
-				bind:value={usernameInput}
-			/>
-			<button class="button-1" onclick={saveUsername}>Lagre</button>
+	<section class="hero pm-surface">
+		<img class="hero-avatar" src={activeIcon.img} alt="" />
+		<div class="hero-body">
+			<label class="field-label" for="usernameInput">Brukernavn</label>
+			<div class="username-row">
+				<input
+					id="usernameInput"
+					class="username-input"
+					type="text"
+					maxlength="22"
+					placeholder="Ditt brukernavn"
+					bind:value={usernameInput}
+				/>
+				<button class="pm-button small" onclick={saveUsername}>Lagre</button>
+			</div>
+			<p class="hint">Navnet vises i toppmenyen og på ranglisten.</p>
 		</div>
-		<p class="hint">Brukernavnet vises i butikk, rangliste og toppmeny.</p>
 	</section>
 
-	<section class="profile-card">
-		<h2>Aktiv figur</h2>
-		<div class="active-preview" id="iconPreview">
-			<img id="activeIconImg" src={activeIcon.img} alt="Figur" class="active-icon-img" />
-			<span id="activeIconName" class="active-name">{activeIcon.name}</span>
+	<h2 class="pm-section-title">Statistikk</h2>
+	<div class="stats-grid">
+		<div class="stat-item pm-surface">
+			<div class="stat-value pm-price" id="statCoins">{player.loaded ? format(player.money) : '–'}</div>
+			<div class="stat-label">Mynter</div>
 		</div>
-		<button class="button-1 remove-btn" onclick={removeIcon}>Fjern figur</button>
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-		<h3
-			class="owned-label collapsible-header"
-			class:collapsed={!iconsOpen}
-			onclick={() => (iconsOpen = !iconsOpen)}
-		>
-			Dine figurer (<span id="ownedIconCount">{ownedIcons.length}</span>)
-		</h3>
-		<div class="collapsible-body" class:collapsed={!iconsOpen} id="iconGrid">
-			<div class="owned-grid" id="ownedIconGrid">
-				{#each ownedIcons as id (id)}
-					{@const icon = iconFor(id)}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<div
-						class="owned-card"
-						class:active-card={id === player.playerIcon}
-						onclick={() => equipIcon(id, icon.img)}
-					>
-						<img src={icon.img} alt={icon.name} loading="lazy" />
-						<span>{icon.name}</span>
-						{#if id === player.playerIcon}<div class="active-badge">I bruk</div>{/if}
+		<div class="stat-item pm-surface">
+			<div class="stat-value" id="statCaught">{player.loaded ? format(player.caught) : '–'}</div>
+			<div class="stat-label">Pokémon fanget</div>
+		</div>
+		{#each player.tiersSolved as solved, i (i)}
+			<div class="stat-item pm-surface">
+				<div class="stat-value" id="statT{i + 1}">{player.loaded ? format(solved) : '–'}</div>
+				<div class="stat-label">Oppgaver nivå {i + 1}</div>
+			</div>
+		{/each}
+		<div class="stat-item pm-surface">
+			<div class="stat-value" id="statCustom">{player.loaded ? format(player.customSolved) : '–'}</div>
+			<div class="stat-label">Egne oppgaver</div>
+		</div>
+	</div>
+
+	<section class="panel pm-surface">
+		<h3 class="card-title">Pokédex</h3>
+		<div id="profileProgressBars">
+			{#each progressBars as bar (bar.label)}
+				<div class="profile-pbar">
+					<span class="profile-pbar-label">{bar.label}</span>
+					<div class="profile-pbar-track">
+						<div class="profile-pbar-fill" style:width="{bar.percent.toFixed(1)}%" style:background={bar.color}></div>
 					</div>
-				{:else}
-					<p class="no-owned">Du eier ingen figurer ennå.</p>
-				{/each}
-			</div>
-		</div>
-	</section>
-
-	<section class="profile-card">
-		<h2>Aktiv bakgrunn</h2>
-		<div class="active-preview" id="bgPreview">
-			<div
-				id="activeBgImg"
-				class="active-bg-thumb"
-				style:background-image={player.background ? `url('images/backgrounds/${player.background}.png')` : ''}
-			></div>
-			<span id="activeBgName" class="active-name">
-				{player.background ? BG_NAMES[player.background] || player.background : 'Ingen valgt'}
-			</span>
-		</div>
-		<button class="button-1 remove-btn" onclick={removeBg}>Fjern bakgrunn</button>
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-		<h3
-			class="owned-label collapsible-header"
-			class:collapsed={!backgroundsOpen}
-			onclick={() => (backgroundsOpen = !backgroundsOpen)}
-		>
-			Dine bakgrunner (<span id="ownedBgCount">{player.boughtBackgrounds.length}</span>)
-		</h3>
-		<div class="collapsible-body" class:collapsed={!backgroundsOpen} id="bgGrid">
-			<div class="owned-grid" id="ownedBgGrid">
-				{#each player.boughtBackgrounds as id, i (i)}
-					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-					<div
-						class="owned-card bg-card"
-						class:active-card={id === player.background}
-						onclick={() => equipBg(id)}
-						style:background-image="url('images/backgrounds/{id}.png')"
-					>
-						<span class="bg-label">{BG_NAMES[id] || id}</span>
-						{#if id === player.background}<div class="active-badge">I bruk</div>{/if}
-					</div>
-				{:else}
-					<p class="no-owned">Du eier ingen bakgrunner ennå.</p>
-				{/each}
-			</div>
-		</div>
-	</section>
-
-	<section class="profile-card">
-		<h2>Statistikk</h2>
-		<div class="stats-grid">
-			<div class="stat-item">
-				<div class="stat-value" id="statCoins">{player.loaded ? format(player.money) : '–'}</div>
-				<div class="stat-label">Mynter</div>
-			</div>
-			<div class="stat-item">
-				<div class="stat-value" id="statCaught">{player.loaded ? format(player.caught) : '–'}</div>
-				<div class="stat-label">Pokémon fanget</div>
-			</div>
-			{#each player.tiersSolved as solved, i (i)}
-				<div class="stat-item">
-					<div class="stat-value" id="statT{i + 1}">{player.loaded ? format(solved) : '–'}</div>
-					<div class="stat-label">Oppgaver (Nivå {i + 1})</div>
+					<span class="profile-pbar-text">{bar.text}</span>
 				</div>
 			{/each}
-			<div class="stat-item">
-				<div class="stat-value" id="statCustom">{player.loaded ? format(player.customSolved) : '–'}</div>
-				<div class="stat-label">Egne oppgaver</div>
-			</div>
 		</div>
+	</section>
 
-		<div class="profile-pbar-section">
-			<div class="profile-pbar-section-title">Pokédex fremdrift</div>
-			<div id="profileProgressBars">
-				{#each progressBars as bar (bar.label)}
-					<div class="profile-pbar">
-						<span class="profile-pbar-label">{bar.label}</span>
-						<div class="profile-pbar-track">
-							<div
-								class="profile-pbar-fill"
-								style:width="{bar.percent.toFixed(1)}%"
-								style:background={bar.color}
-							></div>
+	<h2 class="pm-section-title">Utseende</h2>
+	<div class="looks">
+		<section class="panel pm-surface">
+			<h3 class="card-title">Figur</h3>
+			<div class="active-preview" id="iconPreview">
+				<img id="activeIconImg" src={activeIcon.img} alt="" class="active-icon-img" />
+				<span id="activeIconName" class="active-name">{activeIcon.name}</span>
+				<button class="pm-button small secondary" onclick={removeIcon}>Fjern figur</button>
+			</div>
+			<button class="toggle" class:open={iconsOpen} aria-expanded={iconsOpen} onclick={() => (iconsOpen = !iconsOpen)}>
+				<span>Dine figurer <span class="count" id="ownedIconCount">{ownedIcons.length}</span></span>
+				<span class="chevron" aria-hidden="true">▾</span>
+			</button>
+			<div class="collapsible-body" class:collapsed={!iconsOpen} id="iconGrid">
+				<div class="owned-grid" id="ownedIconGrid">
+					{#each ownedIcons as id (id)}
+						{@const icon = iconFor(id)}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div class="owned-card" class:active-card={id === player.playerIcon} onclick={() => equipIcon(id, icon.img)}>
+							<img src={icon.img} alt="" loading="lazy" />
+							<span>{icon.name}</span>
+							{#if id === player.playerIcon}<div class="active-badge">I bruk</div>{/if}
 						</div>
-						<span class="profile-pbar-text">{bar.text}</span>
-					</div>
-				{/each}
+					{:else}
+						<p class="no-owned">Du eier ingen figurer ennå. Kjøp en i <a href="/shop.html">butikken</a>.</p>
+					{/each}
+				</div>
 			</div>
-		</div>
-	</section>
+		</section>
 
-	<section class="profile-card">
-		<h2>Lærer</h2>
-		<div class="teacher-placeholder">
-			<div class="teacher-status">Ikke tilkoblet</div>
-			<p class="hint">Under arbeid – lærerkobling kommer senere.</p>
-		</div>
-	</section>
+		<section class="panel pm-surface">
+			<h3 class="card-title">Bakgrunn</h3>
+			<div class="active-preview" id="bgPreview">
+				<div
+					id="activeBgImg"
+					class="active-bg-thumb"
+					style:background-image={player.background ? `url('images/backgrounds/${player.background}.png')` : ''}
+				></div>
+				<span id="activeBgName" class="active-name">
+					{player.background ? BG_NAMES[player.background] || player.background : 'Ingen valgt'}
+				</span>
+				<button class="pm-button small secondary" onclick={removeBg}>Fjern bakgrunn</button>
+			</div>
+			<button class="toggle" class:open={backgroundsOpen} aria-expanded={backgroundsOpen} onclick={() => (backgroundsOpen = !backgroundsOpen)}>
+				<span>Dine bakgrunner <span class="count" id="ownedBgCount">{player.boughtBackgrounds.length}</span></span>
+				<span class="chevron" aria-hidden="true">▾</span>
+			</button>
+			<div class="collapsible-body" class:collapsed={!backgroundsOpen} id="bgGrid">
+				<div class="owned-grid" id="ownedBgGrid">
+					{#each player.boughtBackgrounds as id, i (i)}
+						<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+						<div
+							class="owned-card bg-card"
+							class:active-card={id === player.background}
+							onclick={() => equipBg(id)}
+							style:background-image="url('images/backgrounds/{id}.png')"
+						>
+							<span class="bg-label">{BG_NAMES[id] || id}</span>
+							{#if id === player.background}<div class="active-badge">I bruk</div>{/if}
+						</div>
+					{:else}
+						<p class="no-owned">Du eier ingen bakgrunner ennå. Kjøp en i <a href="/shop.html">butikken</a>.</p>
+					{/each}
+				</div>
+			</div>
+		</section>
+	</div>
 
-	<section class="profile-card uuid-card">
-		<h2>Spiller-ID</h2>
-		<div class="uuid-row">
-			<code id="uuidDisplay" class="uuid-code">{uuid}</code>
-			<button class="button-1 copy-btn" onclick={copyUUID}>Kopier</button>
-		</div>
-		<p class="hint">Dette er din unike spiller-ID. Del den aldri med noen du ikke stoler på.</p>
-	</section>
-
-	<div style="height:60px"></div>
+	<h2 class="pm-section-title">Annet</h2>
+	<div class="looks">
+		<section class="panel pm-surface">
+			<h3 class="card-title">Lærer</h3>
+			<p class="teacher-status">Ikke tilkoblet</p>
+			<p class="hint">Kobling til lærer kommer senere.</p>
+		</section>
+		<section class="panel pm-surface uuid-card">
+			<h3 class="card-title">Spiller-ID</h3>
+			<div class="uuid-row">
+				<code id="uuidDisplay" class="uuid-code">{uuid}</code>
+				<button class="pm-button small secondary" onclick={copyUUID}>Kopier</button>
+			</div>
+			<p class="hint">Din unike spiller-ID. Ikke del den med noen du ikke stoler på.</p>
+		</section>
+	</div>
 </div>
 
 <style>
-	/* Let the name field shrink on narrow phones instead of pushing "Lagre" off the screen. */
-	.username-input {
+	.hero {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		padding: 20px;
+	}
+	.hero-avatar {
+		flex-shrink: 0;
+		width: 104px;
+		height: 104px;
+		object-fit: contain;
+		border-radius: 50%;
+		background: var(--pm-cream);
+		box-shadow: 0 0 0 4px var(--pm-paper), 0 0 0 6px var(--pm-line);
+	}
+	.hero-body {
+		flex: 1;
 		min-width: 0;
+	}
+	.field-label {
+		display: block;
+		margin-bottom: 6px;
+		font-weight: 700;
+	}
+	.username-row {
+		display: flex;
+		gap: 10px;
+	}
+	.username-input {
+		flex: 1;
+		min-width: 0;
+		height: 48px;
+		padding: 0 14px;
+		border: 2px solid var(--pm-line);
+		border-radius: 12px;
+		background: var(--pm-cream);
+		color: var(--pm-ink);
+		font: inherit;
+		font-family: var(--pm-display);
+		font-size: 20px;
+		outline: none;
+	}
+	.username-input:focus {
+		border-color: var(--pm-ink);
+	}
+	.hint {
+		margin: 8px 0 0;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 10px;
+		margin-bottom: 14px;
+	}
+	.stat-item {
+		padding: 14px 12px;
+		text-align: center;
+	}
+	.stat-value {
+		font-family: var(--pm-display);
+		font-size: 28px;
+		line-height: 1.1;
+	}
+	.stat-value.pm-price {
+		font-size: 28px;
+	}
+	.stat-label {
+		margin-top: 2px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+	}
+
+	.panel {
+		padding: 16px 18px;
+	}
+	.card-title {
+		margin: 0 0 12px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 20px;
+	}
+	.looks {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 14px;
+		align-items: start;
+	}
+
+	.profile-pbar {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 6px 0;
+	}
+	.profile-pbar-label {
+		flex-shrink: 0;
+		width: 110px;
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.profile-pbar-track {
+		flex: 1;
+		height: 10px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 0 0 1px var(--pm-line);
+	}
+	.profile-pbar-fill {
+		height: 100%;
+		border-radius: 999px;
+	}
+	.profile-pbar-text {
+		flex-shrink: 0;
+		width: 96px;
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		text-align: right;
+	}
+
+	.active-preview {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px;
+		border-radius: 14px;
+		background: var(--pm-cream);
+	}
+	.active-icon-img {
+		width: 64px;
+		height: 64px;
+		object-fit: contain;
+	}
+	.active-bg-thumb {
+		width: 96px;
+		height: 60px;
+		border-radius: 10px;
+		background: var(--pm-line) center / cover;
+	}
+	.active-name {
+		flex: 1;
+		min-width: 0;
+		font-family: var(--pm-display);
+		font-size: 18px;
+	}
+	.toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		min-height: 44px;
+		margin-top: 10px;
+		padding: 0 4px;
+		border: none;
+		background: none;
+		color: var(--pm-ink);
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.count {
+		margin-left: 6px;
+		padding: 1px 9px;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 0 0 1px var(--pm-line);
+	}
+	.chevron {
+		transition: transform 200ms ease-out;
+	}
+	.toggle.open .chevron {
+		transform: rotate(180deg);
+	}
+	.collapsible-body.collapsed {
+		display: none;
+	}
+	.owned-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+		gap: 8px;
+		padding-top: 6px;
+	}
+	.owned-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 8px 6px;
+		border-radius: 12px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 0 0 1px var(--pm-line);
+		font-size: 13px;
+		font-weight: 700;
+		text-align: center;
+		cursor: pointer;
+	}
+	.owned-card img {
+		width: 64px;
+		height: 64px;
+		object-fit: contain;
+	}
+	.owned-card.active-card {
+		box-shadow: inset 0 0 0 3px var(--pm-green);
+	}
+	.bg-card {
+		justify-content: flex-end;
+		min-height: 80px;
+		background-size: cover;
+		background-position: center;
+	}
+	.bg-label {
+		padding: 1px 8px;
+		border-radius: 999px;
+		background: oklch(0.995 0.004 85 / 0.9);
+	}
+	.active-badge {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+		font-size: 11px;
+	}
+	.no-owned {
+		grid-column: 1 / -1;
+		margin: 4px 0;
+		color: var(--pm-ink-soft);
+	}
+	.no-owned a {
+		color: var(--pm-red-deep);
+	}
+
+	.teacher-status {
+		margin: 0;
+		font-weight: 700;
+	}
+	.uuid-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.uuid-code {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--pm-cream);
+		font-size: 13px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	@media (max-width: 480px) {
+		.hero {
+			flex-direction: column;
+			text-align: center;
+		}
+		.hero-body {
+			width: 100%;
+			text-align: left;
+		}
+		.stats-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+		/* minmax(0, …): the player id never shrinks, and would otherwise widen the column. */
+		.looks {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.active-preview {
+			flex-wrap: wrap;
+		}
+		.profile-pbar-label {
+			width: 84px;
+		}
+		.profile-pbar-text {
+			width: 76px;
+		}
+	}
+	@media (pointer: coarse) {
+		.pm-button.small {
+			min-height: 44px;
+		}
 	}
 </style>
