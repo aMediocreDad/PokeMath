@@ -14,24 +14,30 @@
 	/** @type {{children: import('svelte').Snippet}} */
 	let { children } = $props();
 
+	// Teacher pages are "bare": no player header, bottom bar or save, as on the legacy site.
+	const bare = $derived(!!page.data.bare);
+
 	onMount(() => {
+		if (page.data.bare) return;
 		player.load();
 		loadAchievements();
 	});
 
 	// Once per page view, including navigation between Svelte pages.
 	afterNavigate(({ to }) => {
-		if (to) trackEvent('/track-page', { page: to.url.pathname });
+		if (to && !page.data.bare) trackEvent('/track-page', { page: to.url.pathname });
 	});
 </script>
 
-<div id="header"><Header /></div>
+{#if !bare}
+	<div id="header"><Header /></div>
+{/if}
 <Toaster />
 
 {@render children()}
 
 <!-- A page can bring its own bottom bar (the Pokédex shows its counters there). -->
-{#if !page.data.ownBotbar}
+{#if !page.data.ownBotbar && !bare}
 	<div id="botbar" class="pm-botbar"><Botbar /></div>
 {/if}
 
@@ -263,6 +269,11 @@
 			padding-top: 13px;
 			padding-bottom: 13px;
 		}
+	}
+
+	/* Bare pages have no fixed bars to keep clear of. */
+	:global(body:has(.pm-bare)) {
+		padding: 0;
 	}
 
 	/* Printing (the data processing agreement): just the page, without the bars. */
