@@ -15,7 +15,6 @@
 	let eggNeeded = $state(3);
 	let eggStatus = $state(0);
 	let eggSolved = 0;
-	let hidden = $state(false);
 	let image = $state('images/events/halloween/halloween-egg-01.png');
 
 	const full = $derived(eggStatus >= eggNeeded);
@@ -61,33 +60,79 @@
 	}
 </script>
 
-<div class="halloween-egg" class:hide-egg={hidden} id="halloween-egg">
-	<img
-		id="halloween-egg-image"
-		src={image}
-		width="150"
-		height="150"
-		alt=""
-		class="halloween-egg-image egg"
-		class:ready={full}
-	/>
-	<!-- svelte-ignore a11y_consider_explicit_label -->
-	<button class="halloween-egg-closer" onclick={() => (hidden = !hidden)}></button>
-	<div class="halloween-egg-progress">
+<!-- A card under the play card. It used to float over the page, where it covered the problem. -->
+<section class="egg-card" class:full id="halloween-egg" aria-label="Halloween-egget">
+	<img id="halloween-egg-image" src={image} width="88" height="88" alt="" class="egg" class:ready={full} />
+	<div class="egg-body">
+		<h2>Halloween-egget</h2>
+		{#if full}
+			<p class="egg-hint">Egget er klart til å klekkes!</p>
+		{:else}
+			<p class="egg-hint">{eggStatus} av {eggNeeded} seire før det klekkes</p>
+		{/if}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-		<div
-			class="halloween-progress-inner"
-			class:hallowenOpenEgg={full}
-			style:transform="scaleX({full ? 1 : eggStatus / eggNeeded})"
-			onclick={capture}
-		></div>
+		<div class="egg-track" onclick={capture}>
+			<div class="halloween-progress-inner" style:transform="scaleX({full ? 1 : eggStatus / eggNeeded})"></div>
+		</div>
 	</div>
-</div>
+	{#if full}
+		<button class="pm-button open" onclick={capture}>Åpne!</button>
+	{/if}
+</section>
 
 <style>
-	/* The egg wobbles once when the page opens and keeps wobbling when it is ready to hatch
-	   (animate.css did this before; the page no longer loads it). */
+	.egg-card {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		max-width: 620px;
+		margin: 16px auto 0;
+		padding: 12px 18px 12px 12px;
+		border-radius: 20px;
+		background: oklch(0.93 0.07 55);
+		box-shadow: var(--pm-shadow), 0 0 0 1px oklch(0.8 0.1 55);
+		color: var(--pm-ink);
+	}
+	.egg-card.full {
+		box-shadow: var(--pm-shadow), 0 0 0 3px oklch(0.7 0.16 50);
+	}
+	.egg-body {
+		flex: 1;
+		min-width: 0;
+	}
+	h2 {
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 20px;
+	}
+	.egg-hint {
+		margin: 2px 0 8px;
+		color: var(--pm-ink-soft);
+		font-size: 15px;
+	}
+	.egg-track {
+		position: relative;
+		height: 12px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: oklch(0.85 0.06 55);
+	}
+	/* globalstyle.css already stretches this over the track and animates its scale. */
+	.halloween-progress-inner {
+		border-radius: 999px;
+		background: oklch(0.68 0.17 50);
+		opacity: 1;
+	}
+	.open {
+		flex-shrink: 0;
+	}
+
+	/* The egg wobbles once when the page opens and keeps wobbling when it is ready to hatch. */
 	.egg {
+		flex-shrink: 0;
+		width: 88px;
+		height: 88px;
 		animation: egg-wobble 1s ease-in-out 1;
 		transform-origin: 50% 90%;
 	}
@@ -107,31 +152,16 @@
 		}
 	}
 
-	/* Phones: a smaller egg in the bottom corner. At full size in the top corner it covered the
-	   answer field and the +/- button. */
-	@media (max-width: 720px) {
-		.halloween-egg {
-			top: auto;
-			bottom: 58px;
-			width: 120px;
-			height: 120px;
+	@media (max-width: 480px) {
+		.egg-card {
+			padding: 10px 14px 10px 8px;
 		}
-		.halloween-egg.hide-egg {
-			transform: translateX(-100px);
+		.egg {
+			width: 64px;
+			height: 64px;
 		}
-		.halloween-egg-image {
-			width: 96px;
-			height: 96px;
-		}
-		/* The bar is what you tap to open a full egg, so it stays a usable size. */
-		.halloween-egg-progress {
-			width: 92px;
-			height: 24px;
-			max-height: 24px;
-		}
-		.halloween-egg-closer {
-			width: 24px;
-			max-width: 24px;
+		h2 {
+			font-size: 18px;
 		}
 	}
 </style>

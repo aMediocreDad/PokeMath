@@ -439,10 +439,6 @@
 		</p>
 	</noscript>
 
-	{#if month === 9 && values}
-		<HalloweenEgg bind:this={halloweenEgg} stage={values.stage} onCatch={eventCatch} />
-	{/if}
-
 	<section class="play main-ui" class:correct={correctAnimation} class:wrong={wrongAnimation} aria-label="Oppgave">
 		<div class="play-top">
 			<span class="stage">{stageLabel}</span>
@@ -486,6 +482,10 @@
 			<span class="mistakes-allowed">{LIVES - 1 - wrongAnswers}</span> feil.
 		</p>
 	</section>
+
+	{#if month === 9 && values}
+		<HalloweenEgg bind:this={halloweenEgg} stage={values.stage} onCatch={eventCatch} />
+	{/if}
 
 	<section class="recent" aria-label="Siste fangster">
 		{#if recent.length}
