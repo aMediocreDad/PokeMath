@@ -38,6 +38,23 @@
 		location.reload();
 	}
 
+	// The menu and the trainer card open on a tap (they only opened on hover before), and close
+	// on a tap elsewhere or when the page changes. Mouse users keep the hover behaviour.
+	let menuOpen = $state(false);
+	let cardOpen = $state(false);
+	$effect(() => {
+		void page.url.pathname;
+		menuOpen = false;
+		cardOpen = false;
+	});
+
+	/** @param {MouseEvent} event */
+	function closeMenus(event) {
+		const target = /** @type {HTMLElement} */ (event.target);
+		if (!target.closest('.dropdown')) menuOpen = false;
+		if (!target.closest('.playercard')) cardOpen = false;
+	}
+
 	function snoozeBackup() {
 		const days = parseInt(snoozeDays, 10);
 		const until = new Date();
@@ -63,6 +80,8 @@
 	</div>
 {/if}
 
+<svelte:document onclick={closeMenus} />
+
 <div>
 	<div class="topbar" id="topbar">
 		<a href="/index.html" id="backbutton">&#8249;</a>
@@ -83,10 +102,9 @@
 		<a href="/badges.html" id="badges" class="topbar-icon-left">
 			<img id="badgeimage" src="/images/badges/1.png" width="50" height="50" alt="Merker" />
 		</a>
-		<div id="playercard" class="topbar-icon-left playercard">
-			<!-- No href: on touch screens a tap opens the trainer card, as in the legacy header. -->
-			<!-- svelte-ignore a11y_missing_attribute -->
-			<a class="playerbtn">
+		<div id="playercard" class="topbar-icon-left playercard" class:open={cardOpen}>
+			<!-- svelte-ignore a11y_missing_attribute, a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<a class="playerbtn" onclick={() => (cardOpen = !cardOpen)}>
 				<img id="playerimage" src={player.playerImage} width="50" height="50" alt="" />
 				<span id="playertext" class="topbar-icontext-left">{layout.cheater ? 'Juksemaker' : player.username}</span>
 			</a>
@@ -127,14 +145,17 @@
 				</div>
 			</div>
 		</div>
-		<div class="dropdown">
-			<button class="dropbtn">
+		<div class="dropdown" class:open={menuOpen}>
+			<button class="dropbtn" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
 				<img id="gearimage" src="/images/gear.png" width="50" height="50" alt="Meny" />
 			</button>
 			<div class="dropdown-content">
 				<a href="/index.html">Hovedmeny</a>
 				<a href="/dex.html">Pokedex</a>
 				<a href="/shop.html">Butikk</a>
+				<!-- Phones hide these two header shortcuts, so the menu offers them instead. -->
+				<a href="/badges.html" class="phone-only">Merker</a>
+				<a href="/player_profile.html" class="phone-only">Min profil</a>
 				<a href="/about.html">Om siden</a>
 				<a href="/about.html#contact">Kontakt oss</a>
 				<a href="/about.html#news">Nylige oppdateringer</a>
@@ -174,3 +195,137 @@
 		</div>
 	</div>
 </div>
+
+<style>
+
+	/* Touch screens: open on tap, and keep a tapped link or button from staying grey. */
+	.dropdown.open .dropdown-content,
+	.playercard.open .playercard-content {
+		display: block;
+	}
+	@media (hover: none) {
+		.dropdown:not(.open) .dropdown-content,
+		.playercard:not(.open) .playercard-content {
+			display: none;
+		}
+		.topbar a:hover,
+		.dropdown:hover .dropbtn {
+			background-color: transparent;
+			color: inherit;
+		}
+		.dropdown-content a {
+			min-height: 44px;
+			display: flex;
+			align-items: center;
+		}
+		/* 16px keeps iOS from zooming in when the list opens. */
+		#snooze-select {
+			min-height: 44px;
+			font-size: 16px;
+		}
+	}
+
+	/* Phones: a single row that keeps coins and Pokémon counts visible. */
+	@media (max-width: 720px) {
+		.topbar {
+			display: flex;
+			align-items: center;
+			gap: 2px;
+		}
+		.topbar > a,
+		.topbar-icon-left,
+		.dropdown {
+			float: none;
+			top: 0;
+		}
+		#backbutton {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-width: 44px;
+			height: 50px;
+			padding: 0;
+		}
+		.topbar-icon-left {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			height: 50px;
+			padding: 0 6px;
+			flex-shrink: 0;
+		}
+		.topbar-icon-left img {
+			width: 34px;
+			height: 34px;
+		}
+		.topbar-icontext-left {
+			display: inline;
+			position: static;
+			top: 0;
+			font-size: 17px;
+		}
+		.playercard {
+			margin-left: auto;
+		}
+		.playerbtn {
+			padding: 0 4px;
+		}
+		.playerbtn #playerimage {
+			display: block;
+			width: 34px;
+			height: 34px;
+		}
+		.playerbtn #playertext {
+			display: none;
+		}
+		.dropdown {
+			flex-shrink: 0;
+		}
+		.dropbtn img {
+			width: 40px;
+			height: 40px;
+		}
+		.dropdown-content {
+			position: fixed;
+			top: 50px;
+			right: 8px;
+			left: auto;
+			width: min(260px, calc(100vw - 16px));
+			/* Scroll inside the menu on short screens instead of running under the bottom bar. */
+			max-height: calc(100vh - 50px - 56px);
+			overflow-y: auto;
+		}
+		.playercard-content {
+			position: fixed;
+			top: 50px;
+			left: 8px;
+			right: 8px;
+			min-width: 0;
+		}
+		.trainercard {
+			min-width: 0;
+		}
+	}
+
+	/* Narrow phones: the shortcuts give way to the coin and Pokémon counts, and move into the menu. */
+	.dropdown-content a.phone-only {
+		display: none;
+	}
+	@media (max-width: 420px) {
+		#badges {
+			display: none;
+		}
+		.dropdown-content a.phone-only {
+			display: flex;
+			align-items: center;
+		}
+	}
+	@media (max-width: 340px) {
+		.playercard {
+			display: none;
+		}
+		.dropdown {
+			margin-left: auto;
+		}
+	}
+</style>
