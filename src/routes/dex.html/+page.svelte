@@ -82,8 +82,10 @@
 		}
 		const q = search.trim().toUpperCase();
 		if (q) items = items.filter(({ html }) => html.toUpperCase().includes(q));
-		// The legacy page sorted names by an alt attribute the cards never had, so both name sorts
-		// keep the current order. Kept as is here; see the follow-up fix.
+		if (sort === 'name-asc' || sort === 'name-desc') {
+			const direction = sort === 'name-asc' ? 1 : -1;
+			items = [...items].sort((a, b) => direction * a.card.name.toLowerCase().localeCompare(b.card.name.toLowerCase(), 'no'));
+		}
 		if (sort === 'id-desc') items = [...items].sort((a, b) => b.id - a.id);
 		if (sort === 'count-desc') items = [...items].sort((a, b) => countOf(b.entry) - countOf(a.entry));
 		return items;

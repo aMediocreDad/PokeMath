@@ -85,9 +85,7 @@
 	 */
 	function loadValues(url) {
 		const params = new URLSearchParams(url);
-		// As in customizer.js, this always ends up switched on (see the follow-up fix).
-		const sanFlag = params.get(/** @type {any} */ ('san' == null || params.get('san') == 'f'));
-		allowNegative = !sanFlag;
+		allowNegative = params.get('san') != 'f';
 		for (const section of SECTIONS) {
 			enabled[section.key] = params.get(section.key) == 't';
 			if (!enabled[section.key]) continue;
@@ -101,7 +99,8 @@
 	function savePreset(id) {
 		const slot = presets[id - 1];
 		if (slot.name !== null) return;
-		let name = /** @type {string} */ (prompt('Gi forhåndsinstillingen et navn', 'Lagret #' + id));
+		let name = prompt('Gi forhåndsinstillingen et navn', 'Lagret #' + id);
+		if (name === null) return;
 		if (name.length > 20) name = name.substring(0, 20);
 		name = name.replaceAll('|', '-').replaceAll(/^\s+|\s+$/g, '');
 		slot.name = name;

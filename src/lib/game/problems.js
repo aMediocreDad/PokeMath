@@ -126,7 +126,8 @@ export function setupGame(params) {
 			values.multiplicationMaxA = Number(params.get('mumaxa'));
 			values.multiplicationMinB = Number(params.get('muminb'));
 			values.multiplicationMaxB = Number(params.get('mumaxb'));
-			values.multiplicationDecimals = Number(params.get('mudeca'));
+			// The customizer has always written "mudec"; read both so existing links keep working.
+			values.multiplicationDecimals = Number(params.get('mudeca') ?? params.get('mudec'));
 			values.operations.push('x');
 		}
 		if (params.get('div') == 't') {
