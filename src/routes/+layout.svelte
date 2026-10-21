@@ -264,4 +264,16 @@
 			padding-bottom: 13px;
 		}
 	}
+
+	/* Printing (the data processing agreement): just the page, without the bars. */
+	@media print {
+		:global(#header),
+		.pm-botbar {
+			display: none;
+		}
+		:global(body) {
+			padding: 0;
+			background: none;
+		}
+	}
 </style>

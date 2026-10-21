@@ -49,7 +49,10 @@ app.get(/^\/(images|fonts)\/.+/, async (req, res) => {
 });
 
 app.use(express.static(ROOT, { dotfiles: "ignore" }));
-app.use((req, res) => res.status(404).sendFile(path.join(ROOT, "notfound.html")));
+// notfound.html is a SvelteKit page now, so it only exists in build/; static/ falls back to plain text.
+app.use((req, res) =>
+  res.status(404).sendFile(path.join(ROOT, "notfound.html"), (err) => err && res.type("text").send("Not found")),
+);
 
 const server = http.createServer(app);
 bingo.attach(server, log);
