@@ -32,7 +32,10 @@
 		const query = code6(new URLSearchParams(location.search).get('code'));
 		if (query.length === 6) return query;
 		const parts = location.pathname.split('/').filter(Boolean);
-		const last = code6(parts[parts.length - 1] || '');
+		const lastPart = parts[parts.length - 1] || '';
+		// The page's own name is not a code: "bingo_join.html" would otherwise become "BINGOJ".
+		if (lastPart.endsWith('.html')) return '';
+		const last = code6(lastPart);
 		return last.length === 6 ? last : '';
 	}
 
