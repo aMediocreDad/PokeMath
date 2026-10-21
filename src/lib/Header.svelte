@@ -48,7 +48,7 @@
 		cardOpen = false;
 	});
 
-	/** @param {MouseEvent} event */
+	/** @param {PointerEvent} event */
 	function closeMenus(event) {
 		const target = /** @type {HTMLElement} */ (event.target);
 		if (!target.closest('.dropdown')) menuOpen = false;
@@ -80,7 +80,8 @@
 	</div>
 {/if}
 
-<svelte:document onclick={closeMenus} />
+<!-- pointerdown rather than click: iOS often sends no click for a tap on a blank area. -->
+<svelte:document onpointerdown={closeMenus} />
 
 <div>
 	<div class="topbar" id="topbar">
@@ -301,6 +302,8 @@
 			width: min(260px, calc(100vw - 16px));
 			/* Scroll inside the menu on short screens instead of running under the bottom bar. */
 			max-height: calc(100vh - 50px - 56px);
+			/* iOS counts the area under Safari's toolbar in 100vh; dvh does not (newer Safari). */
+			max-height: calc(100dvh - 50px - 56px);
 			overflow-y: auto;
 		}
 		.playercard-content {

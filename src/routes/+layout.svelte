@@ -48,6 +48,12 @@
 		:global(label.button-1) {
 			min-height: 44px;
 		}
+		/* No double-tap zoom when kids tap Kjøp or Oppgrader quickly. */
+		:global(button),
+		:global(.button-1),
+		:global(.button-2) {
+			touch-action: manipulation;
+		}
 		:global(a.button-1),
 		:global(a.button-2) {
 			padding-top: 13px;

@@ -155,10 +155,19 @@
 			if (month === 9) halloweenEgg?.progress();
 			else if (month === 11) xmasPresent?.progress();
 			endMessage = GOOD_MESSAGES[Math.floor(Math.random() * GOOD_MESSAGES.length)];
-			overlayOpen = true;
+			openOverlay();
 			showBall = true;
 		}
 		if (wrongAnswers === LIVES) resetGame();
+	}
+
+	/**
+	 * Show the win screen. The answer field keeps focus during a round, so drop it here: an open
+	 * keyboard would cover the ball and "Fortsett" on a tablet.
+	 */
+	function openOverlay() {
+		overlayOpen = true;
+		field?.blur();
 	}
 
 	function resetGame() {
@@ -167,6 +176,8 @@
 		wrongAnswers = 0;
 		catchImage = '';
 		showContinue = false;
+		// Back to answering; inside the "Fortsett" tap, so iOS brings the keyboard back.
+		field?.focus();
 	}
 
 	function catchContext() {
@@ -247,7 +258,7 @@
 	 * @param {string | null} form  null when the event has nothing to give (createEventPokemon()).
 	 */
 	function eventCatch(form) {
-		overlayOpen = true;
+		openOverlay();
 		showBall = false;
 		showContinue = true;
 		if (form) catchForm(form);

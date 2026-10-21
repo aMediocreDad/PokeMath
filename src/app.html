@@ -5,6 +5,10 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="author" content="Tirco" />
 		<link rel="icon" href="/favicon.ico" />
+		<script>
+			// SvelteKit's runtime uses Object.hasOwn, which iPadOS only has from 15.4.
+			if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
