@@ -4,7 +4,7 @@
 const PKMN_NUM = 1025;
 const SPECIAL_BONUS = 3;
 
-/** @typedef {{ name?: string, types?: string | string[], imageid?: number, is_legendary?: boolean, is_mythical?: boolean, spawn_season?: string, enabled?: boolean }} Variant */
+/** @typedef {{ name?: string, types?: string | string[], imageid?: number, is_legendary?: boolean, is_mythical?: boolean, spawn_season?: string, enabled?: boolean, evo_from?: number | null }} Variant */
 /** @typedef {Record<string, Record<string, Variant>>} PokemonInfo */
 
 /** @type {PokemonInfo | null} */
@@ -286,3 +286,46 @@ export function catchFacts(entry) {
 
 /** The base name of a Pokémon, for prize announcements. @param {number | undefined} id */
 export const baseName = (id) => (id == null ? undefined : info?.[String(id)]?.['0']?.name);
+
+/**
+ * The card exactly as loadFromList() writes it as HTML. The Pokédex's search and filters match
+ * against this text (names, types, ids, CSS classes and all), so it is kept character for character.
+ * @param {PokemonCard} card
+ * @param {number} count
+ */
+export function legacyCardHtml(card, count) {
+	const pkmnType = card.types.map((type) => `<span class="typecard type-${type}">${type}</span>`).join('');
+	return `
+    <a id=${card.entry} class="column is-narrow ${card.filterText}" style="cursor: pointer;" href=./pokeviewer.html?pokemonId=${card.id} target="_blank">
+      <div class="card ${card.shiny ? 'pokemon-shiny' : ''} ${card.rarity}">
+        <div class="card-content">
+          <div class="has-text-centered card-image">
+            <div class="card-image" style="background-image: url('${card.image}');"></div>
+            <div class="card-id"> #${card.cardId}</div>
+            <div id="cardcounter" class="card-counter">x${count}</div>
+          </div>
+        <div class="card-footer">
+          <p class="card-footer-item">
+            <strong style="text-transform: capitalize;">${card.name}&nbsp;</strong> 
+          </p>
+        </div>
+        <footer class="card-footer">
+          <p class="card-footer-item" style="text-transform: capitalize;">
+            ${pkmnType}
+          </p>
+        </footer>
+        </div>
+      </div>
+    </a>
+  `;
+}
+
+/** Alternate and event forms in pokemon_info.json, for the Pokédex progress bars. */
+export function alternateFormCount() {
+	let count = 0;
+	for (const variants of Object.values(info ?? {})) count += Object.keys(variants).filter((k) => k !== '0').length;
+	return count;
+}
+
+/** The raw pokemon_info.json, once loaded. */
+export const pokemonInfo = () => info;

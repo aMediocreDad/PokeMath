@@ -1,16 +1,16 @@
 <script>
 	// One Pokémon card, the markup loadFromList() in static/pokestuff.js builds.
-	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number }} */
-	let { card, count } = $props();
+	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, show?: boolean }} */
+	let { card, count, show = false } = $props();
 </script>
 
 <a
 	id={card.entry}
 	class="column is-narrow {card.filterText}"
+	class:show
 	style="cursor: pointer;"
 	href="./pokeviewer.html?pokemonId={card.id}"
 	target="_blank"
-	data-sveltekit-reload
 >
 	<div class="card {card.shiny ? 'pokemon-shiny' : ''} {card.rarity}">
 		<div class="card-content">

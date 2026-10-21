@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import Header from '#lib/Header.svelte';
 	import Botbar from '#lib/Botbar.svelte';
 	import Toaster from '#lib/Toaster.svelte';
@@ -34,4 +35,7 @@
 
 {@render children()}
 
-<div id="botbar" class="botbar"><Botbar /></div>
+<!-- A page can bring its own bottom bar (the Pokédex shows its counters there). -->
+{#if !page.data.ownBotbar}
+	<div id="botbar" class="botbar"><Botbar /></div>
+{/if}
