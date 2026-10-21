@@ -72,7 +72,7 @@
 				id="cointext"
 				class="topbar-icontext-left money score"
 				class:animate={player.moneyAnimating}
-				data-added="+{player.lastAdded}"
+				data-added={player.moneyDelta}
 				data-total={layout.cheater ? '-99999' : player.money}
 			></span>
 		</a>

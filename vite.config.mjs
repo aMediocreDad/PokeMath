@@ -45,7 +45,14 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			prerender: {
+				// images/ and fonts/ are not in the repository, so links to them cannot be checked here.
+				handleHttpError: ({ path, message }) => {
+					if (/^\/(images|fonts)\//.test(path)) return;
+					throw new Error(message);
+				}
+			}
 		})
 	],
 	ssr: {

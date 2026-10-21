@@ -94,6 +94,7 @@ export function progressPokemonTrainerBadge() {
 
 export const BADGE_IDS = {
 	bigEarner: 19,
+	bigSpender: 20,
 	legendary: 21,
 	mythic: 22,
 	shiny: 23,

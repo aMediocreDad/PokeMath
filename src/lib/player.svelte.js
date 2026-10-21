@@ -69,8 +69,8 @@ class Player {
 	shinyBaitCount = $state(0);
 	shinyBaitPurchases = $state(0);
 
-	/** The last amount added, shown by the header's money animation. */
-	lastAdded = $state(0);
+	/** The last change, shown by the header's coin animation: "+10" or "-5000". */
+	moneyDelta = $state('0');
 	moneyAnimating = $state(false);
 
 	loaded = $state(false);
@@ -143,8 +143,20 @@ class Player {
 	/** @param {number} amount */
 	addMoney(amount) {
 		this.money += amount;
-		this.lastAdded = amount;
 		this.save('money');
+		this.#animate('+' + amount);
+	}
+
+	/** @param {number} amount */
+	spendMoney(amount) {
+		this.money -= amount;
+		this.save('money');
+		this.#animate('-' + amount);
+	}
+
+	/** @param {string} delta */
+	#animate(delta) {
+		this.moneyDelta = delta;
 		this.moneyAnimating = true;
 		setTimeout(() => (this.moneyAnimating = false), 500);
 	}
