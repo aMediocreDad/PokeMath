@@ -6,12 +6,40 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { hasCookieConsent } from '#lib/storage.js';
+	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
 	let showCookieNotice = $state(false);
 	let backupDue = $state(false);
 	let snoozeDays = $state('7');
 
-	onMount(() => (showCookieNotice = !hasCookieConsent()));
+	onMount(() => {
+		showCookieNotice = !hasCookieConsent();
+		// The save is gone (cleared history?): offer the IndexedDB copy, if there is one.
+		if (localStorage.getItem('pokemonlist') === null) {
+			readBackup().then((found) => {
+				if (found?.data?.pokemonlist) restore = found;
+			});
+		}
+	});
+
+	/** @type {import('#lib/idbBackup.js').Snapshot | null} A backup to offer, when the save is gone. */
+	let restore = $state(null);
+
+	async function restoreBackup() {
+		const found = await readBackup();
+		if (!found) return;
+		const backupCount = countPokemon(found.data.pokemonlist);
+		const currentCount = countPokemon(localStorage.getItem('pokemonlist'));
+		if (backupCount < currentCount && !confirm(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`)) return;
+		for (const [key, value] of Object.entries(found.data)) localStorage.setItem(key, value);
+		restore = null;
+		location.reload();
+	}
+
+	async function dropBackup() {
+		await deleteBackup();
+		restore = null;
+	}
 
 	// Like checkReminder() in global.js: decided once, when the save has loaded.
 	let reminderChecked = false;
@@ -128,6 +156,10 @@
 						<span class="tier-label">Nivå {i + 1}</span>
 					</div>
 				{/each}
+				<div class="tier">
+					<span class="tier-count" id="tadaptivesolved">{format(player.adaptiveSolved)}</span>
+					<span class="tier-label">Tilpasset</span>
+				</div>
 			</div>
 			<div id="levelDetails">
 				{#if layout.workOverview}
@@ -151,17 +183,20 @@
 			<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
 		</button>
 		<nav class="pm-panel menu-panel dropdown-content" aria-label="Meny">
-			<a href="/index.html">Hovedmeny</a>
+			<!-- The order of the live menu (2026-10): your things first, then the site. -->
+			<a href="/player_profile.html">Min profil</a>
 			<a href="/dex.html">Pokédex</a>
 			<a href="/shop.html">Butikk</a>
-			<!-- Phones hide these two header shortcuts, so the menu offers them instead. -->
+			<!-- Phones hide the badge shortcut in the bar, so the menu offers it instead. -->
 			<a href="/badges.html" class="phone-only">Merker</a>
-			<a href="/player_profile.html" class="phone-only">Min profil</a>
+			<hr />
+			<a href="/index.html">Hovedmeny</a>
 			<a href="/saveandload.html">Lagre / Last inn</a>
 			<a href="/faq.html">Spørsmål og svar</a>
+			<a href="/about.html#news">Nylige oppdateringer</a>
 			<a href="/about.html">Om siden</a>
 			<a href="/about.html#contact">Kontakt oss</a>
-			<a href="/about.html#news">Nylige oppdateringer</a>
+			<hr />
 			<button class="danger" onclick={resetPrompt}>Tilbakestill (slett alt)</button>
 		</nav>
 	</div>
@@ -169,6 +204,25 @@
 
 {#if player.backgroundImage}
 	<img src={player.backgroundImage} alt="" id="background" />
+{/if}
+
+{#if restore}
+	<div id="idb-restore-modal" class="backdrop">
+		<div class="reminder" role="dialog" aria-labelledby="restore-title">
+			<h2 id="restore-title">Ingen spillerdata funnet</h2>
+			<p>
+				Vi finner ingen spillerdata på denne enheten, men vi har en backup lagret fra
+				<strong id="idb-restore-date">{new Date(restore.timestamp).toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+				med <strong id="idb-restore-count">{countPokemon(restore.data.pokemonlist)}</strong> Pokémon.
+			</p>
+			<p>Ønsker du å gjenopprette profilen din fra denne backupen, eller slette den?</p>
+			<button id="idb-restore-btn" class="pm-button" onclick={restoreBackup}>Gjenopprett profil</button>
+			<div class="snooze">
+				<button id="idb-delete-btn" class="pm-button secondary" onclick={dropBackup}>Slett backup</button>
+				<button id="idb-close-btn" class="pm-button secondary" onclick={() => (restore = null)}>Lukk</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <div id="backup-popup" class="backdrop" class:hidden={!showBackupReminder}>
@@ -373,10 +427,12 @@
 		background: var(--pm-cream);
 	}
 	.menu-panel .danger {
-		margin-top: 6px;
-		border-top: 1px solid var(--pm-line);
-		border-radius: 0 0 12px 12px;
 		color: var(--pm-red-deep);
+	}
+	.menu-panel hr {
+		margin: 6px 4px;
+		border: none;
+		border-top: 1px solid var(--pm-line);
 	}
 	.menu-panel a.phone-only {
 		display: none;
@@ -409,7 +465,7 @@
 	}
 	.tiers {
 		display: grid;
-		grid-template-columns: repeat(5, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 6px;
 	}
 	.tier {

@@ -8,6 +8,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { loadAchievements } from '#lib/achievements.js';
 	import { trackEvent } from '#lib/track.js';
+	import { getOrCreateUUID } from '#lib/uuid.js';
 	// Bundled with the site, so no pupil's browser has to ask a third party for it.
 	import '@fontsource/lilita-one/400.css';
 
@@ -21,6 +22,11 @@
 		if (page.data.bare) return;
 		player.load();
 		loadAchievements();
+		// Every page makes sure the player has a valid id and token (live global.js, 2026-10). It
+		// waits a moment, as the live site does while its header loads, so the game draws its first
+		// problem before an id is made from the same random numbers.
+		const idTimer = setTimeout(() => getOrCreateUUID(), 0);
+		return () => clearTimeout(idTimer);
 	});
 
 	// Once per page view, including navigation between Svelte pages.

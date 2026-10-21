@@ -12,7 +12,7 @@ export function generateUUID() {
 /**
  * @param {string} uuid
  * @param {string | null} token
- * @returns {Promise<{ valid: boolean, unique: boolean, token?: string }>}
+ * @returns {Promise<{ valid: boolean, unique: boolean, reassign?: boolean, token?: string }>}
  */
 async function validateUUID(uuid, token, retryLimit = 3) {
 	const url = `/validate-user?uuid=${uuid}&token=${token || ''}`;
@@ -31,12 +31,31 @@ async function validateUUID(uuid, token, retryLimit = 3) {
 	}
 }
 
+/** @type {Promise<{ uuid: string, token: string } | null> | null} */
+let inflight = null;
+
+/**
+ * The player's id and token, validated with the server. Since the live global.js of 2026-10 every
+ * page calls this on load, so only one request runs at a time, and an id the server says belongs to
+ * someone else (reassign) is replaced by a new one.
+ * @returns {Promise<{ uuid: string, token: string } | null>}
+ */
+export function getOrCreateUUID(retryLimit = 3) {
+	inflight ??= create(retryLimit).finally(() => (inflight = null));
+	return inflight;
+}
+
 /** @returns {Promise<{ uuid: string, token: string } | null>} */
-export async function getOrCreateUUID() {
+async function create(retryLimit = 3) {
 	const uuid = localStorage.getItem('UUID') || generateUUID();
 	const token = localStorage.getItem('token');
 	try {
-		const result = await validateUUID(uuid, token);
+		const result = await validateUUID(uuid, token, retryLimit);
+		if (result.reassign && retryLimit > 0) {
+			localStorage.removeItem('UUID');
+			localStorage.removeItem('token');
+			return create(retryLimit - 1);
+		}
 		if (result.unique) {
 			localStorage.setItem('UUID', uuid);
 			localStorage.setItem('token', result.token ?? '');

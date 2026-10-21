@@ -6,6 +6,7 @@
 // instead of everything at the end of a round.
 import { getStorageArray, getStorageInt, getStorageString, hasCookieConsent } from '#lib/storage.js';
 import { toast } from '#lib/toast.svelte.js';
+import { maybeSaveBackup } from '#lib/idbBackup.js';
 
 /** How saveAll() writes each field. */
 const writers = {
@@ -18,6 +19,7 @@ const writers = {
 	tiersSolved: (/** @type {Player} */ p) =>
 		Object.fromEntries(p.tiersSolved.map((n, i) => [`tier${i + 1}Solved`, String(n)])),
 	customSolved: (/** @type {Player} */ p) => ({ customSolved: String(p.customSolved) }),
+	adaptiveSolved: (/** @type {Player} */ p) => ({ adaptiveSolved: String(p.adaptiveSolved) }),
 	playerIcon: (/** @type {Player} */ p) => ({
 		playerIcon: p.playerIcon || '',
 		boughtPlayerIcons: p.boughtPlayerIcons.filter((icon) => icon.trim() !== '').join('|')
@@ -51,6 +53,8 @@ class Player {
 	pkmnList = $state([]);
 	tiersSolved = $state([0, 0, 0, 0, 0]);
 	customSolved = $state(0);
+	/** Problems solved on the adaptive level ("Tilpasset nivå"). */
+	adaptiveSolved = $state(0);
 
 	background = $state('');
 	playerIcon = $state('');
@@ -94,6 +98,7 @@ class Player {
 		this.pkmnList = getStorageArray('pokemonlist', '|');
 		this.tiersSolved = [1, 2, 3, 4, 5].map((tier) => getStorageInt(`tier${tier}Solved`));
 		this.customSolved = getStorageInt('customSolved');
+		this.adaptiveSolved = getStorageInt('adaptiveSolved');
 
 		const username = getStorageString('username');
 		if (!username || username.length > 22) {
@@ -134,6 +139,7 @@ class Player {
 				localStorage.setItem(key, value);
 			}
 		}
+		maybeSaveBackup();
 	}
 
 	/** Every field, as saveAll() writes them. */
