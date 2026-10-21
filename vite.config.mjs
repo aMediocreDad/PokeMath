@@ -55,6 +55,10 @@ export default defineConfig({
 			}
 		})
 	],
+	build: {
+		// School iPads are often a few iPadOS versions behind.
+		target: ['es2020', 'safari15', 'ios15']
+	},
 	ssr: {
 		// express 4 (used by the production server) hoists cookie@0.7 to the root, which
 		// SvelteKit would pick up instead of its own cookie@2. Bundling it resolves the right one.

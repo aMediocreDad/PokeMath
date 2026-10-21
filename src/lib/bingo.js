@@ -1,6 +1,6 @@
 // The player's side of classroom bingo, ported from static/bingo_client_live.js.
 // Joins the lobby whose code bingo_join.html stored, reports catches, and claims prizes.
-import { getOrCreateUUID } from '#lib/uuid.js';
+import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
 
 /** @param {string | null | undefined} s */
 const code6 = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
@@ -73,7 +73,8 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup }) {
 				return (cachedUUID = /** @type {string} */ (candidate));
 			}
 		}
-		const fresh = crypto.randomUUID();
+		// crypto.randomUUID() needs iOS 15.4; school iPads can be older.
+		const fresh = generateUUID();
 		localStorage.setItem('uuid', fresh);
 		return (cachedUUID = fresh);
 	}

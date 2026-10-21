@@ -45,7 +45,7 @@ const defaultAchievements = {
 
 /** @returns {Achievements} */
 function read() {
-	const stored = JSON.parse(localStorage.getItem('badges') ?? 'null') || structuredClone(defaultAchievements);
+	const stored = JSON.parse(localStorage.getItem('badges') ?? 'null') || JSON.parse(JSON.stringify(defaultAchievements));
 	// global.js "migrates" 1.0 to 1.1 on every page load; keep writing the same version.
 	if (stored.version === '1.0') stored.version = '1.1';
 	return stored;
