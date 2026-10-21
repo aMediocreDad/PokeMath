@@ -237,7 +237,7 @@ export function describe(rawEntry) {
 		types,
 		shiny,
 		rarity,
-		image: `images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.png`,
+		image: `images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.webp`,
 		repeatMultiplier,
 		filterText
 	};

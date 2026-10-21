@@ -58,7 +58,7 @@
 					? shiny ? 'Shiny ' : ''
 					: shiny ? '✨ Shiny ' : prize.legendary ? '⭐ Legendarisk ' : '🌟 Mytisk ';
 			return {
-				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${prize.pokedexId}.png`,
+				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${prize.pokedexId}.webp`,
 				plainImage: false,
 				lines: [source, kind + name],
 				small: prize.easterCoins ? '+' + Number(prize.easterCoins).toLocaleString('no-NO') + ' mynter' : ''

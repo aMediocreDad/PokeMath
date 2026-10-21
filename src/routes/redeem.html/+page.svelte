@@ -73,31 +73,31 @@
 				const entry = String(value || '');
 				const folder = /^S/i.test(entry) ? 'shiny' : 'normal';
 				const baseId = Number(entry.replace(/^[NS]/i, '').split('-')[0]);
-				notify(image(`images/pokemon/${folder}/${baseId}.png`), label);
+				notify(image(`images/pokemon/${folder}/${baseId}.webp`), label);
 				if (entry) giveSpecificPokemon(entry);
 				break;
 			}
 			case 'random_legendary': {
 				const id = pick(LEGENDARIES);
-				notify(image(`images/pokemon/normal/${id}.png`), label);
+				notify(image(`images/pokemon/normal/${id}.webp`), label);
 				giveSpecificPokemon('N' + id);
 				break;
 			}
 			case 'random_mythic': {
 				const id = pick(MYTHICS);
-				notify(image(`images/pokemon/normal/${id}.png`), label);
+				notify(image(`images/pokemon/normal/${id}.webp`), label);
 				giveSpecificPokemon('N' + id);
 				break;
 			}
 			case 'random_shiny': {
 				const id = Math.floor(Math.random() * 1008) + 1;
-				notify(image(`images/pokemon/shiny/${id}.png`), label);
+				notify(image(`images/pokemon/shiny/${id}.webp`), label);
 				giveSpecificPokemon('S' + id);
 				break;
 			}
 			case 'random_shiny_mythic': {
 				const id = pick(MYTHICS);
-				notify(image(`images/pokemon/shiny/${id}.png`), label);
+				notify(image(`images/pokemon/shiny/${id}.webp`), label);
 				giveSpecificPokemon('S' + id);
 				break;
 			}

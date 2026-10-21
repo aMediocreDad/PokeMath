@@ -129,7 +129,7 @@
 		<div class="plus" aria-hidden="true">+</div>
 		<label for="q7" class="panel-title">Hei PokeMorten - Hva er din favoritt pokemon?</label>
 		<div class="panel-content">
-			<p><img src="/images/pokemon/normal/258.png" alt="Mudkip"></p>
+			<p><img src="/images/pokemon/normal/258.webp" alt="Mudkip"></p>
 		</div>
 	  </div>
 	<div class="faq-question">

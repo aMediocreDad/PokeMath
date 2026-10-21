@@ -11,7 +11,7 @@ export const DIFF_NO = /** @type {Record<string, string>} */ ({
 export const BINGO_COINS = /** @type {Record<string, number>} */ ({ easy: 5000, medium: 10000, hard: 25000, extreme: 35000, unik: 50000 });
 
 /** @param {number | string} id */
-export const localSprite = (id) => `/images/pokemon/normal/${Number(id)}.png`;
+export const localSprite = (id) => `/images/pokemon/normal/${Number(id)}.webp`;
 
 /** @param {string} code */
 export const joinUrl = (code) => `${location.protocol}//${location.host}/bingo_join.html?code=${code}`;
@@ -106,7 +106,7 @@ export function prizeSummary(prize, eligibleCount) {
 		const allShiny = list.every(isShiny);
 		const label = allShiny ? `✨ ${list.length} Shiny Pokémon` : first.legendary ? '⭐ Legendarisk Pokémon' : '🌟 Mytisk Pokémon';
 		return {
-			sprites: list.map((p) => `/images/pokemon/${isShiny(p) ? 'shiny' : 'normal'}/${p.pokedexId}.png`),
+			sprites: list.map((p) => `/images/pokemon/${isShiny(p) ? 'shiny' : 'normal'}/${p.pokedexId}.webp`),
 			title: 'Premie: ' + label,
 			sub: eligibleCount + ' deltakere som fanget minst én Pokémon får ' + (list.length > 1 ? list.length + ' stk!' : 'denne pokemonen!')
 		};

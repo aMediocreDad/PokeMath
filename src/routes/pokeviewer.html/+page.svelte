@@ -101,7 +101,7 @@
 {#snippet smallPokemon(/** @type {string | number} */ id, /** @type {any} */ form, /** @type {boolean} */ isOwned, /** @type {string | number} */ imageId)}
 	<div class="small-poke pm-surface" class:locked={!isOwned}>
 		<img
-			src="images/pokemon/{folder}/{imageId}.png"
+			src="images/pokemon/{folder}/{imageId}.webp"
 			alt={isOwned ? form.name : 'Ukjent Pokémon'}
 			class="poke-image"
 			style="filter: {isOwned ? 'brightness(100%)' : 'brightness(0%)'}; pointer-events: none;"
@@ -119,7 +119,7 @@
 				class="button-bg"
 				id="prevButtonBG"
 				style:filter={info ? (owned(prevId) ? 'brightness(100%)' : 'brightness(0%)') : null}
-				style:background-image={info ? `url(images/pokemon/${folder}/${prevId}.png)` : null}
+				style:background-image={info ? `url(images/pokemon/${folder}/${prevId}.webp)` : null}
 			></span>
 		</button>
 		<form class="search" onsubmit={(e) => { e.preventDefault(); searchPokemon(); }}>
@@ -135,7 +135,7 @@
 				class="button-bg"
 				id="nextButtonBG"
 				style:filter={info ? (owned(nextId) ? 'brightness(100%)' : 'brightness(0%)') : null}
-				style:background-image={info ? `url(images/pokemon/${folder}/${nextId}.png)` : null}
+				style:background-image={info ? `url(images/pokemon/${folder}/${nextId}.webp)` : null}
 			></span>
 			<span class="arrow" aria-hidden="true">›</span>
 		</button>
@@ -147,7 +147,7 @@
 				{#if pokemon}
 					<div class="hero-art" class:locked={!unlocked}>
 						<img
-							src="images/pokemon/{folder}/{currentId}.png"
+							src="images/pokemon/{folder}/{currentId}.webp"
 							alt={unlocked ? pokemon.name : 'Ukjent Pokémon'}
 							class="poke-image"
 							style="filter: {unlocked ? 'brightness(100%)' : 'brightness(0%)'}; pointer-events: none;"
