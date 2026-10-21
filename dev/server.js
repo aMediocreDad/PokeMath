@@ -1,6 +1,9 @@
 // Local stand-in for the production server.js, which is not in this repository.
 // The endpoints are inferred from the client code; nothing here talks to MySQL or sends email.
 //
+// It serves static/ by default. SITE_DIR=build serves the SvelteKit build instead,
+// the way production would.
+//
 // images/ and fonts/ are gitignored, so missing files are fetched once from the live site
 // and cached on disk. Only those read-only assets are proxied; no write endpoint ever is.
 const fs = require("fs");
@@ -8,8 +11,8 @@ const http = require("http");
 const path = require("path");
 const express = require("express");
 
-const ROOT = path.resolve(__dirname, "..");
-const ASSET_DIR = ROOT;
+const ROOT = path.resolve(__dirname, "..", process.env.SITE_DIR || "static");
+const ASSET_DIR = path.resolve(__dirname, "..", "static");
 const ASSET_ORIGIN = "https://pokemath.online";
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -25,7 +28,7 @@ require("./teacher").register(app, log);
 const bingo = require("./bingo");
 bingo.register(app, log);
 
-// Fetch a missing image or font from the live site and cache it on disk, where it is gitignored.
+// Fetch a missing image or font from the live site and cache it in static/, which is gitignored there.
 app.get(/^\/(images|fonts)\/.+/, async (req, res) => {
   const rel = decodeURIComponent(req.path).replace(/^\/+/, "");
   const file = path.join(ASSET_DIR, rel);
