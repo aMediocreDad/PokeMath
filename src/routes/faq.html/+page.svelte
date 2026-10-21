@@ -177,3 +177,15 @@
 	</div>
 </div>
 
+<style>
+	/* Long questions wrap inside the box instead of running off the side of a phone. */
+	.panel-title {
+		box-sizing: border-box;
+		overflow-wrap: break-word;
+	}
+	@media (max-width: 720px) {
+		.panel-title {
+			font-size: 22px;
+		}
+	}
+</style>

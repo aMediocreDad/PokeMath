@@ -277,3 +277,10 @@
 
 	<div style="height:60px"></div>
 </div>
+
+<style>
+	/* Let the name field shrink on narrow phones instead of pushing "Lagre" off the screen. */
+	.username-input {
+		min-width: 0;
+	}
+</style>

@@ -39,3 +39,19 @@
 {#if !page.data.ownBotbar}
 	<div id="botbar" class="botbar"><Botbar /></div>
 {/if}
+
+<style>
+	/* Touch screens: the shared button styles are big enough for fingers (44px). */
+	@media (pointer: coarse) {
+		:global(button.button-1),
+		:global(button.button-2),
+		:global(label.button-1) {
+			min-height: 44px;
+		}
+		:global(a.button-1),
+		:global(a.button-2) {
+			padding-top: 13px;
+			padding-bottom: 13px;
+		}
+	}
+</style>

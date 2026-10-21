@@ -167,3 +167,16 @@
 		</div>
 	{/each}
 </div>
+
+<style>
+	/* 16px or larger, or iOS zooms the page when the field is focused. */
+	#secretCodeInput {
+		font-size: 18px;
+		min-height: 44px;
+		box-sizing: border-box;
+	}
+	#redemptionForm button {
+		min-height: 44px;
+		min-width: 88px;
+	}
+</style>

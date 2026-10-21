@@ -218,6 +218,14 @@
 			display: flex;
 			align-items: center;
 		}
+		#backbutton {
+			min-width: 44px;
+			min-height: 44px;
+			box-sizing: border-box;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
 		/* 16px keeps iOS from zooming in when the list opens. */
 		#snooze-select {
 			min-height: 44px;

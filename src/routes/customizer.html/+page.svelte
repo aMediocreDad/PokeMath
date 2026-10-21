@@ -204,3 +204,24 @@
 		{/each}
 	</div>
 </div>
+
+<style>
+	@media (max-width: 360px) {
+		/* "Multiplikasjon" at 36px is wider than the smallest phones. */
+		.categoryname {
+			font-size: 28px;
+		}
+	}
+	/* Touch screens: an invisible margin around the on/off switches makes them 44px to tap,
+	   without changing how they look. */
+	@media (pointer: coarse) {
+		.toggle-pill-color label {
+			position: relative;
+		}
+		.toggle-pill-color label::after {
+			content: '';
+			position: absolute;
+			inset: -10px -4px;
+		}
+	}
+</style>

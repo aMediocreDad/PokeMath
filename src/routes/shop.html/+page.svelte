@@ -194,7 +194,9 @@
 </svelte:head>
 
 {#snippet hover(/** @type {string} */ text)}
-	<span class="hovertext" data-hover={text}>?</span>
+	<!-- Focusable, so a tap opens the explanation on touch screens (it opened on hover only). -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<span class="hovertext" data-hover={text} tabindex="0" role="note" aria-label={text}>?</span>
 {/snippet}
 
 <div class="main">
@@ -318,3 +320,27 @@
 
 	<div style="height:60px"></div>
 </div>
+
+<style>
+	.hovertext:focus::before {
+		opacity: 1;
+		visibility: visible;
+	}
+
+	@media (max-width: 720px) {
+		/* Tall enough for the name, price and buttons, which spilled over the next button before. */
+		.carousel {
+			width: calc(100vw - 112px);
+			height: max(56vw, 230px);
+		}
+		.shopButtons {
+			padding: 12px;
+		}
+	}
+
+	@media (pointer: coarse) {
+		.icon-card-actions .button-1 {
+			min-height: 44px;
+		}
+	}
+</style>
