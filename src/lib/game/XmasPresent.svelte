@@ -51,3 +51,33 @@
 	style:left
 	onclick={open}
 ></div>
+
+<style>
+	/* From static/pokemon.css, which the game page no longer loads. */
+	.xmas-present {
+		position: absolute;
+		width: 100px;
+		height: 100px;
+		background-size: contain;
+		z-index: 1001;
+		cursor: pointer;
+	}
+	.xmas-present.is-hidden {
+		display: none;
+	}
+	.floating {
+		animation: floating 3s ease-in-out infinite;
+		margin-left: 30px;
+		margin-top: 5px;
+	}
+	@keyframes floating {
+		50% {
+			transform: translateY(15px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.floating {
+			animation: none;
+		}
+	}
+</style>

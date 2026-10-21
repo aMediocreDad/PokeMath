@@ -68,8 +68,8 @@
 		width="150"
 		height="150"
 		alt=""
-		class="halloween-egg-image mt-2 mb-6 egg animate__animated animate__wobble"
-		class:animate__infinite={full}
+		class="halloween-egg-image egg"
+		class:ready={full}
 	/>
 	<!-- svelte-ignore a11y_consider_explicit_label -->
 	<button class="halloween-egg-closer" onclick={() => (hidden = !hidden)}></button>
@@ -85,6 +85,28 @@
 </div>
 
 <style>
+	/* The egg wobbles once when the page opens and keeps wobbling when it is ready to hatch
+	   (animate.css did this before; the page no longer loads it). */
+	.egg {
+		animation: egg-wobble 1s ease-in-out 1;
+		transform-origin: 50% 90%;
+	}
+	.egg.ready {
+		animation-iteration-count: infinite;
+	}
+	@keyframes egg-wobble {
+		15% { transform: rotate(-12deg); }
+		30% { transform: rotate(9deg); }
+		45% { transform: rotate(-6deg); }
+		60% { transform: rotate(3deg); }
+		75% { transform: rotate(-1deg); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.egg {
+			animation: none;
+		}
+	}
+
 	/* Phones: a smaller egg in the bottom corner. At full size in the top corner it covered the
 	   answer field and the +/- button. */
 	@media (max-width: 720px) {

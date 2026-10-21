@@ -46,6 +46,11 @@
 	let showBall = $state(false);
 	let showContinue = $state(false);
 	let catchImage = $state('');
+	/** @type {import('#lib/game/pokemon.js').PokemonCard | null} The Pokémon on the catch screen. */
+	let caughtCard = $state(null);
+	let stageLabel = $state('');
+	/** Hearts left this round: three wrong answers start the round over. */
+	const hearts = $derived(LIVES - wrongAnswers);
 	let lastSubmitTime = 0;
 
 	/** @type {string[]} Cards shown under the game, newest first. */
@@ -175,6 +180,7 @@
 		score = 0;
 		wrongAnswers = 0;
 		catchImage = '';
+		caughtCard = null;
 		showContinue = false;
 		// Back to answering; inside the "Fortsett" tap, so iOS brings the keyboard back.
 		field?.focus();
@@ -278,6 +284,7 @@
 		toast(`Du fanget en ${title}`);
 		endMessage = `Du fanget en ${title}!`;
 		catchImage = card.image;
+		caughtCard = card;
 		progressPokemonTrainerBadge();
 		card.types.forEach(progressTypeAchievement);
 
@@ -359,6 +366,7 @@
 		const setup = setupGame(params);
 		values = setup.values;
 		winScore = setup.winScore;
+		stageLabel = setup.custom ? 'Eget nivå' : `Nivå ${setup.values.stage}`;
 		for (const message of setup.messages) toast(message.text, { bad: message.bad, canClose: !setup.cheated });
 
 		/** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -417,34 +425,38 @@
 	<meta name="title" content="Pokémath" />
 	<meta name="description" content="Mattesiden!" />
 	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" href="/pokemon.css?v=100" />
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
 </svelte:head>
 
 <svelte:document onkeydown={onDocumentKeydown} />
 
-<div class="main">
+<div class="main game">
 	<noscript>
-		<div style="border: 1px solid purple; padding: 10px">
-			<span style="color:red"
-				>JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan skru på JavaScript <a
-					href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
-					>her. (microsoft.com)</a
-				></span
-			>
-		</div>
+		<p class="noscript">
+			JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
+			skru på JavaScript <a href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
+				>her (microsoft.com)</a
+			>.
+		</p>
 	</noscript>
 
 	{#if month === 9 && values}
 		<HalloweenEgg bind:this={halloweenEgg} stage={values.stage} onCatch={eventCatch} />
 	{/if}
 
-	<div class="main-ui" class:ui-animate-correct={correctAnimation} class:ui-animate-wrong={wrongAnimation}>
-		<p class="problem" class:animate-wrong={wrongAnimation}>
+	<section class="play main-ui" class:correct={correctAnimation} class:wrong={wrongAnimation} aria-label="Oppgave">
+		<div class="play-top">
+			<span class="stage">{stageLabel}</span>
+			<span class="hearts" aria-label="{hearts} forsøk igjen">
+				{#each { length: LIVES }, i (i)}<span class="heart" class:lost={i >= hearts} aria-hidden="true">♥</span>{/each}
+			</span>
+		</div>
+
+		<p class="problem" class:shake={wrongAnimation}>
 			{#if problem}{problem.numberOne} {problem.operator} {problem.numberTwo}{/if}
 		</p>
+
 		<div class="input">
-			<button class="flip-btn" onmousedown={keepFocus} onclick={swapNegative} aria-label="Bytt fortegn">+/-</button>
+			<button class="flip-btn" onmousedown={keepFocus} onclick={swapNegative} aria-label="Bytt fortegn">+/−</button>
 			<form class="our-form" onsubmit={handleSubmit}>
 				<input
 					type="text"
@@ -460,67 +472,62 @@
 					oninput={onAnswerInput}
 					onkeydown={onFieldKeydown}
 				/>
-				<button class="answer-button" onmousedown={keepFocus}>Svar</button>
+				<button class="answer-button pm-button" onmousedown={keepFocus}>Svar</button>
 			</form>
 		</div>
 
+		<div class="progress" aria-hidden="true">
+			<div class="boxes">
+				{#each { length: winScore }, i (i)}<div class="box" class:filled={i < score}></div>{/each}
+			</div>
+		</div>
 		<p class="status">
 			Du trenger <span class="points-needed">{pointsNeeded}</span> flere poeng, og kan gjøre
 			<span class="mistakes-allowed">{LIVES - 1 - wrongAnswers}</span> feil.
 		</p>
+	</section>
 
-		<div class="progress">
-			<div class="boxes">
-				{#each { length: winScore }, i (i)}<div class="box"></div>{/each}
-			</div>
-			<div class="progress-inner" style:transform="scaleX({progress})"></div>
+	<section class="recent" aria-label="Siste fangster">
+		{#if recent.length}
+			<h2>Siste fangster</h2>
+		{/if}
+		<div class="cards" id="pokedex">
+			{#each recent as entry (entry)}
+				<PokemonCard card={describe(entry)} count={countOf(entry)} />
+			{/each}
 		</div>
-		<br />
-	</div>
-
-	<div class="columns is-multiline is-mobile" id="pokedex">
-		{#each recent as entry (entry)}
-			<PokemonCard card={describe(entry)} count={countOf(entry)} />
-		{/each}
-	</div>
-	<div class="center" style="margin: auto; align-items: center; text-align: center">
-		<a class="button-1 center" style="left: 50%; right: 50%; margin: auto;" href="./dex.html"
-			>Klikk her for å se alle dine pokemon.</a
-		>
-	</div>
+		<a class="pm-button secondary all-link" href="./dex.html">Se alle dine Pokémon</a>
+	</section>
 
 	{#if month === 11}
 		<XmasPresent bind:this={xmasPresent} stage={values?.stage ?? 3} onCatch={eventCatch} />
-	{:else}
-		<div class="xmas-present floating"></div>
 	{/if}
 
-	<div class="overlay">
-		<div class="overlay-inner">
-			<p class="end-message">{endMessage}</p>
-			<br />
+	<div class="catch" class:open={overlayOpen} role="dialog" aria-modal="true" aria-label="Fangst">
+		<div class="catch-stage">
+			{#if caughtCard}
+				<div class="burst" aria-hidden="true"></div>
+			{/if}
+			<p class="end-message" class:headline={!caughtCard}>{endMessage}</p>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
-			<a
-				id="pokeball"
-				class="pokeball animate__animated animate__wobble animate__repeat-3 mt-2 mb-6"
-				class:is-hidden={!showBall}
-				aria-label="Kast pokéballen"
-				onclick={throwBall}
-			></a>
-			<a id="new-catch-info" style="white-space:pre;">
-				{#if catchImage}
-					<div class="has-text-centered">
-						<div
-							class="pkmn-pop"
-							style="background-image: url('{catchImage}'); height: 128px; width: 128px; background-size: cover; display: block;margin-left:auto; margin-right:auto;"
-						>
-							&nbsp;
-						</div>
-					</div>
-				{/if}
+			<a id="pokeball" class="ball" class:is-hidden={!showBall} role="button" tabindex="0" aria-label="Kast pokéballen" onclick={throwBall}>
+				<span class="ball-button"></span>
 			</a>
-			<br />
-			<button class="reset-button" class:is-hidden={!showContinue} onclick={resetGame}>Fortsett</button>
+			{#if showBall}<p class="hint">Trykk på ballen!</p>{/if}
+			<div id="new-catch-info">
+				{#if catchImage}
+					<div class="pkmn-pop sprite" style="background-image: url('{catchImage}');" role="img" aria-label={caughtCard?.name}></div>
+				{/if}
+			</div>
+			{#if caughtCard}
+				<div class="caught-types">
+					{#if caughtCard.shiny}<span class="caught-tag">✨ Shiny</span>{/if}
+					{#if caughtCard.rarity === 'legendary'}<span class="caught-tag">Legendarisk</span>{/if}
+					{#if caughtCard.rarity === 'mythic'}<span class="caught-tag">Mytisk</span>{/if}
+					{#each caughtCard.types as type, i (i)}<span class="caught-type">{type}</span>{/each}
+				</div>
+			{/if}
+			<button class="reset-button pm-button" class:is-hidden={!showContinue} onclick={resetGame}>Fortsett</button>
 		</div>
 	</div>
 </div>
@@ -534,49 +541,342 @@
 {/if}
 
 <style>
-	/* The game panel: padding and borders inside the width, so the progress boxes fit on phones. */
-	.main-ui {
-		box-sizing: border-box;
+	.game {
+		max-width: 760px;
+		margin: 0 auto;
+		padding: 16px 14px 32px;
+	}
+	.noscript {
+		padding: 12px;
+		border-radius: 12px;
+		background: var(--pm-red-soft);
+	}
+
+	/* ── The play card: kept near the top, since the keyboard covers the lower half of a tablet ── */
+	.play {
+		max-width: 620px;
+		margin: 0 auto;
+		padding: 16px 20px 18px;
+		border-radius: 24px;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		transition: box-shadow 300ms ease-out;
+	}
+	.play.correct {
+		box-shadow: var(--pm-shadow), 0 0 0 4px var(--pm-green);
+	}
+	.play.wrong {
+		box-shadow: var(--pm-shadow), 0 0 0 4px var(--pm-red);
+	}
+	.play-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.stage {
+		padding: 4px 12px;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		font-family: var(--pm-display);
+		font-size: 17px;
+	}
+	.hearts {
+		display: flex;
+		gap: 4px;
+		font-size: 24px;
+		line-height: 1;
+		color: var(--pm-red);
+	}
+	.heart.lost {
+		color: var(--pm-line);
+	}
+
+	.problem {
+		margin: 6px 0 14px;
+		font-family: var(--pm-display);
+		font-size: clamp(56px, 13vw, 96px);
+		line-height: 1.05;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.02em;
+		overflow-wrap: anywhere;
+	}
+	.problem.shake {
+		animation: shake 420ms ease-out;
+	}
+	@keyframes shake {
+		20% { transform: translateX(-10px); }
+		40% { transform: translateX(8px); }
+		60% { transform: translateX(-6px); }
+		80% { transform: translateX(3px); }
 	}
 
 	/* The answer row: a field and buttons big enough for fingers. */
 	.input {
-		height: auto;
-		gap: 8px;
+		display: flex;
+		gap: 10px;
 		align-items: stretch;
+		max-width: 460px;
 		margin: 0 auto;
-		max-width: 420px;
 	}
 	.our-form {
 		display: flex;
 		flex: 1;
-		gap: 8px;
+		gap: 10px;
 		min-width: 0;
 	}
 	.our-field {
 		flex: 1;
 		min-width: 0;
-		height: 56px;
+		height: 60px;
 		box-sizing: border-box;
+		padding: 0 12px;
+		border: 3px solid var(--pm-line);
+		border-radius: 16px;
+		background: var(--pm-cream);
+		color: var(--pm-ink);
 		/* At least 16px, or iOS zooms the page when the field is focused. */
-		font-size: 26px;
+		font-family: var(--pm-display);
+		font-size: 30px;
 		text-align: center;
+		outline: none;
+		transition: border-color 120ms ease-out;
 	}
-	.flip-btn,
-	.answer-button {
-		min-width: 56px;
-		height: 56px;
-		font-size: 20px;
+	.our-field:focus {
+		border-color: var(--pm-ink);
+		background: var(--pm-paper);
+	}
+	.flip-btn {
+		min-width: 60px;
+		height: 60px;
+		border: none;
+		border-radius: 16px;
+		background: var(--pm-cream);
+		box-shadow: 0 0 0 2px var(--pm-line) inset, 0 4px 0 var(--pm-line);
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 22px;
+		cursor: pointer;
 		touch-action: manipulation;
 	}
+	.flip-btn:active {
+		transform: translateY(3px);
+		box-shadow: 0 0 0 2px var(--pm-line) inset, 0 1px 0 var(--pm-line);
+	}
 	.answer-button {
-		padding: 0 18px;
+		height: 60px;
+		padding: 0 24px;
+	}
+
+	.progress {
+		margin: 18px 0 8px;
+	}
+	.boxes {
+		display: flex;
+		gap: 8px;
+	}
+	.box {
+		flex: 1;
+		height: 18px;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		box-shadow: 0 0 0 2px var(--pm-line) inset;
+		transition: background-color 250ms ease-out;
+	}
+	.box.filled {
+		background: var(--pm-green);
+		box-shadow: 0 -3px 0 var(--pm-green-deep) inset;
+	}
+	.status {
+		margin: 0;
+		color: var(--pm-ink-soft);
+		font-size: 16px;
+		text-align: center;
+	}
+
+	/* ── Recent catches ────────────────────────────────────────────────────────── */
+	.recent {
+		margin-top: 28px;
+		text-align: center;
+	}
+	.recent h2 {
+		margin: 0 0 12px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 22px;
+	}
+	.cards {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 12px;
+	}
+	.all-link {
+		margin-top: 20px;
+	}
+
+	/* ── The win and catch screen ──────────────────────────────────────────────── */
+	.catch {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 1300;
+		place-items: center;
+		padding: 24px;
+		background: oklch(0.24 0.04 265 / 0.94);
+		color: var(--pm-paper);
+		text-align: center;
+	}
+	.catch.open {
+		display: grid;
+	}
+	.catch-stage {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 14px;
+		width: min(520px, 100%);
+	}
+	.end-message {
+		position: relative;
+		margin: 0;
+		font-family: var(--pm-display);
+		font-size: clamp(26px, 6vw, 36px);
+		line-height: 1.15;
+		white-space: pre-line;
+	}
+	.end-message.headline {
+		font-size: clamp(34px, 9vw, 52px);
+		animation: rise 400ms ease-out both;
+	}
+	.hint {
+		margin: -4px 0 0;
+		opacity: 0.8;
+	}
+
+	/* A Pokéball drawn in CSS, so the page needs no animation library. */
+	.ball {
+		position: relative;
+		display: block;
+		width: 150px;
+		height: 150px;
+		border-radius: 50%;
+		background: linear-gradient(to bottom, var(--pm-red) 0 46%, var(--pm-ink) 46% 54%, var(--pm-paper) 54% 100%);
+		box-shadow: 0 0 0 6px var(--pm-ink), 0 18px 30px -10px oklch(0 0 0 / 0.6);
+		cursor: pointer;
+		animation: wobble 1.4s ease-in-out infinite;
+	}
+	.ball.is-hidden {
+		display: none;
+	}
+	.ball-button {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 44px;
+		height: 44px;
+		margin: -22px 0 0 -22px;
+		border-radius: 50%;
+		background: var(--pm-paper);
+		box-shadow: 0 0 0 6px var(--pm-ink), 0 0 0 10px var(--pm-paper) inset;
+	}
+	.ball:active {
+		animation: none;
+		transform: scale(0.94);
+	}
+	@keyframes wobble {
+		0%, 60%, 100% { transform: rotate(0); }
+		70% { transform: rotate(-14deg); }
+		80% { transform: rotate(10deg); }
+		90% { transform: rotate(-5deg); }
+	}
+
+	.burst {
+		position: absolute;
+		left: 50%;
+		top: 46%;
+		width: 520px;
+		height: 520px;
+		margin: -260px 0 0 -260px;
+		border-radius: 50%;
+		background: repeating-conic-gradient(oklch(0.83 0.15 85 / 0.22) 0 10deg, transparent 10deg 24deg);
+		mask-image: radial-gradient(circle, black 30%, transparent 70%);
+		-webkit-mask-image: radial-gradient(circle, black 30%, transparent 70%);
+		animation: spin 18s linear infinite;
+		pointer-events: none;
+	}
+	@keyframes spin {
+		to { transform: rotate(1turn); }
+	}
+	#new-catch-info {
+		position: relative;
+	}
+	.sprite {
+		width: min(240px, 60vw);
+		aspect-ratio: 1;
+		background-size: contain;
+		background-position: center;
+		background-repeat: no-repeat;
+		filter: drop-shadow(0 16px 18px oklch(0 0 0 / 0.45));
+		animation: pop 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+	@keyframes pop {
+		from { opacity: 0; transform: scale(0.4) translateY(30px); }
+		to { opacity: 1; transform: scale(1) translateY(0); }
+	}
+	@keyframes rise {
+		from { opacity: 0; transform: translateY(12px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+	.caught-types {
+		position: relative;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px;
+	}
+	.caught-type,
+	.caught-tag {
+		padding: 4px 12px;
+		border-radius: 999px;
+		background: oklch(1 0 0 / 0.14);
 		font-weight: 700;
+		text-transform: capitalize;
+	}
+	.caught-tag {
+		background: var(--pm-gold);
+		color: var(--pm-ink);
+	}
+	.reset-button {
+		position: relative;
+		min-width: 200px;
+		min-height: 56px;
+		font-size: 26px;
+	}
+	.reset-button.is-hidden {
+		display: none;
 	}
 
 	@media (max-width: 480px) {
-		.problem {
-			font-size: 3.6rem;
+		.play {
+			padding: 12px 14px 14px;
+		}
+		.flip-btn {
+			min-width: 52px;
+		}
+		.answer-button {
+			padding: 0 16px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.ball,
+		.burst,
+		.sprite,
+		.end-message.headline,
+		.problem.shake {
+			animation: none;
 		}
 	}
 
