@@ -1,0 +1,1088 @@
+<script>
+	// The bingo board for the classroom screen, ported from static/lærer/bingo_host.html and
+	// bingo_host_tasks.js. The teacher hosts a lobby over the /ws WebSocket; students join with the
+	// code, and their catches mark cells. A reload rejoins the same lobby (teacherBingoCode).
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { getTeacherSession } from '#lib/teacher.js';
+	import {
+		DIFF_NO,
+		catchPrefix,
+		checkNewMilestones,
+		fmtTime,
+		freeSpacePrize,
+		joinUrl,
+		launchConfetti,
+		localSprite,
+		logHover,
+		prizeSummary
+	} from '#lib/bingoHost.js';
+
+	/** @typedef {import('#lib/bingoHost.js').Cell} Cell */
+	/** @typedef {{ uuid?: string, name?: string, icon?: string, connected?: boolean, catchCount?: number }} Player */
+	/** @typedef {{ t: string, b?: boolean, dim?: boolean }} Seg */
+
+	/** @type {WebSocket | undefined} */
+	let ws;
+	let teacherSession = '';
+	let settings = $state(/** @type {{ difficulty?: string, minLevel?: string, className?: string, prizeType?: string, prizeSecret?: boolean }} */ ({}));
+
+	let currentCode = $state('');
+	let difficulty = $state('');
+	let className = $state('');
+	/** @type {Cell[]} */
+	let cells = $state([]);
+	/** @type {Player[]} */
+	let players = $state([]);
+	let totalCatches = $state(0);
+	/** @type {any[]} */
+	let events = $state([]);
+	let logVisible = $state(true);
+	/** @type {'joined' | 'alpha' | 'catches'} */
+	let sortMode = $state('joined');
+	let showCatches = $state(true);
+	let muted = $state(false);
+	/** @type {Set<string>} cells flashing for a milestone */
+	let flashing = $state(new Set());
+	/** Advances every 1.5 s; unsolved range cells show the next Pokémon in their range. */
+	let tick = $state(0);
+	/** @type {{ kind: 'info' | 'match' | 'low', lines: Seg[][] } | null} */
+	let toast = $state(null);
+	/** @type {{ message: Seg[], button?: string, action?: () => void } | null} */
+	let banner = $state(null);
+	/** @type {ReturnType<typeof prizeSummary> | null} */
+	let prize = $state(null);
+	let qrOpen = $state(false);
+	/** @type {{ message: string, position: string } | null} */
+	let adminPopup = $state(null);
+	let potPop = $state(false);
+
+	/** @type {HTMLCanvasElement | undefined} */
+	let confettiCanvas = $state();
+
+	const celebrated = new Set();
+	/** @type {Set<string>} */
+	let knownPlayers = new Set();
+	/** Extra details from toastCatch, merged into the log line from boardUpdate (eventExtraCache). */
+	const eventExtra = new Map();
+
+	const connectedCount = $derived(players.filter((p) => p.connected).length);
+	const sortedPlayers = $derived.by(() => {
+		const list = [...players];
+		if (sortMode === 'alpha') list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'no'));
+		if (sortMode === 'catches') list.sort((a, b) => (b.catchCount || 0) - (a.catchCount || 0));
+		return list;
+	});
+	const shownEvents = $derived(events.slice(-60).reverse());
+	const freePrize = $derived(freeSpacePrize(settings, players.length, totalCatches));
+
+	const status = (/** @type {string} */ text) => console.log('[BINGO HOST]', text);
+
+	/** @param {any} message */
+	function send(message) {
+		ws?.send(JSON.stringify({ teacherSession, ...message }));
+	}
+
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let toastTimer;
+	/** @param {'info' | 'match' | 'low'} kind @param {Seg[][]} lines */
+	function showToast(kind, lines) {
+		toast = { kind, lines };
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => (toast = null), 3000);
+	}
+
+	/** @param {number} n */
+	function setTotal(n) {
+		totalCatches = Number(n || 0);
+		if (settings.prizeType === 'participation_coins' && !settings.prizeSecret) {
+			potPop = true;
+			setTimeout(() => (potPop = false), 350);
+		}
+	}
+
+	/** @param {Player[]} list */
+	function playersUpdate(list) {
+		for (const p of list) {
+			if (p.uuid && !knownPlayers.has(p.uuid) && p.connected) {
+				showToast('info', [[{ t: p.name || 'Ash', b: true }, { t: ' koblet til!' }]]);
+				knownPlayers.add(p.uuid);
+			}
+		}
+		players = list;
+	}
+
+	/** @param {any} msg */
+	function loadLobby(msg) {
+		currentCode = msg.code;
+		localStorage.setItem('teacherBingoCode', msg.code);
+		difficulty = msg.board?.difficulty || '';
+		className = msg.className || '';
+		cells = msg.board?.cells ?? [];
+		playersUpdate(msg.players || []);
+		setTotal(msg.totalCatches || 0);
+	}
+
+	function createLobby() {
+		status('Oppretter ny lobby…');
+		knownPlayers = new Set();
+		events = [];
+		celebrated.clear();
+		send({
+			type: 'hostCreateLobby',
+			settings: {
+				difficulty: settings.difficulty || 'easy',
+				minLevel: settings.minLevel || 'alle',
+				className: settings.className || '',
+				prizeType: settings.prizeType || 'random'
+			}
+		});
+	}
+
+	function newGame() {
+		const oldCode = localStorage.getItem('teacherBingoCode');
+		localStorage.removeItem('teacherBingoCode');
+		if (oldCode && ws?.readyState === WebSocket.OPEN) {
+			try {
+				send({ type: 'hostEndLobby', code: oldCode });
+			} catch {
+				// The old lobby times out on the server anyway.
+			}
+		}
+		createLobby();
+	}
+
+	function endLobby() {
+		const code = currentCode;
+		currentCode = '';
+		localStorage.removeItem('teacherBingoCode');
+		celebrated.clear();
+		try {
+			send({ type: 'hostEndLobby', code });
+		} catch {
+			// Nothing to end if the socket is gone.
+		}
+	}
+
+	function endGame() {
+		if (!currentCode || !confirm('Avslutt bingo og disconnect alle elever?')) return;
+		endLobby();
+	}
+
+	function backToSettings() {
+		if (!confirm('Gå tilbake til innstillinger?\n\nDette avslutter det nåværende bingo-brettet og disconnecter alle elever.')) return;
+		if (currentCode) endLobby();
+		goto('/lærer/bingo_settings.html');
+	}
+
+	/** @param {Cell} cell */
+	function toggleCell(cell) {
+		if (cell.free) return;
+		if (cell.marked && !confirm(`Fjerne godkjenning for "${cell.task?.name || cell.cellId}"?`)) return;
+		send({ type: 'hostMarkCell', code: currentCode, cellId: cell.cellId, mark: !cell.marked });
+	}
+
+	function playSound(/** @type {string} */ file) {
+		if (localStorage.getItem('bingoMuted') === '1') return;
+		try {
+			new Audio('/audio/' + file).play();
+		} catch {
+			// Sound is a bonus.
+		}
+	}
+
+	/** @param {import('#lib/bingoHost.js').Milestone[]} milestones */
+	function celebrate(milestones) {
+		for (const m of milestones) {
+			if (confettiCanvas) launchConfetti(confettiCanvas, m.intensity);
+			const ids = m.indices.map((i) => cells[i]?.cellId).filter(Boolean);
+			flashing = new Set([...flashing, ...ids]);
+			setTimeout(() => (flashing = new Set([...flashing].filter((id) => !ids.includes(id)))), 1200);
+			events = [...events, { ts: Date.now(), name: '🏆', pokemonName: m.label, matched: true }];
+			showToast('match', [[{ t: m.label, b: true }]]);
+			if (m.type === 'full') {
+				playSound('caughtpkmn.ogg');
+				setTimeout(() => send({ type: 'hostLockLobby', code: currentCode }), 1500);
+			} else {
+				playSound('lvlup.ogg');
+			}
+		}
+	}
+
+	/** @param {any} msg */
+	function onMessage(msg) {
+		switch (msg.type) {
+			case 'lobbyPrize':
+				prize = prizeSummary(msg.prize, msg.eligibleCount || 0);
+				return;
+			case 'lobbyCreated':
+				status('Lobby opprettet: ' + msg.code);
+				celebrated.clear();
+				loadLobby(msg);
+				return;
+			case 'lobbyState':
+				status((msg.restored ? 'Lobby gjenopprettet fra database: ' : 'Lobby gjenopprettet: ') + msg.code);
+				loadLobby(msg);
+				if (Array.isArray(msg.events)) events = [...msg.events];
+				if (msg.restored) banner = { message: [{ t: 'Lobbyen ble gjenopprettet etter serverrestart. Elever må koble til på nytt.' }] };
+				return;
+			case 'playersUpdate':
+				playersUpdate(msg.players || []);
+				return;
+			case 'boardUpdate': {
+				cells = msg.board.cells;
+				if (msg.totalCatches != null) setTotal(msg.totalCatches);
+				if (msg.lastEvent) {
+					const ev = msg.lastEvent;
+					const key = `${ev.uuid || ''}|${ev.pokemonCode || ''}|${ev.ts || ev.timestamp || ev.time || ''}`;
+					const extra = eventExtra.get(key);
+					events = [...events, extra ? { ...ev, ...extra } : ev];
+				}
+				const milestones = checkNewMilestones(cells, celebrated);
+				if (milestones.length) celebrate(milestones);
+				return;
+			}
+			case 'toastCatch': {
+				if (msg.totalCatches != null) setTotal(msg.totalCatches);
+				const name = msg.name || 'Ash';
+				const pokeName = msg.pokemonName || msg.pokemonCode || 'Pokémon';
+				const id = msg.pokedexId ? ` (#${msg.pokedexId})` : '';
+				if (msg.belowLevel) {
+					// Below the minimum level: logged, but no effect on the board.
+					const { uuid, pokedexId, pokemonName, pokemonCode, types, flags, difficulty: stage } = msg;
+					events = [...events, { ts: Date.now(), uuid, name: msg.name, pokedexId, pokemonName, pokemonCode, types, flags, difficulty: stage, matched: false, belowLevel: true }];
+					showToast('low', [[{ t: name, b: true }, { t: ' fanget ' }, { t: pokeName, b: true }, { t: id + ' ' }, { t: '(nivå for lavt)', dim: true }]]);
+					return;
+				}
+				// The legacy page keys this without a time, so it only matches a lastEvent that has none.
+				eventExtra.set(`${msg.uuid || ''}|${msg.pokemonCode || ''}|`, {
+					uuid: msg.uuid,
+					pokedexId: msg.pokedexId,
+					pokemonName: msg.pokemonName,
+					types: msg.types,
+					flags: msg.flags,
+					difficulty: msg.difficulty,
+					matchedCells: msg.matchedCells,
+					matchedCell: msg.matchedCell
+				});
+				/** @type {Seg[][]} */
+				const lines = [[{ t: name, b: true }, { t: ` fanget en ${catchPrefix(msg.flags)}` }, { t: pokeName, b: true }, { t: '!' + id }]];
+				if (Array.isArray(msg.types) && msg.types.length) lines.push([{ t: 'Type: ' }, { t: msg.types.join(', '), b: true }]);
+				const matches = Array.isArray(msg.matchedCells) && msg.matchedCells.length ? msg.matchedCells.join(', ') : msg.matchedCell;
+				if (matches) lines.push([{ t: 'Match: ' }, { t: matches, b: true }]);
+				showToast(msg.matched ? 'match' : 'info', lines);
+				return;
+			}
+			case 'adminPopup':
+				adminPopup = { message: msg.message, position: msg.position || 'top-center' };
+				setTimeout(() => (adminPopup = null), (msg.duration || 5) * 1000);
+				return;
+			case 'adminSound':
+				playSound(msg.file);
+				return;
+			case 'lobbyNotFound':
+				status('Lobby ikke funnet.');
+				localStorage.removeItem('teacherBingoCode');
+				banner = {
+					message: [{ t: 'Lobbyen ' }, { t: msg.code || '', b: true }, { t: ' ble ikke funnet - serveren ble sannsynligvis restartet.' }],
+					button: 'Start ny lobby',
+					action: createLobby
+				};
+				return;
+			case 'error':
+				status('SERVER ERROR: ' + (msg.message || 'Feil'));
+				banner = { message: [{ t: msg.message || 'Serverfeil' }] };
+				return;
+		}
+	}
+
+	onMount(() => {
+		teacherSession = getTeacherSession();
+		if (!teacherSession) {
+			alert('Du må logge inn som lærer først.');
+			goto('/lærer/index.html');
+			return;
+		}
+		settings = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
+		muted = localStorage.getItem('bingoMuted') === '1';
+
+		ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+		ws.addEventListener('open', () => {
+			const stored = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
+			if (stored.length === 6) {
+				status('Gjenoppretter lobby ' + stored + ' …');
+				send({ type: 'hostJoinLobby', code: stored });
+			} else {
+				createLobby();
+			}
+		});
+		ws.addEventListener('error', (e) => {
+			status('WebSocket ERROR – se Console.');
+			console.error(e);
+		});
+		ws.addEventListener('close', (e) => status(`WebSocket lukket. code=${e.code} reason=${e.reason || '(ingen)'}`));
+		ws.addEventListener('message', (e) => {
+			let msg;
+			try {
+				msg = JSON.parse(e.data);
+			} catch {
+				return; // Not JSON; ignored, as before.
+			}
+			onMessage(msg);
+		});
+
+		const cycler = setInterval(() => tick++, 1500);
+		return () => {
+			clearInterval(cycler);
+			clearTimeout(toastTimer);
+			ws?.close();
+		};
+	});
+
+	function toggleMute() {
+		muted = !muted;
+		localStorage.setItem('bingoMuted', muted ? '1' : '0');
+	}
+
+	function copyLink() {
+		if (!currentCode) return;
+		const url = joinUrl(currentCode);
+		navigator.clipboard
+			.writeText(url)
+			.then(() => showToast('info', [[{ t: 'Lenke kopiert!' }]]))
+			.catch(() => prompt('Kopier lenken:', url));
+	}
+
+	/** The Pokémon a range cell shows now: it steps through up to 60 of the range. @param {Cell} cell */
+	function rangeSprite(cell) {
+		const start = Number(cell.task?.rule?.start);
+		const end = Number(cell.task?.rule?.end);
+		if (isNaN(start) || isNaN(end) || end < start) return localSprite(start);
+		return localSprite(start + (tick % Math.min(end - start + 1, 60)));
+	}
+</script>
+
+<svelte:head>
+	<title>PokeMath – Bingo</title>
+	<meta name="robots" content="noindex, nofollow" />
+</svelte:head>
+
+{#snippet segs(/** @type {Seg[]} */ line)}
+	{#each line as s, i (i)}{#if s.b}<b>{s.t}</b>{:else if s.dim}<span class="dim">{s.t}</span>{:else}{s.t}{/if}{/each}
+{/snippet}
+
+<div class="pm-bare host">
+	<header class="host-top">
+		<div class="title-block">
+			<h1>PokeBingo</h1>
+			<p class="labels">
+				<span id="difficultyLabel">{DIFF_NO[difficulty] || difficulty}</span>
+				{#if className}· <span id="classNameLabel">Klasse: {className}</span>{/if}
+			</p>
+		</div>
+		<div class="code-box">
+			<span class="code-label">Klassekode</span>
+			<span id="code" class="code-value">{currentCode || '------'}</span>
+			<span class="code-actions">
+				<button id="copyLinkBtn" class="pm-button small secondary" onclick={copyLink}>Kopier lenke</button>
+				<button id="showQrBtn" class="pm-button small secondary" onclick={() => currentCode && (qrOpen = true)}>Vis QR</button>
+			</span>
+		</div>
+	</header>
+
+	<div class="controls">
+		<button id="newGameBtn" class="pm-button small" onclick={newGame}>Nytt spill</button>
+		<button id="toggleLog" class="pm-button small secondary" onclick={() => (logVisible = !logVisible)}>{logVisible ? 'Skjul logg' : 'Vis logg'}</button>
+		<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt Bingo</button>
+		<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>← Innstillinger</button>
+		<span class="spacer"></span>
+		<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
+		<span id="totalCatches" class="total">Totalt fanget: {totalCatches}</span>
+	</div>
+
+	<div class="grid">
+		<section class="panel players-panel" aria-label="Tilkoblede elever">
+			<div class="panel-header">
+				<span>Elever</span>
+				<span id="playerCount" class="badge">{connectedCount}/{players.length}</span>
+			</div>
+			<div class="sort" role="group" aria-label="Sorter elever">
+				<button id="sortJoinBtn" aria-pressed={sortMode === 'joined'} onclick={() => (sortMode = 'joined')} title="Etter tilkobling">⏱</button>
+				<button id="sortAlphaBtn" aria-pressed={sortMode === 'alpha'} onclick={() => (sortMode = 'alpha')}>A–Å</button>
+				<button id="sortCatchBtn" aria-pressed={sortMode === 'catches'} onclick={() => (sortMode = 'catches')} title="Flest fangster">🎯</button>
+				<button id="toggleCatchesBtn" class="eye" onclick={() => (showCatches = !showCatches)}>👁 {showCatches ? 'Skjul' : 'Vis'}</button>
+			</div>
+			<div id="players">
+				{#each sortedPlayers as p, i (p.uuid ?? i)}
+					<div class="player-row">
+						{#if p.icon}
+							<img class="player-icon" src="/images/playericons/{p.icon}.png" alt="" />
+						{:else}
+							<span class="player-dot" class:connected={p.connected}></span>
+						{/if}
+						<span class="player-name">{p.name || 'Ash'}</span>
+						{#if showCatches}
+							<span class="player-catches">
+								{p.catchCount ?? 0}<small>({totalCatches > 0 ? Math.round(((p.catchCount || 0) / totalCatches) * 100) : 0}%)</small>
+							</span>
+						{/if}
+					</div>
+				{:else}
+					<p class="empty">Ingen elever ennå. Del koden over.</p>
+				{/each}
+			</div>
+		</section>
+
+		<table id="bingoCard">
+			<tbody>
+				{#each [0, 1, 2, 3, 4] as r (r)}
+					<tr>
+						{#each cells.slice(r * 5, r * 5 + 5) as cell (cell.cellId)}
+							{@const rule = cell.task?.rule}
+							<td
+								data-cell-id={cell.cellId}
+								class:free-space={cell.free}
+								class:toggled={cell.marked && !cell.free}
+								class:host-cell={!cell.free}
+								class:bingo-flash={flashing.has(cell.cellId)}
+								title={cell.free ? null : 'Trykk for å godkjenne / fjerne godkjenning'}
+								onclick={() => toggleCell(cell)}
+							>
+								{#if !cell.free}<span class="hit-badge">{cell.hits || 0}</span>{/if}
+								{#if cell.free}
+									<img src="/images/compass.png" alt="" />
+									<span class="cell-name">FREE SPACE</span>
+									<span class="free-prize" class:strong={freePrize.strong}>
+										{#if freePrize.pot}<span id="participationPot" class="pot" class:pop={potPop}>{freePrize.text}</span>{:else}{freePrize.text}{/if}
+									</span>
+									{#if freePrize.note}<span class="free-note">{freePrize.note}</span>{/if}
+								{:else}
+									{#if rule?.kind === 'pokedexExact'}
+										<img class:silhouette={!cell.marked} src={cell.task?.image ? `/${String(cell.task.image).replace(/^\//, '')}` : localSprite(rule.id ?? 0)} alt={cell.task?.name || ''} />
+									{:else if rule?.kind === 'pokedexRange'}
+										{#if cell.marked}
+											<span class="cell-range-solved">✓</span>
+										{:else}
+											<img class="silhouette range-sprite" src={rangeSprite(cell)} alt={cell.task?.name || ''} />
+										{/if}
+									{:else if cell.task?.image}
+										<img src="/{String(cell.task.image).replace(/^\//, '')}" alt={cell.task?.name || ''} />
+									{:else if cell.task?.text}
+										<span class={cell.task.textClass || ''}>{cell.task.text}</span>
+									{/if}
+									<span class="cell-name">{cell.task?.name || ''}</span>
+									<span class="task-description">{cell.task?.description || ''}</span>
+								{/if}
+							</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+
+		<section class="panel log-panel" aria-label="Logg">
+			<div class="panel-header">
+				<span>Logg</span>
+				<span id="logCount" class="badge">{events.length}</span>
+			</div>
+			{#if logVisible}
+				<div id="events">
+					{#each shownEvents as ev, i (i)}
+						<div class="log-entry" class:log-match={ev.matched} class:below={ev.belowLevel} title={logHover(ev)}>
+							<span class="log-time">{fmtTime(ev.ts)}</span>
+							<b>{ev.name || 'Ash'}</b> – {ev.pokedexId ? `#${ev.pokedexId} ` : ''}<b>{ev.pokemonName || ev.pokemonCode || 'Pokémon'}</b>
+							{#if ev.difficulty}<span class="dim">({ev.difficulty})</span>{/if}
+							{#if ev.matched}<span class="pill match">MATCH</span>{/if}
+							{#if ev.belowLevel}<span class="pill low">nivå for lavt</span>{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
+</div>
+
+{#if toast}
+	<div id="toast" class="bingo-toast {toast.kind}" role="status">
+		{#each toast.lines as line, i (i)}<div>{@render segs(line)}</div>{/each}
+	</div>
+{/if}
+
+{#if banner}
+	<div id="host-banner" role="alert">
+		<span class="banner-text">{@render segs(banner.message)}</span>
+		{#if banner.button}
+			<button
+				id="host-banner-btn"
+				class="pm-button small"
+				onclick={() => {
+					const action = banner?.action;
+					banner = null;
+					action?.();
+				}}>{banner.button}</button
+			>
+		{/if}
+		<button id="host-banner-close" class="close" aria-label="Lukk" onclick={() => (banner = null)}>×</button>
+	</div>
+{/if}
+
+{#if qrOpen}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div id="qrModal" class="overlay" onclick={(e) => e.target === e.currentTarget && (qrOpen = false)}>
+		<div class="qr-box" role="dialog" aria-modal="true" aria-label="QR-kode">
+			<button id="qrClose" class="close" aria-label="Lukk" onclick={() => (qrOpen = false)}>×</button>
+			<p class="qr-title">Scan for å bli med</p>
+			<img id="qrImage" src="https://api.qrserver.com/v1/create-qr-code/?data={encodeURIComponent(joinUrl(currentCode))}&size=260x260&margin=2" alt="QR-kode" width="220" height="220" />
+			<p id="qrUrl" class="qr-url">{joinUrl(currentCode)}</p>
+		</div>
+	</div>
+{/if}
+
+{#if prize}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div id="prizeModal" class="overlay dark" onclick={(e) => e.target === e.currentTarget && (prize = null)}>
+		<div class="prize-box" role="dialog" aria-modal="true" aria-labelledby="prize-title">
+			{#if prize.emoji}
+				<div class="prize-emoji">{prize.emoji}</div>
+			{:else if prize.sprites}
+				<div class="prize-sprites">{#each prize.sprites as src, i (i)}<img {src} alt="" width="80" height="80" />{/each}</div>
+			{/if}
+			<h2 id="prize-title">🏆 Bingo fullført!</h2>
+			<h3>{prize.title}</h3>
+			<p>{prize.sub}</p>
+			<button class="pm-button" onclick={() => (prize = null)}>OK</button>
+		</div>
+	</div>
+{/if}
+
+{#if adminPopup}
+	<div id="admin-popup" class="admin-popup pos-{adminPopup.position}">{adminPopup.message}</div>
+{/if}
+
+<canvas id="confetti-canvas" bind:this={confettiCanvas}></canvas>
+
+<style>
+	.host {
+		max-width: 1500px;
+		margin: 0 auto;
+		padding: 16px;
+	}
+	.host-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		flex-wrap: wrap;
+	}
+	h1 {
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: clamp(32px, 4vw, 48px);
+		color: var(--pm-red);
+	}
+	.labels {
+		margin: 0;
+		color: var(--pm-ink-soft);
+		font-weight: 700;
+	}
+	.code-box {
+		display: grid;
+		justify-items: end;
+		gap: 4px;
+	}
+	.code-label {
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+	/* Big enough to read from the back of the classroom. */
+	.code-value {
+		font-family: var(--pm-display);
+		font-size: clamp(40px, 5vw, 64px);
+		letter-spacing: 0.12em;
+		line-height: 1;
+	}
+	.code-actions {
+		display: flex;
+		gap: 6px;
+	}
+	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin: 14px 0;
+	}
+	.spacer {
+		flex: 1;
+	}
+	.total {
+		font-family: var(--pm-display);
+		font-size: 20px;
+	}
+	.pm-button.danger {
+		color: var(--pm-red-deep);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: 220px minmax(0, 1fr) 280px;
+		gap: 14px;
+		align-items: start;
+	}
+	.panel {
+		overflow: hidden;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.panel-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 12px;
+		border-bottom: 1px solid var(--pm-line);
+		font-family: var(--pm-display);
+		font-size: 18px;
+	}
+	.badge {
+		padding: 1px 9px;
+		border-radius: 999px;
+		background: var(--pm-cream);
+		font-family: var(--pm-body);
+		font-size: 14px;
+		font-weight: 700;
+	}
+	.sort {
+		display: flex;
+		gap: 4px;
+		padding: 6px 8px;
+		border-bottom: 1px solid var(--pm-line);
+	}
+	.sort button {
+		min-width: 36px;
+		min-height: 32px;
+		padding: 0 8px;
+		border: none;
+		border-radius: 8px;
+		background: var(--pm-cream);
+		color: var(--pm-ink);
+		font: inherit;
+		font-size: 13px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.sort button[aria-pressed='true'] {
+		background: var(--pm-ink);
+		color: var(--pm-paper);
+	}
+	.sort .eye {
+		margin-left: auto;
+	}
+	#players,
+	#events {
+		max-height: 70vh;
+		overflow-y: auto;
+	}
+	.player-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 7px 12px;
+		border-bottom: 1px solid var(--pm-cream);
+	}
+	.player-icon {
+		width: 28px;
+		height: 28px;
+		object-fit: contain;
+	}
+	.player-dot {
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		background: var(--pm-line);
+	}
+	.player-dot.connected {
+		background: var(--pm-green);
+	}
+	.player-name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-weight: 700;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.player-catches {
+		font-family: var(--pm-display);
+	}
+	.player-catches small {
+		margin-left: 2px;
+		font-family: var(--pm-body);
+		font-size: 12px;
+		opacity: 0.6;
+	}
+	.empty {
+		margin: 0;
+		padding: 12px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+	}
+
+	#bingoCard {
+		width: 100%;
+		table-layout: fixed;
+		border-collapse: separate;
+		border-spacing: 6px;
+		padding: 6px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	#bingoCard td {
+		position: relative;
+		height: 118px;
+		padding: 22px 6px 8px;
+		border-radius: 12px;
+		background: var(--pm-cream);
+		box-shadow: inset 0 0 0 1px var(--pm-line);
+		font-size: 13px;
+		line-height: 1.2;
+		text-align: center;
+		vertical-align: top;
+		cursor: pointer;
+		transition: background 0.2s;
+	}
+	#bingoCard td.toggled {
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+		box-shadow: none;
+	}
+	#bingoCard td.free-space {
+		background: var(--pm-red);
+		color: var(--pm-paper);
+		box-shadow: none;
+		cursor: default;
+	}
+	@media (hover: hover) {
+		#bingoCard td.host-cell:not(.toggled):hover {
+			box-shadow: inset 0 0 0 2px var(--pm-red);
+		}
+	}
+	#bingoCard td img {
+		display: block;
+		width: 48px;
+		height: 48px;
+		margin: 0 auto 4px;
+		object-fit: contain;
+	}
+	#bingoCard td img.silhouette {
+		filter: brightness(0);
+	}
+	.cell-name {
+		display: block;
+		font-weight: 700;
+	}
+	.task-description {
+		display: block;
+		margin-top: 2px;
+		font-size: 12px;
+		opacity: 0.75;
+	}
+	.hit-badge {
+		position: absolute;
+		top: 5px;
+		left: 5px;
+		min-width: 20px;
+		height: 20px;
+		padding: 0 5px;
+		border-radius: 999px;
+		background: oklch(0.3 0.03 265 / 0.12);
+		font-size: 11px;
+		font-weight: 800;
+		line-height: 20px;
+	}
+	.toggled .hit-badge {
+		background: oklch(1 0 0 / 0.3);
+	}
+	.cell-range-solved {
+		display: block;
+		margin: 4px 0;
+		font-size: 34px;
+		font-weight: 900;
+		line-height: 1;
+	}
+	.free-prize {
+		display: block;
+		margin-top: 4px;
+		font-size: 12px;
+		opacity: 0.85;
+	}
+	.free-prize.strong {
+		font-weight: 700;
+		opacity: 1;
+	}
+	.pot {
+		display: inline-block;
+		color: oklch(0.92 0.13 95);
+		transition: transform 0.25s, color 0.25s;
+	}
+	.pot.pop {
+		transform: scale(1.35);
+		color: var(--pm-paper);
+	}
+	.free-note {
+		display: block;
+		font-size: 11px;
+		opacity: 0.65;
+	}
+	#bingoCard td.bingo-flash {
+		z-index: 3;
+		animation: bingo-flash 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	}
+	@keyframes bingo-flash {
+		0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+		30% { transform: scale(1.16); box-shadow: 0 0 28px 10px rgba(255, 215, 0, 0.95); }
+		65% { transform: scale(1.08); box-shadow: 0 0 16px 5px rgba(255, 215, 0, 0.55); }
+		100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+	}
+
+	.log-entry {
+		padding: 7px 12px;
+		border-bottom: 1px solid var(--pm-cream);
+		font-size: 13px;
+	}
+	.log-entry.log-match {
+		background: oklch(0.95 0.06 145);
+	}
+	.log-entry.below {
+		background: oklch(0.97 0.05 90);
+	}
+	.log-time {
+		color: var(--pm-ink-soft);
+		font-size: 12px;
+	}
+	.dim {
+		opacity: 0.6;
+	}
+	.pill {
+		display: inline-block;
+		margin-left: 4px;
+		padding: 1px 7px;
+		border-radius: 999px;
+		font-size: 11px;
+		font-weight: 800;
+	}
+	.pill.match {
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+	}
+	.pill.low {
+		background: oklch(0.85 0.13 90);
+		color: oklch(0.4 0.08 80);
+	}
+
+	.bingo-toast {
+		position: fixed;
+		left: 50%;
+		bottom: 24px;
+		z-index: 2000;
+		max-width: min(520px, calc(100vw - 32px));
+		padding: 14px 20px;
+		border-radius: 16px;
+		background: var(--pm-paper);
+		box-shadow: 0 16px 40px -16px oklch(0.25 0.04 265 / 0.6), 0 0 0 2px oklch(0.65 0.12 245);
+		font-size: 18px;
+		transform: translateX(-50%);
+	}
+	.bingo-toast.match {
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+		box-shadow: 0 16px 40px -16px oklch(0.25 0.04 265 / 0.6);
+	}
+	.bingo-toast.low {
+		background: oklch(0.97 0.05 90);
+		color: oklch(0.4 0.08 80);
+		box-shadow: 0 16px 40px -16px oklch(0.25 0.04 265 / 0.6), 0 0 0 2px oklch(0.82 0.13 90);
+	}
+	.bingo-toast div + div {
+		margin-top: 6px;
+	}
+
+	#host-banner {
+		position: fixed;
+		top: 16px;
+		left: 50%;
+		z-index: 2100;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		width: min(560px, calc(100vw - 32px));
+		padding: 12px 16px;
+		border-radius: 14px;
+		background: var(--pm-paper);
+		box-shadow: 0 16px 40px -16px oklch(0.25 0.04 265 / 0.6), 0 0 0 2px var(--pm-red);
+		transform: translateX(-50%);
+	}
+	.banner-text {
+		flex: 1;
+	}
+	.close {
+		width: 36px;
+		height: 36px;
+		border: none;
+		border-radius: 50%;
+		background: none;
+		color: var(--pm-ink-soft);
+		font-size: 24px;
+		cursor: pointer;
+	}
+
+	.overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 2200;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 16px;
+		background: oklch(0.2 0.03 265 / 0.5);
+	}
+	.overlay.dark {
+		background: oklch(0.15 0.03 265 / 0.8);
+	}
+	.qr-box,
+	.prize-box {
+		position: relative;
+		padding: 28px 32px;
+		border-radius: 20px;
+		background: var(--pm-paper);
+		text-align: center;
+	}
+	.qr-box .close {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+	}
+	.qr-title {
+		margin: 0 0 12px;
+		font-family: var(--pm-display);
+		font-size: 22px;
+		color: var(--pm-red);
+	}
+	#qrImage {
+		border-radius: 8px;
+	}
+	.qr-url {
+		max-width: 260px;
+		margin: 10px 0 0;
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		overflow-wrap: anywhere;
+	}
+	.prize-box {
+		width: min(520px, 100%);
+	}
+	.prize-emoji {
+		font-size: 80px;
+		line-height: 1.1;
+	}
+	.prize-sprites img {
+		margin: 4px;
+		image-rendering: pixelated;
+	}
+	.prize-box h2 {
+		margin: 8px 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 30px;
+	}
+	.prize-box h3 {
+		margin: 0 0 12px;
+		color: oklch(0.55 0.15 255);
+		font-size: 20px;
+	}
+	.prize-box p {
+		margin: 0 0 22px;
+		color: var(--pm-ink-soft);
+	}
+
+	.admin-popup {
+		position: fixed;
+		z-index: 2300;
+		max-width: 500px;
+		padding: 16px 28px;
+		border-radius: 16px;
+		background: var(--pm-ink);
+		color: var(--pm-paper);
+		font-size: 19px;
+		font-weight: 700;
+		text-align: center;
+		box-shadow: 0 8px 32px oklch(0.15 0.03 265 / 0.5);
+		animation: admin-pop 0.25s ease;
+	}
+	.pos-top-left { top: 16px; left: 16px; }
+	.pos-top-center { top: 16px; left: 50%; translate: -50% 0; }
+	.pos-top-right { top: 16px; right: 16px; }
+	.pos-center { top: 50%; left: 50%; translate: -50% -50%; }
+	.pos-bottom-left { bottom: 16px; left: 16px; }
+	.pos-bottom-center { bottom: 16px; left: 50%; translate: -50% 0; }
+	.pos-bottom-right { bottom: 16px; right: 16px; }
+	@keyframes admin-pop {
+		from { opacity: 0; transform: scale(0.88); }
+		to { opacity: 1; transform: scale(1); }
+	}
+
+	#confetti-canvas {
+		position: fixed;
+		inset: 0;
+		z-index: 2400;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	/* Smaller screens: the board on top, players and log side by side under it. */
+	@media (max-width: 1100px) {
+		.grid {
+			grid-template-columns: 1fr 1fr;
+			grid-template-areas: 'board board' 'players log';
+		}
+		#bingoCard { grid-area: board; }
+		.players-panel { grid-area: players; }
+		.log-panel { grid-area: log; }
+	}
+	@media (max-width: 640px) {
+		.grid {
+			grid-template-columns: 1fr;
+			grid-template-areas: 'board' 'players' 'log';
+		}
+		#bingoCard {
+			border-spacing: 3px;
+			padding: 3px;
+		}
+		#bingoCard td {
+			height: 92px;
+			padding: 20px 2px 4px;
+			font-size: 11px;
+		}
+		#bingoCard td img {
+			width: 34px;
+			height: 34px;
+		}
+		.task-description {
+			display: none;
+		}
+		.code-box {
+			justify-items: start;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#bingoCard td.bingo-flash {
+			animation: none;
+		}
+	}
+</style>
