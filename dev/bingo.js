@@ -38,7 +38,9 @@ function pick(list, count) {
   return [...list].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
-function buildBoard(difficulty) {
+function buildBoard(difficulty, gridSize = 5) {
+  const size = [5, 7, 9, 11, 13, 15].includes(Number(gridSize)) ? Number(gridSize) : 5;
+  const count = size * size - 1;
   const config = bingoTasks.difficultyConfig[difficulty] || bingoTasks.difficultyConfig.easy;
   let chosen;
   if (config.uniqueIds) {
@@ -51,10 +53,12 @@ function buildBoard(difficulty) {
       ...Array.from({ length: config.random }, bingoTasks.generateRandomNumberTask),
     ];
   }
-  chosen = pick(chosen, 24);
+  // Bigger boards need more tasks than the lists hold; random numbers and ranges fill up.
+  while (chosen.length < count) chosen.push(chosen.length % 2 ? bingoTasks.generateRandomRangeTask() : bingoTasks.generateRandomNumberTask());
+  chosen = pick(chosen, count);
   const cells = chosen.map((task, i) => ({ cellId: `c${i}-${task.id}`, free: false, marked: false, hits: 0, task }));
-  cells.splice(12, 0, { cellId: "free", free: true, marked: true, hits: 0 });
-  return { difficulty, cells };
+  cells.splice((count / 2) | 0, 0, { cellId: "free", free: true, marked: true, hits: 0 });
+  return { difficulty, cells, rows: size, cols: size };
 }
 
 function matches(rule, catchMsg) {
@@ -67,6 +71,7 @@ function matches(rule, catchMsg) {
     case "category": return (CATEGORIES[rule.category] || []).includes(id);
     case "pokedexExact": return id === rule.id;
     case "pokedexRange": return id >= rule.start && id <= rule.end;
+    case "nameStartsWith": return String(catchMsg.pokemonName || "").toUpperCase().startsWith(rule.letter);
     default: return false;
   }
 }
@@ -135,7 +140,7 @@ const handlers = {
     const settings = msg.settings || {};
     const room = {
       code: makeCode(), settings, host: ws, players: new Map(),
-      board: buildBoard(settings.difficulty || "easy"), totalCatches: 0, events: [], locked: false,
+      board: buildBoard(settings.difficulty || "easy", settings.gridSize), totalCatches: 0, events: [], locked: false,
     };
     rooms.set(room.code, room);
     log("bingo", `rom ${room.code} opprettet (${room.board.difficulty})`);
@@ -180,6 +185,36 @@ const handlers = {
     log("bingo", `rom ${room.code} avsluttet`);
   },
 
+  // The host's player menu: kick out, ask to rename, or rename directly.
+  hostKickPlayer(ws, msg, log) {
+    const room = hostRoom(ws, msg);
+    const player = room?.players.get(msg.uuid);
+    if (!player) return;
+    send(player.socket, { type: "kicked" });
+    room.players.delete(msg.uuid);
+    log("bingo", `${player.name} kastet ut av ${room.code}`);
+    send(room.host, { type: "playersUpdate", players: playerList(room) });
+  },
+
+  hostForceRename(ws, msg) {
+    const room = hostRoom(ws, msg);
+    const player = room?.players.get(msg.uuid);
+    if (!player) return;
+    send(player.socket, { type: "forceRename" });
+    room.players.delete(msg.uuid);
+    send(room.host, { type: "playersUpdate", players: playerList(room) });
+  },
+
+  hostSetName(ws, msg) {
+    const room = hostRoom(ws, msg);
+    const player = room?.players.get(msg.uuid);
+    const name = String(msg.name || "").trim().slice(0, 22);
+    if (!player || !name) return;
+    player.name = name;
+    send(player.socket, { type: "nameChanged", name });
+    send(room.host, { type: "playersUpdate", players: playerList(room) });
+  },
+
   joinLobby(ws, msg, log) {
     const room = rooms.get(msg.code);
     if (!room || room.locked || !msg.uuid) return send(ws, { type: "joinResult", ok: false });
@@ -200,7 +235,13 @@ const handlers = {
     if (!room || !player || room.locked) return;
 
     const minLevel = room.settings.minLevel || "alle";
-    const belowLevel = minLevel !== "alle" && STAGE_ORDER.indexOf(msg.difficulty) < STAGE_ORDER.indexOf(minLevel);
+    // "tilpasset" is the adaptive level. The settings page offers "only adaptive" and, for a
+    // stage minimum, a box to also accept adaptive catches; this is how the mock reads them.
+    let belowLevel;
+    if (minLevel === "alle") belowLevel = false;
+    else if (minLevel === "tilpasset") belowLevel = msg.difficulty !== "tilpasset";
+    else if (msg.difficulty === "tilpasset") belowLevel = !room.settings.allowAdaptive;
+    else belowLevel = STAGE_ORDER.indexOf(msg.difficulty) < STAGE_ORDER.indexOf(minLevel);
     const event = {
       ts: Date.now(), uuid: msg.uuid, name: player.name, pokemonCode: msg.pokemonCode, pokedexId: msg.pokedexId,
       pokemonName: msg.pokemonName, difficulty: msg.difficulty, types: msg.types, flags: msg.flags, matched: false,

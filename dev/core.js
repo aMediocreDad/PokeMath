@@ -24,7 +24,11 @@ function register(app, log) {
       users.set(uuid, { token: newToken, stats: null });
       return res.json({ unique: true, valid: true, token: newToken });
     }
-    res.json({ unique: false, valid: user.token === token });
+    // The live client (global.js, 2026-10) starts over with a new id when the server answers
+    // reassign: the id is someone else's. When the real server sends it is not in the client
+    // code; here it is any known id with the wrong token. Unverified against production.
+    if (user.token !== token) return res.json({ unique: false, valid: false, reassign: true });
+    res.json({ unique: false, valid: true });
   });
 
   app.post("/update-user-stats", (req, res) => {
