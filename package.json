@@ -12,7 +12,7 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
     "dev:worker": "bash tests/serve-worker.sh",
-    "mirror": "node scripts/mirror-assets.mjs",
+    "mirror": "node scripts/mirror-assets.mjs && node scripts/optimize-images.mjs",
     "deploy": "vite build && wrangler deploy"
   },
   "keywords": [],
