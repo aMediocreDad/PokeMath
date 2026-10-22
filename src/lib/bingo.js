@@ -28,9 +28,12 @@ function playerName() {
 	return name || 'Ash';
 }
 
+/** The ids of prizes already given, part of the save (see claimPrizes). */
+const PRIZES_GIVEN = 'bingoPrizesGiven';
+
 /**
  * A prize from GET /bingo/claim-prizes.
- * @typedef {{ type: string, amount?: number, participationPot?: number, source?: string,
+ * @typedef {{ id?: string, type: string, amount?: number, participationPot?: number, source?: string,
  *   entry?: string, pokedexId?: number, shiny?: boolean, legendary?: boolean,
  *   easterName?: string, easterCoins?: number, label?: string }} Prize
  */
@@ -100,12 +103,29 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 		return send({ type: 'joinLobby', code: code6(code), uuid: id, name: playerName(), icon });
 	}
 
+	/**
+	 * Give the prizes waiting on the server, then confirm them so the server drops them. The ids
+	 * given are kept in the save too, so a confirm lost on bad wifi never pays a prize twice.
+	 */
 	async function claimPrizes() {
 		const id = await uuid();
+		const url = '/bingo/claim-prizes?uuid=' + encodeURIComponent(id);
 		try {
-			const r = await fetch('/bingo/claim-prizes?uuid=' + encodeURIComponent(id));
-			const d = await r.json();
-			if (d.ok && Array.isArray(d.prizes) && d.prizes.length) onPrizes(d.prizes);
+			const d = await (await fetch(url + '&keep=1')).json();
+			if (!d.ok || !Array.isArray(d.prizes) || !d.prizes.length) return;
+			/** @type {string[]} */
+			let given = [];
+			try {
+				given = JSON.parse(localStorage.getItem(PRIZES_GIVEN) || '[]');
+			} catch {
+				// A broken list: the server's copy decides.
+			}
+			const fresh = d.prizes.filter((/** @type {Prize} */ p) => !p.id || !given.includes(p.id));
+			if (fresh.length) {
+				localStorage.setItem(PRIZES_GIVEN, JSON.stringify([...given, ...fresh.map((/** @type {Prize} */ p) => p.id).filter(Boolean)].slice(-200)));
+				onPrizes(fresh);
+			}
+			await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: d.prizes.map((/** @type {Prize} */ p) => p.id) }) });
 		} catch (e) {
 			console.error('[BINGO] claimBingoPrizes failed', e);
 		}
@@ -183,6 +203,9 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 	}
 
 	if (storedBingoCode()) connect();
+	// Prizes left from a game whose answer got lost: the code is forgotten when a game ends, so
+	// without this nothing would ask for them until the next game.
+	else claimPrizes();
 
 	/** Join first when the socket reconnected or the code changed. @returns {Promise<string>} the code, or '' */
 	async function ready() {

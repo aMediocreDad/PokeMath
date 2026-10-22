@@ -127,9 +127,14 @@ async function upload(always = false) {
 	}
 }
 
-/** Log out: put the save in the cloud, then clear it from this device for the next player. */
+/**
+ * Log out: put the save in the cloud, then clear it from this device for the next player. Before
+ * the cloud copy has been checked (offline, or a choice still open) nothing can be uploaded, so
+ * unless nothing changed since the last sync, the player is asked first.
+ */
 export async function logOut() {
-	const saved = !ready || readMeta().owner !== me.id || (await upload());
+	const meta = readMeta();
+	const saved = meta.owner !== me.id || fingerprint(snapshot()) === meta.hash || (ready && (await upload()));
 	if (!saved && !confirm('Fikk ikke lagret i skyen. Logge ut likevel? Det du har gjort siden sist, blir borte.')) return;
 	clearSave();
 	localStorage.removeItem(META);
@@ -197,10 +202,11 @@ async function check() {
 	if (!me.id) return;
 	const meta = readMeta();
 	// Someone else's save (the last player on this device did not log out): never upload it.
-	// Take this player's cloud copy, or start them afresh.
+	// Clear it with the device's own keys, like their round in progress or the class they joined,
+	// then take this player's cloud copy, or start them afresh.
 	if (meta.owner && meta.owner !== me.id) {
-		if (copy) return useCloud(copy);
 		clearSave();
+		if (copy) return useCloud(copy);
 		writeMeta({ hash: fingerprint(snapshot()) });
 		return location.reload();
 	}

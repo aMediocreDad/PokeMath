@@ -135,8 +135,12 @@ async function assertSilent(c, type, label) {
   const line = await host.next("linePrize");
   assert(line.lines[0] === "Rad 1" && line.amount === 500 && line.eligibleCount === 1, "a full row pays the class");
   await player.next("bingoReward");
-  const linePrizes = (await j(`/bingo/claim-prizes?uuid=${uuid}`)).body.prizes;
-  assert(linePrizes.length === 1 && linePrizes[0].amount === 500 && linePrizes[0].label === "Rad 1", "the child claims the row prize");
+  const linePrizes = (await j(`/bingo/claim-prizes?uuid=${uuid}&keep=1`)).body.prizes;
+  assert(linePrizes.length === 1 && linePrizes[0].amount === 500 && linePrizes[0].label === "Rad 1" && linePrizes[0].id, "the child claims the row prize");
+  const unconfirmed = (await j(`/bingo/claim-prizes?uuid=${uuid}&keep=1`)).body.prizes;
+  assert(unconfirmed.length === 1 && unconfirmed[0].id === linePrizes[0].id, "a prize stays until the page confirms it");
+  await post(`/bingo/claim-prizes?uuid=${uuid}`, { ids: [linePrizes[0].id] });
+  assert((await j(`/bingo/claim-prizes?uuid=${uuid}&keep=1`)).body.prizes.length === 0, "a confirmed prize is gone");
   host.send({ type: "hostMarkCell", teacherSession: token, code: created.code, cellId: cells[0].cellId, mark: false });
   await host.next("boardUpdate");
   host.send({ type: "hostMarkCell", teacherSession: token, code: created.code, cellId: cells[0].cellId, mark: true });

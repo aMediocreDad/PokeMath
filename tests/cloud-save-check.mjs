@@ -156,6 +156,22 @@ await money(a, 650);
 await open(a);
 check('…and the next upload is not refused', !(await offer(a)) && (await cloudMoney()) === '650', `cloud has ${await cloudMoney()}`);
 
+// Logging out while a choice is still open would lose this device's progress: ask first.
+await money(b, 1);
+await open(b);
+check('Diverged again: B is asked', await offer(b));
+let asked = '';
+b.page.once('dialog', (d) => {
+	asked = d.message();
+	d.dismiss();
+});
+await b.page.click('#cloud-later-btn');
+await b.page.click('.menu-button');
+await b.page.click('#logoutBtn');
+await sleep(800);
+check('Logging out with unsynced progress asks first', asked.startsWith('Fikk ikke lagret'), asked);
+check('…and saying no keeps the progress', (await b.page.evaluate(() => localStorage.getItem('money'))) === '1');
+
 // The Worker refuses a write over a save it has changed since (base), and a smaller save from a
 // page that sends no base, unless the player chose it.
 const put = (body) => fetch(BASE + '/api/save', { method: 'PUT', headers: { ...WHO, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

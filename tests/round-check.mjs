@@ -66,6 +66,36 @@ check('throwing it catches one Pokémon', (await caught()) === n + 1, `${n} -> $
 await open('/pokemath.html?stage=1');
 check('no second ball after a reload', !(await ballUp()) && (await caught()) === n + 1, await status());
 
+// A seasonal event's Pokémon (October: the Halloween egg) is caught mid-round; "Fortsett" goes back
+// to the same round instead of starting over.
+if (new Date().getMonth() === 9) {
+	await page.evaluate((year) => {
+		for (const [k, v] of Object.entries({ 'he-year': year, 'he-eggid': 1, 'he-eggneeded': 5, 'he-eggstatus': 5, 'he-eggsolved': 0 })) localStorage.setItem(k, JSON.stringify(v));
+	}, new Date().getFullYear());
+	await open('/pokemath.html?stage=1');
+	await answer(await solve());
+	await answer(await solve());
+	const mid = await status();
+	await page.locator('#halloween-egg .open').click();
+	await page.waitForTimeout(800);
+	await page.locator('.reset-button').click();
+	await page.waitForTimeout(300);
+	check('closing an egg Pokémon keeps the round', (await status()) === mid, `${mid} / ${await status()}`);
+}
+
+// Another child logs in on this iPad without the last one logging out: no round carries over.
+await open('/pokemath.html?stage=1');
+await answer(await solve());
+await answer(await solve());
+const roundOf = () => page.evaluate(() => JSON.parse(localStorage.getItem('pm-round') || '{}')['?stage=1']?.score ?? null);
+check('a round is in progress', (await roundOf()) > 0, String(await roundOf()));
+await ctx.setExtraHTTPHeaders({ 'x-dev-email': `round-other-${Date.now()}@test.no` });
+// A real login clears the tab's cached identity (worker/login.js); switching the header does not.
+await page.evaluate(() => sessionStorage.clear());
+await open('/pokemath.html?stage=1');
+await page.waitForTimeout(1500);
+check("the next child does not get the last one's round", (await roundOf()) === 0, String(await roundOf()));
+
 await browser.close();
 console.log(results.every(Boolean) ? 'ALL PASS' : 'SOME FAILED');
 process.exit(results.every(Boolean) ? 0 : 1);

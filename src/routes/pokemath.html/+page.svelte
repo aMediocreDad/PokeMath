@@ -270,7 +270,22 @@
 		field?.blur();
 	}
 
+	/** The win screen shows a seasonal event's Pokémon, not a won round: closing it keeps the round. */
+	let eventOpen = false;
+
+	/** "Fortsett": a new round after a win, or back to the same round after an event's Pokémon. */
+	function closeCatch() {
+		if (!eventOpen) return resetGame();
+		eventOpen = false;
+		overlayOpen = false;
+		catchImage = '';
+		caughtCard = null;
+		showContinue = false;
+		field?.focus();
+	}
+
 	function resetGame() {
+		eventOpen = false;
 		overlayOpen = false;
 		score = 0;
 		wrongAnswers = 0;
@@ -362,6 +377,7 @@
 	 * @param {string | null} form  null when the event has nothing to give (createEventPokemon()).
 	 */
 	function eventCatch(form) {
+		eventOpen = true;
 		openOverlay();
 		showBall = false;
 		showContinue = true;
@@ -443,7 +459,7 @@
 		if (Date.now() - lastSubmitTime < 400) return;
 		event.preventDefault();
 		if (showBall) throwBall();
-		else if (showContinue) resetGame();
+		else if (showContinue) closeCatch();
 	}
 
 	$effect(() => {
@@ -657,7 +673,7 @@
 					{#each caughtCard.types as type, i (i)}<span class="caught-type">{type}</span>{/each}
 				</div>
 			{/if}
-			<button class="reset-button pm-button" class:is-hidden={!showContinue} onclick={resetGame}>Fortsett</button>
+			<button class="reset-button pm-button" class:is-hidden={!showContinue} onclick={closeCatch}>Fortsett</button>
 		</div>
 	</div>
 </div>

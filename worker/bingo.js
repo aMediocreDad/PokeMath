@@ -1,5 +1,5 @@
 // Classroom bingo, ported from dev/bingo.js: the /ws WebSocket used by the teacher's host page
-// and the players' game page, plus GET /bingo/claim-prizes. The class raid (worker/raid.js) runs
+// and the players' game page, plus /bingo/claim-prizes. The class raid (worker/raid.js) runs
 // in the same object as a room of kind "raid"; bingo-only handlers ignore raid rooms.
 //
 // One Durable Object holds every lobby. The client names its lobby only in messages sent after
@@ -148,8 +148,27 @@ export class BingoHub extends DurableObject {
 	async fetch(request) {
 		const url = new URL(request.url);
 		if (url.pathname === '/bingo/claim-prizes') {
+			// The game page reads the prizes with keep=1, gives them, then confirms their ids with a
+			// POST, so an answer lost on bad wifi cannot lose a prize. A page from before that gets
+			// them deleted as it reads them.
 			const key = `prizes:${url.searchParams.get('uuid') || ''}`;
-			const prizes = unwrapPrizes(await this.ctx.storage.get(key));
+			const stored = await this.ctx.storage.get(key);
+			const at = Array.isArray(stored) ? Date.now() : stored?.at;
+			let prizes = unwrapPrizes(stored);
+			if (request.method === 'POST') {
+				const ids = new Set((await request.json().catch(() => null))?.ids || []);
+				prizes = prizes.filter((p) => !ids.has(p.id));
+				if (prizes.length) await this.ctx.storage.put(key, { at, prizes });
+				else await this.ctx.storage.delete(key);
+				return Response.json({ ok: true });
+			}
+			if (url.searchParams.get('keep') === '1') {
+				if (prizes.some((p) => !p.id)) {
+					prizes = prizes.map((p) => (p.id ? p : { ...p, id: crypto.randomUUID() }));
+					await this.ctx.storage.put(key, { at, prizes });
+				}
+				return Response.json({ ok: true, prizes });
+			}
 			await this.ctx.storage.delete(key);
 			return Response.json({ ok: true, prizes });
 		}
@@ -264,9 +283,7 @@ export class BingoHub extends DurableObject {
 		if (!fresh.length) return { labels: [], eligible: eligible.length };
 		room.paidLines.push(...fresh.map((l) => l.key));
 		for (const player of eligible) {
-			const key = `prizes:${player.uuid}`;
-			const lines = fresh.map((l) => ({ type: 'coins', amount: LINE_COINS, source: 'line', label: l.label }));
-			await this.ctx.storage.put(key, { at: Date.now(), prizes: [...unwrapPrizes(await this.ctx.storage.get(key)), ...lines] });
+			await this.addPrizes(player.uuid, fresh.map((l) => ({ type: 'coins', amount: LINE_COINS, source: 'line', label: l.label })));
 			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
 		}
 		return { labels: fresh.map((l) => l.label), eligible: eligible.length };
@@ -277,13 +294,18 @@ export class BingoHub extends DurableObject {
 		if (paid.labels.length) this.toHosts(room.code, { type: 'linePrize', lines: paid.labels, amount: LINE_COINS, eligibleCount: paid.eligible });
 	}
 
+	/** Add to a child's unclaimed prizes, each with an id the game page confirms it by. @param {string} uuid @param {any[]} list */
+	async addPrizes(uuid, list) {
+		const key = `prizes:${uuid}`;
+		const prizes = [...unwrapPrizes(await this.ctx.storage.get(key)), ...list.map((p) => ({ ...p, id: crypto.randomUUID() }))];
+		await this.ctx.storage.put(key, { at: Date.now(), prizes });
+	}
+
 	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
 	async awardRaid(room) {
 		const players = Object.values(room.players).filter((p) => p.catchCount > 0);
 		for (const player of players) {
-			const key = `prizes:${player.uuid}`;
-			const prizes = [...unwrapPrizes(await this.ctx.storage.get(key)), ...raidPrizes(room, player)];
-			await this.ctx.storage.put(key, { at: Date.now(), prizes });
+			await this.addPrizes(player.uuid, raidPrizes(room, player));
 			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
 		}
 		return players.map((p) => p.name);
@@ -353,9 +375,7 @@ const HANDLERS = {
 		const { prize, perPlayer } = computePrize(room);
 		const eligible = Object.values(room.players).filter((p) => p.catchCount > 0);
 		for (const player of eligible) {
-			const key = `prizes:${player.uuid}`;
-			const prizes = [...unwrapPrizes(await this.ctx.storage.get(key)), ...perPlayer(player)];
-			await this.ctx.storage.put(key, { at: Date.now(), prizes });
+			await this.addPrizes(player.uuid, perPlayer(player));
 			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
 		}
 		await this.saveRoom(room);
