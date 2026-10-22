@@ -11,7 +11,7 @@
 		<a class="brand" href="/lærer/index.html">
 			<img src="/images/logo.png" alt="" />
 			<span>
-				<span class="title">PokeMath – Lærer</span>
+				<span class="title">PokéMath – Lærer</span>
 				<span class="subtitle">{subtitle}</span>
 			</span>
 		</a>

@@ -4,6 +4,8 @@
 	import { toast } from '#lib/toast.svelte.js';
 	import { ICON_MAP, BG_NAMES } from '#lib/data/cosmetics.js';
 	import { loadPokemonInfo, pokemonInfo } from '#lib/game/pokemon.js';
+	import { me } from '#lib/me.svelte.js';
+	import { cloud, logOut } from '#lib/cloudSave.svelte.js';
 
 	const P = 'images/playericons/';
 
@@ -280,9 +282,20 @@
 	<h2 class="pm-section-title">Annet</h2>
 	<div class="looks">
 		<section class="panel pm-surface">
-			<h3 class="card-title">Lærer</h3>
-			<p class="teacher-status">Ikke tilkoblet</p>
-			<p class="hint">Kobling til lærer kommer senere.</p>
+			<h3 class="card-title">Innlogging</h3>
+			{#if me.id}
+				<p class="login-status">{me.name}</p>
+				<p class="hint">
+					{me.kind === 'kid' ? 'Logget inn med barnekode.' : `Logget inn med e-post (${me.email}).`}
+					{cloud.savedAt ? `Lagret i skyen ${new Date(cloud.savedAt).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}
+				</p>
+				<div class="login-actions">
+					{#if me.teacher}<a class="pm-button small" href="/lærer/index.html">🧑‍🏫 Til lærersiden</a>{/if}
+					<button class="pm-button small secondary" onclick={logOut}>Logg ut</button>
+				</div>
+			{:else}
+				<p class="hint">Ikke kontakt med serveren akkurat nå.</p>
+			{/if}
 		</section>
 		<section class="panel pm-surface uuid-card">
 			<h3 class="card-title">Spiller-ID</h3>
@@ -535,9 +548,15 @@
 		color: var(--pm-red-deep);
 	}
 
-	.teacher-status {
+	.login-status {
 		margin: 0;
 		font-weight: 700;
+	}
+	.login-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 12px;
 	}
 	.uuid-row {
 		display: flex;

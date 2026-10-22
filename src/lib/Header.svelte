@@ -221,7 +221,7 @@
 			<a href="/badges.html" class="phone-only">Merker</a>
 			<hr />
 			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i bingo</a>
-			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærer: bingo og koder</a>{/if}
+			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærersiden</a>{/if}
 			<hr />
 			<a href="/saveandload.html">Lagre / Last inn</a>
 			<a href="/faq.html">Spørsmål og svar</a>

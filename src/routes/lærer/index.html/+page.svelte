@@ -1,7 +1,8 @@
 <script>
-	// The teacher start page, ported from static/lærer/index.html and teacher.js: start bingo, see
-	// the shared secret codes and make new ones. The Access login is the teacher login, so there
-	// is nothing to register or log in to here.
+	// The teacher start page, ported from static/lærer/index.html and teacher.js, in three parts:
+	// the games a teacher runs for the class (bingo so far; GAMES takes more), the children's login
+	// codes, and the shared secret codes. The email login is the teacher login, so there is nothing
+	// to register or log in to here.
 	import { onMount } from 'svelte';
 	import TeacherPage from '#lib/TeacherPage.svelte';
 	import { apiJson, authHeaders, ensureTeacher } from '#lib/teacher.js';
@@ -22,6 +23,22 @@
 		checked = true;
 		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 	});
+
+	/**
+	 * The games a teacher starts for the class. `resume` is the running game, if any.
+	 * @typedef {{ id: string, icon: string, name: string, about: string, start: string, resume?: { href: string, label: string } }} Game
+	 */
+	/** @type {Game[]} */
+	const games = $derived([
+		{
+			id: 'bingo',
+			icon: '🎲',
+			name: 'PokéBingo',
+			about: 'Barna fanger Pokémon som passer på bingobrettet ditt. Første rad vinner.',
+			start: '/lærer/bingo_settings.html',
+			resume: savedBingoCode.length === 6 ? { href: '/lærer/bingo_host.html', label: `Fortsett bingo ${savedBingoCode}` } : undefined
+		}
+	]);
 
 	const sessionHint = $derived(
 		teacher?.exp ? `Sesjon utløper: ${new Date(teacher.exp).toLocaleString('no-NO', { hour12: false })}` : ''
@@ -239,7 +256,7 @@
 </script>
 
 <svelte:head>
-	<title>PokeMath – Lærer (Bingo)</title>
+	<title>PokéMath – Lærer</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
@@ -247,21 +264,32 @@
 	<div class="status {s.kind ?? ''}" {id} role="status">{s.msg}</div>
 {/snippet}
 
-<TeacherPage subtitle="Bingo og koder">
+<TeacherPage subtitle="Spill, barn og koder">
 	{#if teacher}
-		<section class="panel" id="sessionBox">
+		<div class="hello" id="sessionBox">
 			<h2>Hei, {teacher.name || 'lærer'}!</h2>
 			<div class="muted" id="whoEmail">{teacher.email || ''}</div>
-			<div class="actions">
-				{#if savedBingoCode.length === 6}
-					<a class="pm-button" id="continueBingoBtn" href="/lærer/bingo_host.html">Fortsett bingo {savedBingoCode}</a>
-					<a class="pm-button secondary" id="startBingoBtn" href="/lærer/bingo_settings.html">Start ny bingo</a>
-				{:else}
-					<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Start bingo</a>
-				{/if}
-			</div>
-		</section>
+		</div>
 
+		<h2 class="section-title">Spill for klassen</h2>
+		<div class="games">
+			{#each games as game (game.id)}
+				<section class="panel game" id="game-{game.id}">
+					<h3><span aria-hidden="true">{game.icon}</span> {game.name}</h3>
+					<p class="muted">{game.about}</p>
+					<div class="actions">
+						{#if game.resume}
+							<a class="pm-button" id="continueBingoBtn" href={game.resume.href}>{game.resume.label}</a>
+							<a class="pm-button secondary" id="startBingoBtn" href={game.start}>Start ny</a>
+						{:else}
+							<a class="pm-button" id="startBingoBtn" href={game.start}>Start {game.name}</a>
+						{/if}
+					</div>
+				</section>
+			{/each}
+		</div>
+
+		<h2 class="section-title">Barn og koder</h2>
 		<section class="panel" id="kidsPanel">
 			<h2>👧 Innlogging for barn</h2>
 			<p class="muted">
@@ -411,6 +439,37 @@
 <style>
 	.wide {
 		grid-column: 1 / -1;
+	}
+	.hello {
+		margin: 0 4px 8px;
+	}
+	.hello h2 {
+		margin: 0;
+	}
+	.section-title {
+		margin: 28px 4px 10px;
+		font-family: var(--pm-display);
+		font-size: 22px;
+		font-weight: 400;
+	}
+	/* One card per game; more games fill the row before wrapping. */
+	.games {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 14px;
+	}
+	.game {
+		display: flex;
+		flex-direction: column;
+		margin: 0;
+	}
+	.game h3 {
+		font-family: var(--pm-display);
+		font-size: 21px;
+		font-weight: 400;
+	}
+	.game .actions {
+		margin-top: auto;
 	}
 	.sub {
 		margin-top: 16px;
