@@ -505,7 +505,7 @@
 	</nav>
 	<header class="host-top">
 		<div class="title-block">
-			<h1>PokeBingo</h1>
+			<h1>PokéBingo</h1>
 			<p class="labels">
 				<span id="difficultyLabel">{DIFF_NO[difficulty] || difficulty}</span>
 				{#if className}· <span id="classNameLabel">Klasse: {className}</span>{/if}
