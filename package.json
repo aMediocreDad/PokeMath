@@ -1,6 +1,7 @@
 {
   "name": "pokemath.online",
   "version": "1.0.0",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -10,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json && tsc -p src/service-worker/jsconfig.json",
     "dev:worker": "bash tests/serve-worker.sh",
     "mirror": "node scripts/mirror-assets.mjs && node scripts/optimize-images.mjs",
     "deploy": "vite build && wrangler deploy"

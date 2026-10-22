@@ -1,3 +1,6 @@
 # Files under build/ that wrangler deploy must not upload: anything hidden.
 .*
 **/.*
+
+# Marks the browser scripts here as CommonJS for the Worker's import of bingo-tasks.js; not a site file.
+package.json

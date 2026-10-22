@@ -3,5 +3,11 @@
 	"compilerOptions": {
 		"strict": true
 	},
-	"include": ["src", "vite.config.mjs"]
+	"include": [
+		"src",
+		"vite.config.mjs"
+	],
+	"exclude": [
+		"src/service-worker"
+	]
 }

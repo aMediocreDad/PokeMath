@@ -11,7 +11,6 @@
 // Nothing is stored unless it is a real answer for that file: with an expired session the Worker
 // answers every path with a redirect to the login page or a 401, and those must never be cached
 // as a page or a picture.
-/// <reference lib="webworker" />
 import { self } from '$app/service-worker';
 import { immutable, prerendered } from '$app/manifest';
 import { version } from '$app/env';
