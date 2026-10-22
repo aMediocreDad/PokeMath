@@ -1,5 +1,6 @@
-// The player's side of classroom bingo, ported from static/bingo_client_live.js.
-// Joins the lobby whose code bingo_join.html stored, reports catches, and claims prizes.
+// The player's side of the class games, ported from static/bingo_client_live.js: bingo and the
+// raid (worker/raid.js) share one lobby code. Joins the lobby whose code bingo_join.html stored,
+// reports catches (bingo) or correct answers (raid), and claims prizes.
 import { goto } from '$app/navigation';
 import { player } from '#lib/player.svelte.js';
 import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
@@ -44,13 +45,16 @@ function playerName() {
  * @property {Record<string, boolean>} flags  shiny, mega, gmax, hisuian, alolan, legendary, mythic
  */
 
+/** @typedef {{ phase: 'lobby' | 'fight' | 'won', hp: number, maxHp: number, bossId: number }} RaidState */
+
 /**
  * @param {object} handlers
  * @param {(prizes: Prize[]) => void} handlers.onPrizes  Prizes from a finished game, to give the player.
  * @param {(code: string) => void} handlers.onCodeChange  The lobby code changed ('' when it ended).
  * @param {(message: string, duration: number, position: string) => void} handlers.onAdminPopup
+ * @param {(kind: 'bingo' | 'raid', raid: RaidState | null) => void} [handlers.onGame]  The lobby was joined, or a raid moved on.
  */
-export function startBingo({ onPrizes, onCodeChange, onAdminPopup }) {
+export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 	const url = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 	/** @type {WebSocket | null} */
 	let ws = null;
@@ -145,14 +149,18 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup }) {
 				return;
 			}
 			if (msg.type === 'joinResult') {
-				if (msg.ok) joinedOk = true;
-				else {
+				if (msg.ok) {
+					joinedOk = true;
+					onGame?.(msg.kind === 'raid' ? 'raid' : 'bingo', msg.raid ?? null);
+				} else {
 					forgetCode();
 					ws?.close();
 				}
 			} else if (msg.type === 'ended' || msg.type === 'lobbyEnded') {
 				forgetCode();
 				ws?.close();
+			} else if (msg.type === 'raidUpdate') {
+				onGame?.('raid', msg.raid);
 			} else if (msg.type === 'bingoReward') {
 				// Give the server a moment to store the prize before claiming it.
 				setTimeout(claimPrizes, 300);
@@ -176,21 +184,32 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup }) {
 
 	if (storedBingoCode()) connect();
 
+	/** Join first when the socket reconnected or the code changed. @returns {Promise<string>} the code, or '' */
+	async function ready() {
+		const code = storedBingoCode();
+		if (!code) return '';
+		if (!ws || ws.readyState !== WebSocket.OPEN) {
+			connect();
+			return '';
+		}
+		if (code !== joinedCode || !joinedOk) {
+			joinedCode = code;
+			await join(code);
+		}
+		return code;
+	}
+
 	return {
 		/** @param {CatchInfo} info */
 		async reportCatch(info) {
-			const code = storedBingoCode();
-			if (!code) return false;
-			if (!ws || ws.readyState !== WebSocket.OPEN) {
-				connect();
-				return false;
-			}
-			if (code !== joinedCode || !joinedOk) {
-				joinedCode = code;
-				await join(code);
-			}
-			if (!info.pokemonCode) return false;
+			const code = await ready();
+			if (!code || !info.pokemonCode) return false;
 			return send({ type: 'catchPokemon', code, uuid: await uuid(), name: playerName(), ...info });
+		},
+		/** A correct answer: one hit on the raid boss. The server ignores it outside a raid fight. */
+		async reportHit() {
+			const code = await ready();
+			return code ? send({ type: 'raidHit', code, uuid: await uuid() }) : false;
 		},
 		stop() {
 			stopped = true;

@@ -36,8 +36,14 @@
 	let winScore = $state(5);
 	/** @type {(import('#lib/game/problems.js').Problem & { startedAt?: number }) | null} */
 	let problem = $state(null);
-	/** The bingo lobby this game reports catches to, or '' outside bingo. */
+	/** The class game this page reports to (bingo or raid), or '' outside one. */
 	let bingoCode = $state('');
+	/** @type {'bingo' | 'raid'} Which game the code belongs to, once the lobby answered. */
+	let classGame = $state('bingo');
+	/** @type {import('#lib/bingo.js').RaidState | null} */
+	let raid = $state(null);
+	/** Setups that only pretend to be a level (see setupGame) do not hit the raid boss. */
+	let cheated = false;
 	let answer = $state('');
 	/** @type {HTMLInputElement | undefined} */
 	let field = $state();
@@ -69,6 +75,7 @@
 	// the legacy page ran it before the save had loaded, so the list always started empty).
 	// Waits for pokemon_info.json too, since a card cannot be described without it.
 	let pokemonInfoReady = $state(false);
+	const raidBoss = $derived.by(() => (raid && pokemonInfoReady ? describe(`N${raid.bossId}`).name : 'Bossen'));
 	let recentFilled = false;
 	$effect(() => {
 		if (!player.loaded || !pokemonInfoReady || recentFilled) return;
@@ -197,6 +204,7 @@
 				return checkLogic();
 			}
 
+			if (!cheated) bingo?.reportHit();
 			const coins = coinsForStage(values.stage);
 			player.addMoney(coins);
 			incrementProgress(BADGE_IDS.bigEarner, coins);
@@ -466,6 +474,7 @@
 			stageLabel = 'Tilpasset nivå';
 		}
 		for (const message of setup.messages) toast(message.text, { bad: message.bad, canClose: !setup.cheated });
+		cheated = setup.cheated;
 
 		/** @type {ReturnType<typeof setTimeout> | undefined} */
 		let cheatTimer;
@@ -497,7 +506,15 @@
 		let popupTimer;
 		bingo = startBingo({
 			onPrizes: applyBingoPrizes,
-			onCodeChange: (code) => (bingoCode = code),
+			onCodeChange: (code) => {
+				bingoCode = code;
+				if (!code) raid = null;
+			},
+			onGame: (kind, state) => {
+				classGame = kind;
+				if (kind === 'raid' && state && raid?.phase !== 'won' && state.phase === 'won') toast(`Dere klarte det! ${raidBoss} er beseiret 🎉`);
+				raid = state;
+			},
 			onAdminPopup: (message, duration, position) => {
 				adminPopup = { message, position };
 				clearTimeout(popupTimer);
@@ -536,7 +553,18 @@
 		</p>
 	</noscript>
 
-	{#if bingoCode}
+	{#if bingoCode && classGame === 'raid' && raid}
+		<!-- In a raid: every correct answer is a hit on the boss the whole class is fighting. -->
+		<a class="raid-chip" id="raidIndicator" href="/bingo_join.html">
+			<span class="raid-title">⚔️ Raid · {raidBoss}</span>
+			{#if raid.phase === 'lobby'}
+				<span class="raid-note">Venter på at læreren starter</span>
+			{:else}
+				<span class="raid-bar" aria-hidden="true"><span style:width="{(100 * raid.hp) / Math.max(1, raid.maxHp)}%"></span></span>
+				<span class="raid-note">{raid.phase === 'won' ? 'Beseiret! Premien kommer.' : `${raid.hp} / ${raid.maxHp} liv igjen`}</span>
+			{/if}
+		</a>
+	{:else if bingoCode}
 		<!-- In a bingo game: every catch counts on the board. Tapping it leads to leaving or switching. -->
 		<a class="bingo-chip" id="bingoIndicator" href="/bingo_join.html">🎲 Bingo · {bingoCode}</a>
 	{/if}
@@ -705,6 +733,39 @@
 		font-family: var(--pm-display);
 		font-size: 17px;
 		text-decoration: none;
+	}
+	.raid-chip {
+		display: grid;
+		gap: 4px;
+		width: min(360px, 100%);
+		margin: 0 auto 10px;
+		padding: 8px 16px 10px;
+		border-radius: 16px;
+		background: var(--pm-ink);
+		color: var(--pm-paper);
+		text-align: center;
+		text-decoration: none;
+	}
+	.raid-title {
+		font-family: var(--pm-display);
+		font-size: 18px;
+	}
+	.raid-bar {
+		height: 10px;
+		border-radius: 999px;
+		background: oklch(1 0 0 / 0.2);
+		overflow: hidden;
+	}
+	.raid-bar span {
+		display: block;
+		height: 100%;
+		border-radius: inherit;
+		background: var(--pm-red);
+		transition: width 300ms ease;
+	}
+	.raid-note {
+		font-size: 14px;
+		opacity: 0.85;
 	}
 	.play-top {
 		display: flex;
