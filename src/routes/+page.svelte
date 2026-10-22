@@ -19,7 +19,7 @@
 	let splash = $state(' ');
 	/** The starter set (1–3) whose evolutions decorate the five stages. */
 	let starterSet = $state(0);
-	let showAlert = $state(true);
+	let showAlert = $state(false);
 	let aprilFools = $state(false);
 	let hintIndex = $state(0);
 
@@ -39,7 +39,8 @@
 		else if (month === 11) splash = pick(EVENT_SPLASHES.christmas);
 		else splash = pick(SPLASHES);
 		starterSet = Math.floor(Math.random() * 3) + 1;
-		showAlert = localStorage.getItem('alertDismissed') !== ALERT_ID;
+		// The spring event's announcement belongs to the event's months, like its tile.
+		showAlert = (month === 2 || month === 3) && localStorage.getItem('alertDismissed') !== ALERT_ID;
 		return () => clearInterval(tips);
 	});
 
