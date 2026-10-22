@@ -164,9 +164,13 @@ export function startCloudSave() {
 	const onHide = () => document.visibilityState === 'hidden' && uploadOnLeave();
 	document.addEventListener('visibilitychange', onHide);
 	check().finally(() => (cloud.checked = true));
+	// A page opened offline has not checked the cloud copy yet, so it uploads nothing until it has.
+	const onOnline = () => !ready && !cloud.offer && check();
+	window.addEventListener('online', onOnline);
 	return () => {
 		clearInterval(timer);
 		document.removeEventListener('visibilitychange', onHide);
+		window.removeEventListener('online', onOnline);
 	};
 }
 

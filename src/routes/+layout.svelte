@@ -10,6 +10,8 @@
 	import { getOrCreateUUID } from '#lib/uuid.js';
 	import { loadMe } from '#lib/me.svelte.js';
 	import { startCloudSave } from '#lib/cloudSave.svelte.js';
+	import { startArtDownload } from '#lib/offline.svelte.js';
+	import OfflineProgress from '#lib/OfflineProgress.svelte';
 	// Bundled with the site, so no pupil's browser has to ask a third party for it.
 	import '@fontsource/lilita-one/400.css';
 
@@ -29,7 +31,10 @@
 		// problem before an id is made from the same random numbers.
 		const idTimer = setTimeout(() => getOrCreateUUID(), 0);
 		const stopCloud = startCloudSave();
+		// After the page has drawn, so the first problem is not held up by the downloads.
+		const artTimer = setTimeout(() => startArtDownload(), 2000);
 		return () => {
+			clearTimeout(artTimer);
 			clearTimeout(idTimer);
 			stopCloud();
 		};
@@ -45,6 +50,9 @@
 	<div id="header"><Header /></div>
 {/if}
 <Toaster />
+{#if !bare}
+	<OfflineProgress />
+{/if}
 
 {@render children()}
 

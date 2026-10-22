@@ -23,7 +23,7 @@ async function load() {
 	}
 	try {
 		const res = await fetch('/api/me');
-		if (!res.ok) return;
+		if (!res.ok) return void (loading = null);
 		const data = await res.json();
 		Object.assign(me, {
 			id: String(data.id || ''),
@@ -38,7 +38,8 @@ async function load() {
 			// Not cached; asked again on the next page.
 		}
 	} catch {
-		// Offline: no teacher links, which is the safe side.
+		// Offline: no teacher links, which is the safe side. Asked again when called again.
+		loading = null;
 	}
 }
 
