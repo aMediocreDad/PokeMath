@@ -37,3 +37,6 @@ desktop.ini
 /.svelte-kit
 /build
 vite.config.mjs.timestamp-*
+
+# ── Cloudflare ────────────────────────────────────────────────────────────────
+/.wrangler
