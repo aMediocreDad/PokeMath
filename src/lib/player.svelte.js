@@ -4,8 +4,7 @@
 // and saveAll() in static/global.js, so legacy and Svelte pages can be used side by side.
 // One difference: a change is written straight away, and only the keys it touches are written,
 // instead of everything at the end of a round.
-import { getStorageArray, getStorageInt, getStorageString, hasCookieConsent } from '#lib/storage.js';
-import { toast } from '#lib/toast.svelte.js';
+import { getStorageArray, getStorageInt, getStorageString } from '#lib/storage.js';
 import { maybeSaveBackup } from '#lib/idbBackup.js';
 
 /** How saveAll() writes each field. */
@@ -135,10 +134,6 @@ class Player {
 	 * @param {...Field} fields
 	 */
 	save(...fields) {
-		if (!hasCookieConsent()) {
-			warnNoConsent();
-			return;
-		}
 		for (const field of fields) {
 			for (const [key, value] of Object.entries(writers[field](this))) {
 				localStorage.setItem(key, value);
@@ -178,16 +173,6 @@ class Player {
 		this.pkmnList.push(entry);
 		this.save('pkmnList');
 	}
-}
-
-let warnedNoConsent = false;
-
-function warnNoConsent() {
-	if (warnedNoConsent) return;
-	warnedNoConsent = true;
-	toast('Du har ikke godkjent bruken av Cookies, så vi kan ikke lagre din spillerdate på din enhet.', {
-		bad: true
-	});
 }
 
 /** cleanupCorruptedData() from static/global.js, which loadAll() runs on every page. */

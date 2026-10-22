@@ -3,7 +3,7 @@
 	// egg's bar; tapping a full bar gives a spooky Pokémon or a Halloween form. Progress is
 	// stored under the he-* keys, and starts over each year.
 	import { onMount } from 'svelte';
-	import { getStorageInt, hasCookieConsent } from '#lib/storage.js';
+	import { getStorageInt } from '#lib/storage.js';
 	import { pickEventForm, pickForm } from '#lib/game/pokemon.js';
 
 	/** @type {{ stage: string | number, onCatch: (form: string | null) => void }} */
@@ -29,7 +29,6 @@
 	});
 
 	function save() {
-		if (!hasCookieConsent()) return;
 		if (!isNaN(eggId)) localStorage.setItem('he-eggid', JSON.stringify(eggId));
 		if (!isNaN(eggNeeded)) localStorage.setItem('he-eggneeded', JSON.stringify(eggNeeded));
 		if (!isNaN(eggSolved)) localStorage.setItem('he-eggsolved', JSON.stringify(eggSolved));

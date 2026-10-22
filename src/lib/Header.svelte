@@ -1,5 +1,5 @@
 <script>
-	// The top bar, cookie notice and backup reminder (static/header.html on the legacy pages).
+	// The top bar, storage notice and backup reminder (static/header.html on the legacy pages).
 	// The ids the legacy scripts and the tests rely on are kept.
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
@@ -7,7 +7,7 @@
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
 	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
-	import { hasCookieConsent } from '#lib/storage.js';
+	import { acceptedOldNotice, setLegacySaveFlag } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
 	let showCookieNotice = $state(false);
@@ -17,8 +17,14 @@
 	/** The save was gone when the page opened (cleared history, or a new device). */
 	let saveMissing = false;
 
+	/** Set when the storage notice has been read, so it shows once per device and login. */
+	const NOTICE_SEEN = 'storageNoticeSeen';
+
 	onMount(() => {
-		showCookieNotice = !hasCookieConsent();
+		// Whoever tapped the old cookie notice has read about the storage already.
+		if (acceptedOldNotice()) localStorage.setItem(NOTICE_SEEN, '1');
+		showCookieNotice = localStorage.getItem(NOTICE_SEEN) === null;
+		setLegacySaveFlag();
 		saveMissing = localStorage.getItem('pokemonlist') === null;
 	});
 
@@ -69,8 +75,7 @@
 	const showBackupReminder = $derived(backupDue && !onBackupPage);
 
 	function acceptCookies() {
-		const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString();
-		document.cookie = `cookies=true;expires=${expires};path=/`;
+		localStorage.setItem(NOTICE_SEEN, '1');
 		showCookieNotice = false;
 	}
 
@@ -122,10 +127,10 @@
 
 {#if showCookieNotice}
 	<div class="sheet" id="cookie-container" role="dialog" aria-labelledby="cookie-title">
-		<h2 id="cookie-title">🔒 Lagring av data</h2>
+		<h2 id="cookie-title">🔒 Slik lagrer PokéMath</h2>
 		<p>
-			PokéMath lagrer Pokémon og spillerdata lokalt i nettleseren din (localStorage) – ingen cookies, ingen
-			sporing. Ved å bruke siden godkjenner du vår <a href="/about.html#privacy">personvernerklæring</a>.
+			Spillet ditt lagres i nettleseren og i skyen, så du kan spille videre på en annen enhet. En informasjonskapsel
+			(cookie) husker at du er logget inn. Det er ingen reklame og ingen sporing.
 		</p>
 		<div class="actions">
 			<button class="pm-button" id="acceptCookies" onclick={acceptCookies}>Forstått!</button>
@@ -554,12 +559,12 @@
 		font-size: 15px;
 	}
 
-	/* ── Cookie notice and backup reminder ───────────────────────────────────── */
+	/* ── Storage notice and backup reminder ───────────────────────────────────── */
 	.sheet {
 		position: fixed;
 		left: 12px;
 		right: 12px;
-		bottom: 56px;
+		bottom: calc(12px + env(safe-area-inset-bottom));
 		z-index: 1100;
 		max-width: 520px;
 		margin: 0 auto;

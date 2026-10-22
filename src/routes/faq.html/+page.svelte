@@ -51,14 +51,11 @@
 		<label for="q1" class="panel-title">Hvorfor sletter dere pokemonene mine?</label>
 		<div class="panel-content">
 			<p>Kort forklart: Det gjør vi ikke.</p>
-			<p>All din informasjon om nivå, pokemon du har fanget, mynter, osv. er lagret på din enhet, i nettleseren din. <br>
-				Vi har ikke tilgang til din lagrede data, og vi har ikke mulighet til å endre din lagrede data.</p>
+			<p>Det du har fanget, mynter og nivåer lagres i nettleseren din, og en kopi lagres i skyen sammen med innloggingen din. Logger du inn på en annen enhet, henter spillet kopien derfra.</p>
 			<p><b>Noen mulige årsaker til at dataen din forsvinner er:</b></p>
-			<p>- Du spiller i et inkognito-vindu på nettleseren. (Da blir ikke ting lagret)<br>
-			- Skolen / Kommunen din har spesielle regler, som gjør at nettsiden ikke kan lagre data.<br>
-			- Du har ikke godtatt cookies.<br>
-			- Du har et program som sletter cookies og/eller nettleserdata <br>
-			- Du spiller på en annen enhet enn du gjorde fra før.<br>
+			<p>- Du er logget inn med en annen kode eller e-post enn sist.<br>
+			- Du spiller i et privat vindu i nettleseren. (Da blir ikke ting lagret)<br>
+			- Du har et program som sletter nettleserdata.<br>
 			- Det har skjedd en feil etter en oppdatering. </p>
 			<p> En ting du kan gjøre, om du opplever at du hele tiden mister alt du har, er å ta i bruk <ins><a href="./saveandload.html">lagre og last opp</a></ins> funksjonen.</p>
 		</div>
