@@ -3,7 +3,10 @@
 	"name": "pokemath",
 	"main": "worker/index.js",
 	"compatibility_date": "2026-10-01",
-	"workers_dev": true,
+	// The site lives on its own domain, where the Worker is the lock (worker/auth.js); the
+	// workers.dev address is off, so there is one way in.
+	"workers_dev": false,
+	"routes": [{ "pattern": "pokemath.amediocre.dad", "custom_domain": true }],
 	"preview_urls": false,
 	"assets": {
 		"directory": "./build",
@@ -11,9 +14,10 @@
 		"html_handling": "none",
 		"run_worker_first": true
 	},
-	// TEAM_DOMAIN and POLICY_AUD come from the Access application; see worker/access.js.
+	// TEAM_DOMAIN and POLICY_AUD come from the Access application that covers only
+	// pokemath.amediocre.dad/login/email; see worker/auth.js.
 	// BINGO_JURISDICTION keeps the bingo Durable Object in the EU; D1 is created with --jurisdiction=eu.
-	// TEACHER_EMAILS: the Access logins that may use the teacher pages, comma-separated.
+	// TEACHER_EMAILS: the email logins that may use the teacher pages, comma-separated.
 	"vars": { "TEACHER_EMAILS": "contact@pokemath.online", "TEAM_DOMAIN": "https://mediocrity.cloudflareaccess.com", "POLICY_AUD": "363a4d01481dafce69911af0c69e8e959323db6b6711d39da3c724a24f845160", "BINGO_JURISDICTION": "eu" },
 	"d1_databases": [
 		{

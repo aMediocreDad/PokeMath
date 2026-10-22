@@ -101,10 +101,15 @@
 			<ul>
 			<li>Spilldata (Pokémon, mynter, fremgang) ligger i nettleseren din, og en kopi lagres i skyen så du kan spille videre på en annen enhet.</li>
 			<li>Serveren lagrer en anonym spiller-ID, bingo-spill mens de pågår, og hemmelige koder lærerne lager.</li>
-			<li>Innlogging skjer med en engangskode på e-post, via Cloudflare.</li>
+			<li>Barn logger inn med en kode de får av en voksen; voksne logger inn med en engangskode på e-post.</li>
 			</ul>
 			<h3>Innlogging</h3>
-			<p>Siden ligger bak Cloudflare Access. Når du logger inn, sender Cloudflare en engangskode til e-postadressen din, og husker innloggingen i en informasjonskapsel (cookie) en tid. Cloudflare behandler e-postadressen og IP-adressen din for å gjøre dette. Bare e-postadresser som er lagt inn på forhånd, slipper inn.</p>
+			<p>Ingenting på siden vises uten innlogging. Det finnes to måter å logge inn på:</p>
+			<ul>
+			<li><strong>Med kode</strong>: en voksen lager en kode til barnet på lærersiden. Serveren lagrer barnets navn og en tilfeldig ID, men ikke selve koden, bare et fingeravtrykk av den. Feil koder telles per nettverksadresse i et kvarter, for å hindre gjetting.</li>
+			<li><strong>Med e-post</strong>: Cloudflare Access sender en engangskode til e-postadressen din. Cloudflare behandler e-postadressen og IP-adressen din for å gjøre dette, og bare e-postadresser som er lagt inn på forhånd, slipper inn.</li>
+			</ul>
+			<p>Etterpå husker siden innloggingen med en nødvendig informasjonskapsel (cookie): i et år for en kode, i tre måneder for e-post, eller til du logger ut. Når du logger ut, lagres spillet i skyen og fjernes fra enheten, så neste person starter med sin egen lagring.</p>
 			<h3>Hva lagres på enheten din</h3>
 			<p>Spillet lagrer fremdriften din i nettleserens <strong>localStorage</strong>:</p>
 			<ul>
@@ -118,7 +123,7 @@
 			<h3>Hva lagres på serveren</h3>
 			<ul>
 			<li><strong>Spiller-ID</strong>: den anonyme IDen og en nøkkel som hører til den, første gang du åpner siden. IDen inneholder ingen personlig informasjon.</li>
-			<li><strong>Skylagring</strong>: en kopi av alt spillet lagrer i localStorage, koblet til e-postadressen du logger inn med. Den oppdateres omtrent hvert minutt mens du spiller, så du kan fortsette på en annen enhet. Bruker flere samme innlogging, deler de også lagringen.</li>
+			<li><strong>Skylagring</strong>: en kopi av alt spillet lagrer i localStorage, koblet til innloggingen din, enten e-post eller kode. Den oppdateres omtrent hvert minutt mens du spiller, så du kan fortsette på en annen enhet. Bruker flere samme innlogging, deler de også lagringen.</li>
 			<li><strong>Felles telleverk</strong>: antall fangster i vår-eventet, uten kobling til hvem som fanget.</li>
 			<li><strong>Bingo</strong>: når du er med i et bingo-spill, lagres spiller-IDen, brukernavnet ditt, figuren din og Pokémon du fanger i spillet. Det ligger der til den som styrer bingoen avslutter spillet. Premier ligger der til spillet ditt har hentet dem.</li>
 			<li><strong>Lærere</strong>: e-postadressen fra innloggingen og de hemmelige kodene læreren lager. Den som drifter kopien bestemmer hvem som er lærer.</li>

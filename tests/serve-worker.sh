@@ -1,7 +1,9 @@
 #!/bin/bash
 # Build, then run the Worker locally on :3123 with a fresh database seeded like dev/ was.
 # Images and fonts that are not mirrored yet come from the live site, unless MIRROR_ONLY is set.
-# Pass --keep to reuse the database from the last run instead of starting over.
+# Pass --keep to reuse the database from the last run instead of starting over. --local-upstream
+# keeps the request host localhost (not the pokemath.amediocre.dad route), which the Worker's
+# local-only login shortcuts check for.
 set -e
 cd "$(dirname "$0")/.."
 STATE="${TMPDIR:-/tmp}/pokemath-wrangler"
@@ -17,4 +19,4 @@ fi
 echo "build ok"
 ORIGIN=(--var ASSET_ORIGIN:https://pokemath.online)
 [ -n "$MIRROR_ONLY" ] && ORIGIN=()
-exec npx wrangler dev --port 3123 --persist-to "$STATE/state" --var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no "${ORIGIN[@]}"
+exec npx wrangler dev --port 3123 --local-upstream localhost:3123 --persist-to "$STATE/state" --var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no "${ORIGIN[@]}"

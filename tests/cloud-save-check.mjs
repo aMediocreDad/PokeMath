@@ -39,18 +39,12 @@ await setList(a, 'N1|N4|N7');
 await open(a);
 check('A uploads its save', (await cloudCount()) === 3, `cloud has ${await cloudCount()}`);
 
-// Device B is new: it is offered the cloud copy, and its empty save is never uploaded.
+// Device B is new: it takes the cloud copy by itself, and never uploads its empty save.
 const b = await device('B');
 await open(b);
-check('B is offered the cloud copy', await offer(b));
-check('B uploaded nothing before choosing', b.puts.length === 0, `${b.puts.length} uploads`);
-await open(b, '/shop.html');
-check('B still uploads nothing without a choice', b.puts.length === 0 && (await cloudCount()) === 3);
-await b.page.click('#cloud-later-btn').catch(() => {});
-await open(b);
-await b.page.click('#cloud-use-btn');
-await sleep(2000);
-check('B now has the cloud save', (await getList(b)) === 'N1|N4|N7', await getList(b));
+await sleep(1500);
+check('B takes the cloud copy by itself', (await getList(b)) === 'N1|N4|N7' && !(await offer(b)), await getList(b));
+check('B never uploaded its empty save', b.puts.every((p) => (p?.data?.pokemonlist || '') !== ''), `${b.puts.length} uploads`);
 
 // A plays on; B, untouched since, picks it up by itself.
 await setList(a, 'N1|N4|N7|N25|N133');
@@ -78,6 +72,34 @@ check('Keeping this device replaces the cloud', (await cloudCount()) === 4, `clo
 await open(a);
 await sleep(1500);
 check('A follows the choice made on B', (await getList(a)) === 'N1|N4|N7|N25', await getList(a));
+
+// Two children, one iPad. Logging out puts the save in the cloud and clears the device.
+const kidA = { 'x-dev-email': `barn-a-${Date.now()}@test.no` };
+const kidB = { 'x-dev-email': `barn-b-${Date.now()}@test.no` };
+const count = async (who) => ((await (await fetch(BASE + '/api/save', { headers: who })).json()).save?.pokemon ?? null);
+const ipad = await device('iPad');
+await ipad.page.setExtraHTTPHeaders(kidA);
+await open(ipad);
+await setList(ipad, 'N10|N11');
+await open(ipad);
+await ipad.page.click('.menu-button');
+await ipad.page.click('#logoutBtn');
+await sleep(1500);
+check('Logging out saves to the cloud', (await count(kidA)) === 2);
+check('Logging out clears the device', (await ipad.page.evaluate(() => localStorage.getItem('pokemonlist'))) === null);
+await ipad.page.setExtraHTTPHeaders(kidB);
+await open(ipad);
+check('The next child starts with an empty save', ((await getList(ipad)) || '') === '' && (await count(kidB)) !== 2);
+
+// No logout: the next child must not inherit or upload the last one's save.
+await setList(ipad, 'N12|N13|N14');
+await open(ipad);
+check('Child B plays and saves', (await count(kidB)) === 3);
+await ipad.page.setExtraHTTPHeaders(kidA);
+await open(ipad);
+await sleep(1500);
+check('Child A gets their own save back', (await getList(ipad)) === 'N10|N11', await getList(ipad));
+check("B's save is untouched", (await count(kidB)) === 3);
 
 // The Worker refuses a smaller save unless the player chose it.
 const shrink = await fetch(BASE + '/api/save', { method: 'PUT', headers: { ...WHO, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { pokemonlist: 'N1' } }) });

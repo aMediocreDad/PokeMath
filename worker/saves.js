@@ -1,4 +1,5 @@
-// Cloud saves: one copy of the save per Access login, so a player can move between devices.
+// Cloud saves: one copy of the save per login (an email, or a child's code), so a player can move
+// between devices. The saves.email column holds the login's id (worker/auth.js).
 //
 // The Worker never lets a save lose Pokémon by accident: a PUT with fewer Pokémon than the stored
 // save is refused with the stored save, unless the page says the player chose it (force). That
@@ -11,13 +12,13 @@ const MAX_BYTES = 1_000_000;
 export const countPokemon = (list) => String(list || '').split('|').filter((p) => p.trim()).length;
 
 /**
- * @param {URL} url @param {Request} request @param {Env} env @param {import('./access.js').Identity} who
+ * @param {URL} url @param {Request} request @param {Env} env @param {import('./auth.js').Identity} who
  * @returns {Promise<Response | null>}
  */
 export async function route(url, request, env, who) {
 	if (url.pathname !== '/api/save') return null;
 	const db = env.DB;
-	const stored = await db.prepare('SELECT data, pokemon, updated_at FROM saves WHERE email = ?').bind(who.email).first();
+	const stored = await db.prepare('SELECT data, pokemon, updated_at FROM saves WHERE email = ?').bind(who.id).first();
 	const view = (row) => row && { data: JSON.parse(String(row.data)), pokemon: row.pokemon, updatedAt: row.updated_at };
 
 	if (request.method === 'GET') return json({ save: view(stored) });
@@ -42,7 +43,7 @@ export async function route(url, request, env, who) {
 		const updatedAt = Date.now();
 		await db
 			.prepare('INSERT INTO saves (email, data, pokemon, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO UPDATE SET data = excluded.data, pokemon = excluded.pokemon, updated_at = excluded.updated_at')
-			.bind(who.email, JSON.stringify(data), pokemon, updatedAt)
+			.bind(who.id, JSON.stringify(data), pokemon, updatedAt)
 			.run();
 		return json({ ok: true, pokemon, updatedAt });
 	}

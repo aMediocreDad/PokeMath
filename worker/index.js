@@ -1,9 +1,10 @@
-// The Cloudflare Worker behind the private copy of PokeMath.
+// The Cloudflare Worker behind the private copy of PokeMath, on pokemath.amediocre.dad.
 //
-// The Worker runs before every request, files included, so that nothing is served without a
-// Cloudflare Access login. After that check, files in build/ are served as they are.
-import { identify } from './access.js';
+// The Worker runs before every request, files included, so nothing but the login page is served
+// without a session (worker/auth.js). After that check, files in build/ are served as they are.
+import { identify } from './auth.js';
 import * as core from './core.js';
+import * as login from './login.js';
 import * as saves from './saves.js';
 import * as teacher from './teacher.js';
 
@@ -12,9 +13,11 @@ export { BingoHub } from './bingo.js';
 export default {
 	/** @param {Request} request @param {Env} env */
 	async fetch(request, env) {
-		const who = await identify(request, env);
-		if (who instanceof Response) return who;
 		const url = new URL(request.url);
+		const open = await login.route(url, request, env);
+		if (open) return open;
+		const who = await identify(request, env, url);
+		if (!who) return login.loginRequired(request, url);
 
 		if (url.pathname === '/ws' || url.pathname === '/bingo/claim-prizes') {
 			// BINGO_JURISDICTION ("eu") keeps the lobbies in the EU, as the teacher pages say. Local

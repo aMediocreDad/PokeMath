@@ -8,6 +8,7 @@ const j = async (path, opts = {}) => {
   return { status: r.status, body: await r.json().catch(() => null), type: r.headers.get("content-type") };
 };
 const post = (path, body, headers) => j(path, { method: "POST", body: JSON.stringify(body), headers });
+const kidHeaders = () => ({ "x-dev-anonymous": "1" });
 
 function client() {
   const ws = new WebSocket(WS);
@@ -134,4 +135,60 @@ function client() {
   assert(/ugyldig/i.test((await host.next("error")).message), "bad teacher session rejected");
 
   host.ws.close(); player.ws.close();
+
+  // The login gate: x-dev-anonymous makes a request logged out, as on the real site.
+  const anon = { "x-dev-anonymous": "1" };
+  const page = await fetch(BASE + "/", { headers: { ...anon, Accept: "text/html" }, redirect: "manual" });
+  assert(page.status === 302 && page.headers.get("location") === "/login.html?next=%2F", "page without session -> login page");
+  assert((await j("/api/me", { headers: anon })).status === 401, "API without session -> 401");
+  assert((await fetch(BASE + "/images/logo.png", { headers: anon })).status === 401, "image without session -> 401");
+  const wsRefused = await new Promise((resolve) => {
+    const ws = new WebSocket(WS, { headers: anon });
+    ws.on("unexpected-response", (req, res) => resolve(res.statusCode));
+    ws.on("open", () => { ws.close(); resolve(101); });
+    ws.on("error", () => {});
+  });
+  assert(wsRefused === 401, "bingo socket without session -> 401");
+  const loginPage = await fetch(BASE + "/login.html", { headers: anon });
+  assert(loginPage.status === 200 && (await loginPage.text()).includes("Logg inn"), "login page is open");
+
+  // A child: a teacher makes a code, the child logs in with it and gets a save of their own.
+  const child = await post("/teacher/kids", { name: "Kari" });
+  assert(child.body.ok && /^[A-Z]{4}-\d{4}$/.test(child.body.code), "teacher makes a code");
+  const kidsList = await j("/teacher/kids");
+  assert(kidsList.body.kids.some((k) => k.name === "Kari"), "teacher sees the child");
+  assert((await post("/teacher/kids", { name: "X" }, kidHeaders())).status === 401, "no session cannot add children");
+  const codeLogin = async (code) => {
+    const r = await fetch(BASE + "/login/code", { method: "POST", headers: { ...anon, "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+    return { status: r.status, cookie, headers: { ...anon, Cookie: cookie } };
+  };
+  const kari = await codeLogin(child.body.code.toLowerCase().replace("-", " "));
+  assert(kari.status === 200 && kari.cookie.startsWith("pm_session="), "code logs in, any case or spacing");
+  const meKari = await j("/api/me", { headers: kari.headers });
+  assert(meKari.body.kind === "kid" && meKari.body.name === "Kari" && meKari.body.teacher === false, "child is not a teacher");
+  assert((await j("/teacher/kids", { headers: kari.headers })).status === 403, "child cannot manage codes");
+  const kariSave = await j("/api/save", { method: "PUT", headers: kari.headers, body: JSON.stringify({ data: { pokemonlist: "N25" } }) });
+  assert(kariSave.status === 200 && (await j("/api/save", { headers: kari.headers })).body.save.pokemon === 1, "child has a save of their own");
+  assert((await j("/api/save")).body.save?.data?.pokemonlist !== "N25", "the teacher's save is separate");
+
+  // A new code logs the child out; logging out ends a session; removing the child ends them all.
+  const fresh = await post(`/teacher/kids/${child.body.kid.id}/code`, {});
+  assert((await j("/api/me", { headers: kari.headers })).status === 401, "new code ends old sessions");
+  assert((await codeLogin(child.body.code)).status === 401, "old code stops working");
+  const relog = await codeLogin(fresh.body.code);
+  await fetch(BASE + "/logout", { method: "POST", headers: relog.headers });
+  assert((await j("/api/me", { headers: relog.headers })).status === 401, "logout ends the session");
+  const last = await codeLogin(fresh.body.code);
+  await j(`/teacher/kids/${child.body.kid.id}?save=delete`, { method: "DELETE" });
+  assert((await j("/api/me", { headers: last.headers })).status === 401, "removing the child ends their sessions");
+  assert((await codeLogin(fresh.body.code)).status === 401, "removed child's code stops working");
+
+  // Guessing: ten wrong codes from one address lock it out for a quarter hour. Keep this last:
+  // the lock lasts for the rest of this server's run.
+  assert((await codeLogin("ZZZZ-0000")).status === 401, "wrong codes are refused");
+  let tries = 1;
+  while (tries < 12 && (await codeLogin("ZZZZ-0000")).status === 401) tries++;
+  assert(tries < 12, "too many wrong codes lock the address");
+  assert((await codeLogin(fresh.body.code)).status === 429, "a locked address cannot log in at all");
 })().catch((e) => { console.log("FAIL", e.message); process.exitCode = 1; });

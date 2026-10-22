@@ -6,7 +6,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
-	import { cloud, useCloud, keepDevice, decideLater } from '#lib/cloudSave.svelte.js';
+	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
 	import { hasCookieConsent } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
@@ -225,6 +225,7 @@
 			<a href="/about.html">Om siden</a>
 			<a href="/about.html#contact">Kontakt oss</a>
 			<hr />
+			<button id="logoutBtn" onclick={logOut}>Logg ut{me.name ? ` (${me.name})` : ''}</button>
 			<button class="danger" onclick={resetPrompt}>Tilbakestill (slett alt)</button>
 		</nav>
 	</div>
@@ -256,25 +257,16 @@
 {#if cloud.offer}
 	<div id="cloud-offer" class="backdrop">
 		<div class="reminder" role="dialog" aria-labelledby="cloud-title">
-			{#if cloud.offer.kind === 'restore'}
-				<h2 id="cloud-title">Fortsett der du slapp?</h2>
-				<p>
-					Det finnes en lagring i skyen med <strong>{cloud.offer.cloud.pokemon}</strong> Pokémon, sist lagret
-					{when(cloud.offer.cloud.updatedAt)}.
-				</p>
-				<button id="cloud-use-btn" class="pm-button" onclick={() => cloud.offer && useCloud(cloud.offer.cloud)}>Hent lagringen</button>
-			{:else}
-				<h2 id="cloud-title">To ulike lagringer</h2>
-				<p>
-					Denne enheten har <strong>{cloud.offer.local}</strong> Pokémon. Lagringen i skyen har
-					<strong>{cloud.offer.cloud.pokemon}</strong>, sist lagret {when(cloud.offer.cloud.updatedAt)}. Hvilken vil du fortsette
-					med? Den andre blir borte.
-				</p>
-				<div class="actions centered">
-					<button id="cloud-use-btn" class="pm-button" onclick={() => cloud.offer && useCloud(cloud.offer.cloud)}>Skyen ({cloud.offer.cloud.pokemon})</button>
-					<button id="cloud-keep-btn" class="pm-button secondary" onclick={keepDevice}>Denne enheten ({cloud.offer.local})</button>
-				</div>
-			{/if}
+			<h2 id="cloud-title">To ulike lagringer</h2>
+			<p>
+				Denne enheten har <strong>{cloud.offer.local}</strong> Pokémon. Lagringen i skyen har
+				<strong>{cloud.offer.cloud.pokemon}</strong>, sist lagret {when(cloud.offer.cloud.updatedAt)}. Hvilken vil du fortsette
+				med? Den andre blir borte.
+			</p>
+			<div class="actions centered">
+				<button id="cloud-use-btn" class="pm-button" onclick={() => cloud.offer && useCloud(cloud.offer.cloud)}>Skyen ({cloud.offer.cloud.pokemon})</button>
+				<button id="cloud-keep-btn" class="pm-button secondary" onclick={keepDevice}>Denne enheten ({cloud.offer.local})</button>
+			</div>
 			<div class="snooze centered">
 				<button id="cloud-later-btn" class="pm-button secondary" onclick={decideLater}>Ikke nå</button>
 			</div>

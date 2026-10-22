@@ -1,14 +1,23 @@
-// Who the Cloudflare Access login says this visitor is (GET /api/me), so the header and the front
-// page can offer the teacher pages to teachers. Asked once per tab.
+// Who is logged in (GET /api/me): an email login or a child's code. The header and the front page
+// use it for the teacher links and logging out, and the cloud save to know whose save this is.
+// Asked once per tab.
 
 const KEY = 'pm-me';
 
-export const me = $state({ email: '', teacher: false });
+export const me = $state({ id: '', name: '', kind: '', email: '', teacher: false });
 
-export async function loadMe() {
+/** @type {Promise<void> | null} */
+let loading = null;
+
+/** Resolves once `me` is filled in, or left empty when the server could not be asked. */
+export function loadMe() {
+	return (loading ??= load());
+}
+
+async function load() {
 	try {
 		const cached = sessionStorage.getItem(KEY);
-		if (cached) return Object.assign(me, JSON.parse(cached));
+		if (cached) return void Object.assign(me, JSON.parse(cached));
 	} catch {
 		// Private browsing can block sessionStorage; ask the server instead.
 	}
@@ -16,7 +25,13 @@ export async function loadMe() {
 		const res = await fetch('/api/me');
 		if (!res.ok) return;
 		const data = await res.json();
-		Object.assign(me, { email: String(data.email || ''), teacher: data.teacher === true });
+		Object.assign(me, {
+			id: String(data.id || ''),
+			name: String(data.name || ''),
+			kind: String(data.kind || ''),
+			email: String(data.email || ''),
+			teacher: data.teacher === true
+		});
 		try {
 			sessionStorage.setItem(KEY, JSON.stringify(me));
 		} catch {
@@ -24,5 +39,14 @@ export async function loadMe() {
 		}
 	} catch {
 		// Offline: no teacher links, which is the safe side.
+	}
+}
+
+/** Forget who this was, for logging out. */
+export function forgetMe() {
+	try {
+		sessionStorage.removeItem(KEY);
+	} catch {
+		// Nothing was cached.
 	}
 }

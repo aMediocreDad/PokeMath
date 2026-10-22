@@ -1,9 +1,10 @@
 // Teacher endpoints under /teacher/*, ported from dev/teacher.js; the data lives in D1.
-// There are no passwords: the site sits behind Cloudflare Access, which has already checked the
-// visitor's email, and the emails in TEACHER_EMAILS are teachers. Logging in turns that into the
-// session token the bingo pages have always sent.
-import { isTeacher } from './access.js';
+// There are no passwords: an email login listed in TEACHER_EMAILS is a teacher (worker/auth.js).
+// /teacher/access-login turns that into the session token the bingo pages have always sent, and
+// /teacher/kids is where teachers give children without email a login code.
+import { isTeacher } from './auth.js';
 import { body, fail, json, log, randomHex } from './http.js';
+import { hashCode, newCode } from './login.js';
 
 const SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 
@@ -18,14 +19,14 @@ export async function sessionTeacher(env, token) {
 		.prepare('SELECT t.*, s.exp FROM teacher_sessions s JOIN teachers t ON t.id = s.teacher_id WHERE s.token = ? AND s.exp > ?')
 		.bind(token, Date.now())
 		.first();
-	return teacher && isTeacher({ email: String(teacher.email) }, env) ? teacher : null;
+	return teacher && isTeacher({ id: String(teacher.email), kind: 'email', name: String(teacher.name), email: String(teacher.email) }, env) ? teacher : null;
 }
 
 /** @param {Request} request */
 const bearer = (request) => (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
 
 /**
- * @param {URL} url @param {Request} request @param {Env} env @param {import('./access.js').Identity} who
+ * @param {URL} url @param {Request} request @param {Env} env @param {import('./auth.js').Identity} who
  * @returns {Promise<Response | null>}
  */
 export async function route(url, request, env, who) {
@@ -54,6 +55,52 @@ export async function route(url, request, env, who) {
 			db.prepare('INSERT INTO teacher_sessions (token, teacher_id, exp) VALUES (?, ?, ?)').bind(token, teacher.id, exp),
 		]);
 		return json({ ok: true, teacherSession: token, teacher: { name: teacher.name, email: teacher.email, exp } });
+	}
+
+	// Children's login codes. A code is shown once, when it is made; the server keeps only its hash.
+	if (pathname === '/teacher/kids' || pathname.startsWith('/teacher/kids/')) {
+		if (!isTeacher(who, env)) return fail(403, 'Bare for lærere.');
+		const id = pathname.split('/')[3] || '';
+		const action = pathname.split('/')[4] || '';
+
+		if (method === 'GET' && !id) {
+			const { results } = await db.prepare('SELECT id, name, created_at FROM kids ORDER BY name').all();
+			return json({ ok: true, kids: results });
+		}
+		if (method === 'POST' && !id) {
+			const name = String((await body(request)).name || '').trim().slice(0, 30);
+			if (!name) return fail(400, 'Skriv inn et navn.');
+			const code = newCode();
+			const kid = { id: crypto.randomUUID(), name };
+			await db
+				.prepare('INSERT INTO kids (id, name, code_hash, created_by, created_at) VALUES (?, ?, ?, ?, ?)')
+				.bind(kid.id, name, await hashCode(code), who.id, Date.now())
+				.run();
+			log('kids', `${who.id} la til ${name}`);
+			return json({ ok: true, kid, code });
+		}
+		const kid = id && (await db.prepare('SELECT id, name FROM kids WHERE id = ?').bind(id).first());
+		if (!kid) return fail(404, 'Fant ikke barnet.');
+		if (method === 'POST' && action === 'code') {
+			// A new code logs the child out everywhere; the old code stops working.
+			const code = newCode();
+			await db.batch([
+				db.prepare('UPDATE kids SET code_hash = ? WHERE id = ?').bind(await hashCode(code), id),
+				db.prepare('DELETE FROM sessions WHERE subject = ?').bind(`kid:${id}`),
+			]);
+			return json({ ok: true, code });
+		}
+		if (method === 'DELETE' && !action) {
+			const dropSave = url.searchParams.get('save') === 'delete';
+			await db.batch([
+				db.prepare('DELETE FROM kids WHERE id = ?').bind(id),
+				db.prepare('DELETE FROM sessions WHERE subject = ?').bind(`kid:${id}`),
+				...(dropSave ? [db.prepare('DELETE FROM saves WHERE email = ?').bind(`kid:${id}`)] : []),
+			]);
+			log('kids', `${who.id} fjernet ${kid.name}${dropSave ? ' og lagringen' : ''}`);
+			return json({ ok: true });
+		}
+		return fail(405, 'Ukjent handling.');
 	}
 
 	// The rest needs a session.

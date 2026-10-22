@@ -8,12 +8,14 @@ image fallback. `tests/serve-build.sh` serves the old in-memory mock in `dev/` i
 `playwright-core` is pinned to the version whose WebKit build is already installed locally;
 `npx playwright-core install webkit` fetches it on a new machine.
 
-- `smoke.js <base>`: the Worker's HTTP endpoints and a full bingo round, no browser. The local
-  Worker treats every request as `laerer@test.no`, a teacher; an `x-dev-email` header makes it
-  someone else. The old mock in `dev/` still expects password logins and fails the teacher part.
+- `smoke.js <base>`: the Worker's HTTP endpoints, a full bingo round and the login gate, no
+  browser. On localhost the Worker treats a request without a session as `laerer@test.no`, a
+  teacher; an `x-dev-email` header makes it someone else, and `x-dev-anonymous` makes it logged
+  out. Run it last: its lockout check blocks code logins from this machine for 15 minutes. The
+  old mock in `dev/` still expects password logins and fails the teacher part.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
-- `cloud-save-check.mjs`: two devices on one login; progress moves over, and an empty or
-  smaller save never replaces a bigger one without the player choosing.
+- `cloud-save-check.mjs`: two devices on one login, and two children on one iPad; progress
+  moves over, and an empty, smaller or someone else's save never replaces one without a choice.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
   touch checks per page. Stale since the redesign, against the mock as much as the Worker:

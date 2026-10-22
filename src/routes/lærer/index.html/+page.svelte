@@ -18,6 +18,7 @@
 
 	onMount(async () => {
 		teacher = await ensureTeacher();
+		if (teacher) loadKids();
 		checked = true;
 		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 	});
@@ -25,6 +26,59 @@
 	const sessionHint = $derived(
 		teacher?.exp ? `Sesjon utløper: ${new Date(teacher.exp).toLocaleString('no-NO', { hour12: false })}` : ''
 	);
+
+	// ── Children's login codes ──
+	/** @typedef {{ id: string, name: string, created_at: number }} Kid */
+	let kids = $state(/** @type {Kid[] | null} */ (null));
+	let kidName = $state('');
+	let kidStatus = $state(NONE);
+	/** A code just made: shown once, since the server keeps only its hash. */
+	let shownCode = $state(/** @type {{ name: string, code: string } | null} */ (null));
+
+	async function loadKids() {
+		try {
+			kids = (await apiJson('/teacher/kids')).kids;
+		} catch (e) {
+			kidStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
+		}
+	}
+
+	async function addKid() {
+		const name = kidName.trim();
+		if (!name) return;
+		try {
+			const data = await apiJson('/teacher/kids', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+			shownCode = { name, code: data.code };
+			kidName = '';
+			kidStatus = NONE;
+			await loadKids();
+		} catch (e) {
+			kidStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
+		}
+	}
+
+	/** @param {Kid} kid */
+	async function newKidCode(kid) {
+		if (!confirm(`Lage en ny kode for ${kid.name}? Den gamle slutter å virke, og ${kid.name} blir logget ut overalt.`)) return;
+		try {
+			shownCode = { name: kid.name, code: (await apiJson(`/teacher/kids/${kid.id}/code`, { method: 'POST' })).code };
+		} catch (e) {
+			kidStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
+		}
+	}
+
+	/** @param {Kid} kid */
+	async function removeKid(kid) {
+		if (!confirm(`Fjerne ${kid.name}? Koden slutter å virke.`)) return;
+		const dropSave = confirm(`Slette ${kid.name}s lagring i skyen også? Trykk Avbryt for å beholde den.`);
+		try {
+			await apiJson(`/teacher/kids/${kid.id}${dropSave ? '?save=delete' : ''}`, { method: 'DELETE' });
+			if (shownCode?.name === kid.name) shownCode = null;
+			await loadKids();
+		} catch (e) {
+			kidStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
+		}
+	}
 
 	// ── The code overview ──
 	const PRIZE_LABELS = /** @type {Record<string, string>} */ ({
@@ -208,6 +262,38 @@
 			</div>
 		</section>
 
+		<section class="panel" id="kidsPanel">
+			<h2>👧 Barn uten e-post</h2>
+			<p class="muted">
+				Gi hvert barn en egen kode. Med koden logger barnet inn og får sin egen lagring. Koden vises bare én gang, så skriv
+				den ned.
+			</p>
+			{#if shownCode}
+				<div class="shown-code" id="shownCode">
+					<span>Koden til <strong>{shownCode.name}</strong>:</span>
+					<span class="big-code">{shownCode.code}</span>
+				</div>
+			{/if}
+			{#if kids?.length}
+				<ul class="kid-list">
+					{#each kids as kid (kid.id)}
+						<li class="kid-row">
+							<span class="kid-name">{kid.name}</span>
+							<button class="pm-button small secondary" onclick={() => newKidCode(kid)}>Ny kode</button>
+							<button class="pm-button small secondary danger" onclick={() => removeKid(kid)}>Fjern</button>
+						</li>
+					{/each}
+				</ul>
+			{:else if kids}
+				<p class="muted small">Ingen barn ennå.</p>
+			{/if}
+			<form class="actions" onsubmit={(e) => (e.preventDefault(), addKid())}>
+				<input id="kidName" type="text" maxlength="30" placeholder="Navn, f.eks. Kari" bind:value={kidName} />
+				<button class="pm-button small" id="addKidBtn" type="submit">Legg til</button>
+			</form>
+			{@render status(kidStatus, 'kidStatus')}
+		</section>
+
 		{#if createOpen}
 			<section class="panel" id="createCodePanel">
 				<h2>➕ Lag en hemmelig kode</h2>
@@ -381,6 +467,40 @@
 	}
 	.bad {
 		color: var(--pm-red-deep);
+	}
+	.shown-code {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px;
+		margin: 0 0 12px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--pm-cream);
+	}
+	.big-code {
+		font: 800 26px/1 ui-monospace, Menlo, monospace;
+		letter-spacing: 2px;
+	}
+	.kid-list {
+		margin: 0 0 12px;
+		padding: 0;
+		list-style: none;
+	}
+	.kid-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 0;
+		border-bottom: 1px solid var(--pm-line);
+	}
+	.kid-name {
+		flex: 1;
+		font-weight: 700;
+	}
+	#kidName {
+		flex: 1;
+		min-width: 0;
 	}
 	#notTeacher a {
 		color: var(--pm-red-deep);
