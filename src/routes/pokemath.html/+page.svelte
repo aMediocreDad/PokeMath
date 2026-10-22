@@ -97,16 +97,31 @@
 	const progress = $derived(score / winScore);
 
 	// The round in progress (score, mistakes, the problem on screen, a ball not thrown yet) is kept
-	// on this device, so a reload, a closed tab or a crash does not cost it. It belongs to one level
-	// (the page's query string) and is dropped after a day. It is not part of the cloud save.
+	// on this device, so a reload, a closed tab or a crash does not cost it. There is one round per
+	// level (the page's query string), each dropped after a day. It is not part of the cloud save.
 	const ROUND_KEY = 'pm-round';
 	const ROUND_MAX_AGE = 24 * 60 * 60 * 1000;
 	let roundRestored = $state(false);
+	/** @typedef {{ score?: number, wrongAnswers?: number, problem?: typeof problem, ball?: boolean, at?: number }} SavedRound */
+
+	/** Every level's saved round, without the ones older than a day. @returns {Record<string, SavedRound>} */
+	function readRounds() {
+		try {
+			const all = JSON.parse(localStorage.getItem(ROUND_KEY) || '{}');
+			// The first version kept a single round with its level in `search`.
+			const rounds = typeof all?.search === 'string' ? { [all.search]: all } : all && typeof all === 'object' ? all : {};
+			return Object.fromEntries(Object.entries(rounds).filter(([, r]) => Date.now() - (r?.at ?? 0) < ROUND_MAX_AGE));
+		} catch {
+			// A broken value starts every level afresh.
+			return {};
+		}
+	}
+
 	$effect(() => {
-		const round = { search: location.search, score, wrongAnswers, problem, ball: showBall, at: Date.now() };
+		const round = { score, wrongAnswers, problem, ball: showBall, at: Date.now() };
 		if (!roundRestored) return;
 		try {
-			localStorage.setItem(ROUND_KEY, JSON.stringify(round));
+			localStorage.setItem(ROUND_KEY, JSON.stringify({ ...readRounds(), [location.search]: round }));
 		} catch {
 			// Storage full or blocked: the round just is not kept.
 		}
@@ -114,17 +129,11 @@
 
 	/** Pick up a round left on this level, or start a new one. */
 	function restoreRound() {
-		/** @type {{ search?: string, score?: number, wrongAnswers?: number, problem?: typeof problem, ball?: boolean, at?: number } | null} */
-		let saved = null;
-		try {
-			saved = JSON.parse(localStorage.getItem(ROUND_KEY) || 'null');
-		} catch {
-			// A broken value starts a new round.
-		}
+		/** @type {SavedRound | undefined} */
+		const saved = readRounds()[location.search];
 		roundRestored = true;
 		const usable =
-			saved?.search === location.search &&
-			Date.now() - (saved.at ?? 0) < ROUND_MAX_AGE &&
+			saved &&
 			Number.isInteger(saved.score) &&
 			Number.isInteger(saved.wrongAnswers) &&
 			/** @type {number} */ (saved.wrongAnswers) < LIVES &&

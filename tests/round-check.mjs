@@ -48,8 +48,11 @@ check('reload keeps the problem', before.problem === after.problem, `${before.pr
 check('reload keeps score and mistakes', before.status === after.status, after.status);
 
 await open('/pokemath.html?stage=2');
-const other = await page.evaluate(() => JSON.parse(localStorage.getItem('pm-round') || 'null'));
-check('another level starts a fresh round', other?.search === '?stage=2' && other.score === 0 && other.wrongAnswers === 0, JSON.stringify(other));
+const rounds = await page.evaluate(() => JSON.parse(localStorage.getItem('pm-round') || 'null'));
+const other = rounds?.['?stage=2'];
+check('another level starts a fresh round', other?.score === 0 && other.wrongAnswers === 0, JSON.stringify(other));
+await open('/pokemath.html?stage=1');
+check('and the first level keeps its round', (await problemText()) === after.problem && (await status()) === after.status, await status());
 
 await open('/pokemath.html?stage=1');
 for (let i = 0; i < 10 && !(await ballUp()); i++) await answer(await solve());
