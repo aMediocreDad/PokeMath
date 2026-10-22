@@ -177,15 +177,13 @@ export async function route(url, request, env) {
 		const key = String(plaintext_code || '').trim().toUpperCase();
 		if (!key || !label || !prize_type) return fail(400, 'Kode, beskrivelse og premietype må fylles ut.');
 		if (await db.prepare('SELECT 1 FROM codes WHERE code = ?').bind(key).first()) return fail(409, 'Denne koden finnes allerede.');
-		if (Number(teacher.code_tokens) < 1) return fail(403, 'Du har ingen kodepoletter igjen.');
-		const [, left] = await db.batch([
-			db
-				.prepare('INSERT INTO codes (code, type, value, label, image, repeatable, teacher_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-				.bind(key, String(prize_type), JSON.stringify(prize_value ?? null), String(label), prize_image ?? null, repeatable ? 1 : 0, teacher.id, Date.now()),
-			db.prepare('UPDATE teachers SET code_tokens = code_tokens - 1 WHERE id = ? RETURNING code_tokens').bind(teacher.id),
-		]);
+		// No token limit: the live site rations codes per teacher, a family copy has no need to.
+		await db
+			.prepare('INSERT INTO codes (code, type, value, label, image, repeatable, teacher_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+			.bind(key, String(prize_type), JSON.stringify(prize_value ?? null), String(label), prize_image ?? null, repeatable ? 1 : 0, teacher.id, Date.now())
+			.run();
 		log('code', `${teacher.email} laget ${key} (${prize_type})`);
-		return json({ ok: true, code_tokens: left.results[0]?.code_tokens });
+		return json({ ok: true });
 	}
 
 	return null;

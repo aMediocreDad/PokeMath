@@ -269,7 +269,7 @@
 		saving = true;
 		try {
 			const value = tc.value.trim();
-			const data = await apiJson('/teacher/codes', {
+			await apiJson('/teacher/codes', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', ...authHeaders() },
 				body: JSON.stringify({
@@ -284,7 +284,6 @@
 			});
 			createStatus = { msg: '✅ Kode lagret!', kind: 'good' };
 			tc = { ...tc, code: '', label: '', value: '', image: '' };
-			if (teacher) teacher = { ...teacher, code_tokens: data.code_tokens ?? undefined };
 		} catch (e) {
 			createStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
 		} finally {
@@ -338,7 +337,7 @@
 			<section class="panel" id="createCodePanel">
 				<h2>➕ Lag en hemmelig kode</h2>
 				<p class="muted">
-					Du kan lage koder som alle elever kan bruke på redeem-siden. Du har <strong id="tokenCount">{teacher.code_tokens ?? '?'}</strong> token(s) igjen.
+					Du kan lage koder som alle elever kan bruke på redeem-siden.
 				</p>
 				<div class="form-grid">
 					<label class="field">
