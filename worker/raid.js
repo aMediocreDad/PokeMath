@@ -7,10 +7,8 @@
 // from the number of children), "won". A child's hits are kept as catchCount, the field bingo's
 // player list already shows.
 
-/** Bosses the teacher can pick; "random" picks one of them. */
-export const RAID_BOSSES = [144, 145, 146, 150, 249, 250, 382, 383, 384, 483, 484, 487, 643, 644, 716, 717, 791, 792, 888, 889];
-/** Hits each child is expected to land, by the length the teacher chose (about 3 to 4 a minute). */
-const HITS_PER_CHILD = { short: 10, medium: 20, long: 35 };
+import { HITS_PER_CHILD, RAID_BOSSES } from '../src/lib/raidConfig.js';
+
 /** A child's hits closer together than this are dropped: nobody answers that fast. */
 const MIN_HIT_GAP = 1000;
 const RECENT = 20;

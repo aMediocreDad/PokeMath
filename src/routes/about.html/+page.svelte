@@ -164,7 +164,7 @@
 					<tr><td>Feil koder</td><td>IP-adresse og antall feil.</td><td>Ved neste innlogging med kode etter et kvarter</td></tr>
 					<tr><td>Lærere</td><td>E-postadressen og de hemmelige kodene læreren lager.</td><td>På forespørsel</td></tr>
 					<tr><td>Spiller-ID</td><td>Den anonyme IDen. Jule- og påskesidene sender også brukernavn, poeng og antall fangster.</td><td>På forespørsel</td></tr>
-					<tr><td>Bingo</td><td>Spiller-ID, brukernavn, figur og fangster i spillet.</td><td>Når bingoen avsluttes, eller etter et døgn uten aktivitet. Premier som ikke er hentet, etter en måned</td></tr>
+					<tr><td>Bingo og raid</td><td>Spiller-ID, brukernavn, figur, og fangster (bingo) eller antall riktige svar (raid) i spillet.</td><td>Når spillet avsluttes, eller etter et døgn uten aktivitet. Premier som ikke er hentet, etter en måned</td></tr>
 					<tr><td>Felles telleverk</td><td>Antall fangster i vår-eventet, uten kobling til hvem som fanget.</td><td>Beholdes, siden den ikke sier noe om noen</td></tr>
 				</tbody>
 			</table>

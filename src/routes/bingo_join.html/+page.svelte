@@ -1,6 +1,7 @@
 <script>
-	// Joining the teacher's bingo board, ported from static/bingo_join.html. The code is stored under
-	// bingoJoinedCode (and the older bingoCode); the game page connects to the lobby from there.
+	// Joining the teacher's class game (bingo or raid), ported from static/bingo_join.html. The code
+	// is stored under bingoJoinedCode (and the older bingoCode); the game page connects from there.
+	// Both games share the code, so this page does not need to know which one it is.
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { code6, isUuidLike } from '#lib/bingo.js';
@@ -123,28 +124,28 @@
 		joined = '';
 		localStorage.removeItem('bingoJoinedCode');
 		localStorage.removeItem('bingoCode');
-		status = { msg: 'Du er ikke lenger med i bingoen.', kind: 'info' };
+		status = { msg: 'Du er ikke lenger med i spillet.', kind: 'info' };
 	}
 </script>
 
 <svelte:head>
-	<title>PokeMath Bingo – Bli med</title>
+	<title>PokéMath – Bli med i klassespill</title>
 </svelte:head>
 
 <div class="main pm-page join">
 	<section class="join-card pm-surface">
-		<p class="kicker">🎲 PokeMath Bingo</p>
+		<p class="kicker">🎲 Klassespill</p>
 		{#if joined}
 			<h1 class="pm-title">Du er med!</h1>
-			<p class="lead">Du er med i bingo <b id="joinedCode">{joined}</b>. Alt du fanger, teller på brettet.</p>
+			<p class="lead">Du er med i spillet <b id="joinedCode">{joined}</b>. Spill som vanlig: det du gjør, teller for klassen.</p>
 			<div class="joined-actions">
 				<a class="pm-button" id="playBtn" href="/">Fortsett å spille</a>
-				<button id="clearBtn" class="pm-button secondary" type="button" onclick={clear}>Forlat bingoen</button>
+				<button id="clearBtn" class="pm-button secondary" type="button" onclick={clear}>Forlat spillet</button>
 			</div>
-			<p class="hint">Fått en ny kode? Forlat bingoen først, og skriv inn den nye.</p>
+			<p class="hint">Fått en ny kode? Forlat spillet først, og skriv inn den nye.</p>
 		{:else}
-			<h1 class="pm-title">Bli med i bingo</h1>
-			<p class="lead">Skriv inn koden du får av den voksne som styrer bingoen.</p>
+			<h1 class="pm-title">Bli med i klassespill</h1>
+			<p class="lead">Skriv inn koden du får av den voksne som styrer spillet.</p>
 			<form
 				class="code-row"
 				onsubmit={(e) => {
@@ -177,9 +178,9 @@
 	<section class="how pm-surface">
 		<h2>Hva skjer når jeg kobler til?</h2>
 		<ul>
-			<li>Du blir med i lærerens bingo-lobby.</li>
-			<li>Når du fanger Pokémon i PokeMath, sendes fangsten automatisk til bingobrettet.</li>
-			<li>Hvis fangsten passer en rute, krysses den av og ruten teller treff.</li>
+			<li>Du blir med i spillet læreren styrer, og spiller PokéMath som vanlig.</li>
+			<li><b>Bingo:</b> Pokémon du fanger, sendes til bingobrettet. Passer fangsten en rute, krysses den av.</li>
+			<li><b>Raid:</b> hvert riktige svar er et treff på bossen. Når den er beseiret, fanger alle som var med den.</li>
 		</ul>
 		<details class="small uuid">
 			<summary>Teknisk informasjon</summary>

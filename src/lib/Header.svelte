@@ -220,7 +220,7 @@
 			<!-- Phones hide the badge shortcut in the bar, so the menu offers it instead. -->
 			<a href="/badges.html" class="phone-only">Merker</a>
 			<hr />
-			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i bingo</a>
+			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i klassespill</a>
 			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærersiden</a>{/if}
 			<hr />
 			<a href="/saveandload.html">Lagre / Last inn</a>

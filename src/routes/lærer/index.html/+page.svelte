@@ -16,12 +16,14 @@
 
 	/** The lobby the host page is running, so the teacher can go back to it. */
 	let savedBingoCode = $state('');
+	let savedRaidCode = $state('');
 
 	onMount(async () => {
 		teacher = await ensureTeacher();
 		if (teacher) loadKids();
 		checked = true;
 		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
+		savedRaidCode = (localStorage.getItem('teacherRaidCode') || '').toUpperCase().trim();
 	});
 
 	/**
@@ -37,6 +39,14 @@
 			about: 'Barna fanger Pokémon som passer på bingobrettet ditt. Første rad vinner.',
 			start: '/lærer/bingo_settings.html',
 			resume: savedBingoCode.length === 6 ? { href: '/lærer/bingo_host.html', label: `Fortsett bingo ${savedBingoCode}` } : undefined
+		},
+		{
+			id: 'raid',
+			icon: '⚔️',
+			name: 'Raid',
+			about: 'Hele klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff, og alle fanger den til slutt.',
+			start: '/lærer/raid.html',
+			resume: savedRaidCode.length === 6 ? { href: '/lærer/raid.html', label: `Fortsett raid ${savedRaidCode}` } : undefined
 		}
 	]);
 
@@ -279,10 +289,10 @@
 					<p class="muted">{game.about}</p>
 					<div class="actions">
 						{#if game.resume}
-							<a class="pm-button" id="continueBingoBtn" href={game.resume.href}>{game.resume.label}</a>
-							<a class="pm-button secondary" id="startBingoBtn" href={game.start}>Start ny</a>
+							<a class="pm-button" id={game.id === 'bingo' ? 'continueBingoBtn' : `continue-${game.id}`} href={game.resume.href}>{game.resume.label}</a>
+							{#if game.id === 'bingo'}<a class="pm-button secondary" id="startBingoBtn" href={game.start}>Start ny</a>{/if}
 						{:else}
-							<a class="pm-button" id="startBingoBtn" href={game.start}>Start {game.name}</a>
+							<a class="pm-button" id={game.id === 'bingo' ? 'startBingoBtn' : `start-${game.id}`} href={game.start}>Start {game.name}</a>
 						{/if}
 					</div>
 				</section>
