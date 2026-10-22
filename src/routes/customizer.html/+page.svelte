@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { toast } from '#lib/toast.svelte.js';
 	import { getStorageString } from '#lib/storage.js';
+	import { qrDataUrl } from '#lib/qr.js';
 
 	/** @typedef {{ key: string, label: string, value: string, min?: number, max?: number }} Field */
 
@@ -78,13 +79,12 @@
 	}
 
 	function copyLink() {
-		navigator.clipboard.writeText('https://www.pokemath.online' + gameUrl());
+		navigator.clipboard.writeText(location.origin + gameUrl());
 		toast('Lenken ble kopiert!');
 	}
 
-	function makeQr() {
-		const link = 'https://www.pokemath.online' + encodeURIComponent(gameUrl());
-		qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?data=' + link + '&amp;size=250x250';
+	async function makeQr() {
+		qrSrc = await qrDataUrl(location.origin + gameUrl(), 250);
 	}
 
 	/**
@@ -202,7 +202,7 @@
 		<img
 			class="barcode"
 			id="barcode"
-			src={qrSrc || 'https://api.qrserver.com/v1/create-qr-code/?data=Pokemath.online&size=250x250'}
+			src={qrSrc || undefined}
 			alt="QR-kode til nivået"
 			title="QR Kode"
 			width="250"

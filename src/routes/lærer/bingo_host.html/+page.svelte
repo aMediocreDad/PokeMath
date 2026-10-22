@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getTeacherSession } from '#lib/teacher.js';
+	import { qrDataUrl } from '#lib/qr.js';
 	import {
 		DIFF_NO,
 		catchPrefix,
@@ -698,7 +699,7 @@
 		<div class="qr-box" role="dialog" aria-modal="true" aria-label="QR-kode">
 			<button id="qrClose" class="close" aria-label="Lukk" onclick={() => (qrOpen = false)}>×</button>
 			<p class="qr-title">Scan for å bli med</p>
-			<img id="qrImage" src="https://api.qrserver.com/v1/create-qr-code/?data={encodeURIComponent(joinUrl(currentCode))}&size=260x260&margin=2" alt="QR-kode" width="220" height="220" />
+			{#await qrDataUrl(joinUrl(currentCode), 440) then src}<img id="qrImage" {src} alt="QR-kode" width="220" height="220" />{/await}
 			<p id="qrUrl" class="qr-url">{joinUrl(currentCode)}</p>
 		</div>
 	</div>
