@@ -1,5 +1,6 @@
 <script>
-	// The frame of every teacher page: a slim header with the logo and a way back, then the panels.
+	// The frame of every teacher page: a slim header with the logo, a way back and a way to the game,
+	// then the panels.
 	// The shared form, button and status styles for those pages live here too.
 	/** @type {{ subtitle: string, back?: { href: string, label: string }, narrow?: boolean, children: import('svelte').Snippet }} */
 	let { subtitle, back, narrow = false, children } = $props();
@@ -14,7 +15,10 @@
 				<span class="subtitle">{subtitle}</span>
 			</span>
 		</a>
-		{#if back}<a class="back" href={back.href}>← {back.label}</a>{/if}
+		<nav class="teacher-nav" aria-label="Lærersidene">
+			{#if back}<a href={back.href}>← {back.label}</a>{/if}
+			<a href="/index.html">Til spillet</a>
+		</nav>
 	</header>
 	{@render children()}
 </main>
@@ -57,7 +61,14 @@
 		color: var(--pm-ink-soft);
 		font-size: 14px;
 	}
-	.back {
+	.teacher-nav {
+		display: flex;
+		gap: 18px;
+	}
+	.teacher-nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 		color: var(--pm-ink-soft);
 		font-weight: 700;
 		white-space: nowrap;
@@ -150,10 +161,14 @@
 		color: var(--pm-red-deep);
 	}
 
-	/* Phones: the way back to the game wraps under the logo instead of disappearing. */
-	@media (max-width: 520px) {
+	/* Phones: the links get a row of their own under the logo, back on the left, the game on the right. */
+	@media (max-width: 620px) {
 		.teacher-header {
 			flex-wrap: wrap;
+		}
+		.teacher-nav {
+			flex-basis: 100%;
+			justify-content: space-between;
 		}
 	}
 </style>

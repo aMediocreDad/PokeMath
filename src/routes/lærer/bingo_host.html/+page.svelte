@@ -246,6 +246,7 @@
 	}
 
 	function newGame() {
+		if (currentCode && !confirm('Lage et nytt brett med de samme innstillingene?\n\nDet gamle brettet avsluttes, og elevene må koble til med den nye koden.')) return;
 		const oldCode = localStorage.getItem('teacherBingoCode');
 		localStorage.removeItem('teacherBingoCode');
 		if (oldCode && ws?.readyState === WebSocket.OPEN) {
@@ -271,12 +272,13 @@
 	}
 
 	function endGame() {
-		if (!currentCode || !confirm('Avslutt bingo og disconnect alle elever?')) return;
+		if (!currentCode || !confirm('Avslutte bingoen? Alle elevene kobles fra.')) return;
 		endLobby();
+		goto('/lærer/index.html');
 	}
 
 	function backToSettings() {
-		if (!confirm('Gå tilbake til innstillinger?\n\nDette avslutter det nåværende bingo-brettet og disconnecter alle elever.')) return;
+		if (!confirm('Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.')) return;
 		if (currentCode) endLobby();
 		goto('/lærer/bingo_settings.html');
 	}
@@ -496,6 +498,11 @@
 {/snippet}
 
 <div class="pm-bare host">
+	<!-- Leaving keeps the game running: "Fortsett Bingo" on the teacher page comes back to it. -->
+	<nav class="host-nav" aria-label="Lærersidene">
+		<a id="toTeacherHome" href="/lærer/index.html">← Lærersiden</a>
+		<a href="/index.html">Til spillet</a>
+	</nav>
 	<header class="host-top">
 		<div class="title-block">
 			<h1>PokeBingo</h1>
@@ -515,27 +522,30 @@
 	</header>
 
 	<div class="controls">
-		<button id="newGameBtn" class="pm-button small" onclick={newGame}>Nytt spill</button>
-		<button id="toggleLog" class="pm-button small secondary" onclick={() => (logVisible = !logVisible)}>{logVisible ? 'Skjul logg' : 'Vis logg'}</button>
-		<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt Bingo</button>
-		<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>← Innstillinger</button>
-		<span class="spacer"></span>
-		<span class="size-control">
-			<label for="cellSizeSlider">Størrelse</label>
-			<input
-				type="range"
-				id="cellSizeSlider"
-				min="24"
-				max="150"
-				value={cellSize ?? 118}
-				oninput={(e) => (manualSize = Number(e.currentTarget.value))}
-				ondblclick={() => (manualSize = null)}
-			/>
-			{#if manualSize !== null}
-				<button id="cellSizeAuto" class="pm-button small secondary" onclick={() => (manualSize = null)}>Auto</button>
-			{/if}
-		</span>
-		<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
+		<div class="group" role="group" aria-label="Spillet">
+			<button id="newGameBtn" class="pm-button small secondary" onclick={newGame}>Nytt brett</button>
+			<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>Nye innstillinger</button>
+			<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt bingo</button>
+		</div>
+		<div class="group" role="group" aria-label="Visning">
+			<button id="toggleLog" class="pm-button small secondary" onclick={() => (logVisible = !logVisible)}>{logVisible ? 'Skjul logg' : 'Vis logg'}</button>
+			<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
+			<span class="size-control">
+				<label for="cellSizeSlider">Størrelse</label>
+				<input
+					type="range"
+					id="cellSizeSlider"
+					min="24"
+					max="150"
+					value={cellSize ?? 118}
+					oninput={(e) => (manualSize = Number(e.currentTarget.value))}
+					ondblclick={() => (manualSize = null)}
+				/>
+				{#if manualSize !== null}
+					<button id="cellSizeAuto" class="pm-button small secondary" onclick={() => (manualSize = null)}>Auto</button>
+				{/if}
+			</span>
+		</div>
 		<span id="totalCatches" class="total">Totalt fanget: {totalCatches}</span>
 	</div>
 
@@ -789,10 +799,27 @@
 		gap: 8px;
 		margin: 14px 0;
 	}
-	.spacer {
-		flex: 1;
+	.group {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+	}
+	.host-nav {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 8px;
+	}
+	.host-nav a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		color: var(--pm-ink-soft);
+		font-weight: 700;
 	}
 	.total {
+		margin-left: auto;
 		font-family: var(--pm-display);
 		font-size: 20px;
 	}
@@ -1052,6 +1079,10 @@
 	.cell-name {
 		display: block;
 		font-weight: 700;
+	}
+	/* A name with no picture above it sits in the middle, clear of the hit count in the corner. */
+	#bingoCard td.no-pic {
+		vertical-align: middle;
 	}
 	.task-description {
 		display: block;
@@ -1393,6 +1424,10 @@
 		}
 		.code-box {
 			justify-items: start;
+		}
+		.bingo-toast {
+			padding: 10px 14px;
+			font-size: 15px;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

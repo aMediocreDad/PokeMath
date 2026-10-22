@@ -114,7 +114,7 @@
 
 	<section class="bingo-row" aria-label="Bingo">
 		<a class="pm-button secondary" id="homeJoinBingo" href="/bingo_join.html">🎲 Bli med i bingo</a>
-		{#if me.teacher}<a class="pm-button" id="homeStartBingo" href="/lærer/index.html">Start bingo</a>{/if}
+		{#if me.teacher}<a class="pm-button" id="homeStartBingo" href="/lærer/index.html">🧑‍🏫 Styr bingo</a>{/if}
 	</section>
 
 	<p class="hint" id="stage-hint-box" aria-live="polite">

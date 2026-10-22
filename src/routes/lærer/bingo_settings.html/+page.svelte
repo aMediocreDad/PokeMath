@@ -63,7 +63,7 @@
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<TeacherPage subtitle="Bingo · Innstillinger" back={{ href: '/lærer/index.html', label: 'Tilbake' }}>
+<TeacherPage subtitle="Bingo · Innstillinger" back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
 	{#if loggedIn === false}
 		<section class="panel" id="mustLogin">
 			<h2>Bare for lærere</h2>
@@ -73,7 +73,7 @@
 	{:else if loggedIn}
 		<section class="panel" id="settingsBox">
 			<h2>Innstillinger</h2>
-			<p class="muted">Velg vanskelighetsgrad. Du kan lage nytt spill senere fra host-siden.</p>
+			<p class="muted">Velg hvordan brettet skal se ut. Du kan lage et nytt brett senere, fra bingo-skjermen.</p>
 			<div class="form-grid">
 				<label class="field">
 					<span>Vanskelighetsgrad</span>
@@ -142,11 +142,11 @@
 				</label>
 			</div>
 			<div class="actions">
-				<button class="pm-button" id="startBtn" disabled={starting} onclick={start}>Start Bingo</button>
+				<button class="pm-button" id="startBtn" disabled={starting} onclick={start}>Start bingo</button>
 				<button class="pm-button small secondary" id="resetBtn" onclick={reset}>Nullstill</button>
 			</div>
 			<div class="status" id="status" role="status">{status}</div>
-			<p class="small muted">Når du starter, blir du sendt til host-siden og en kode genereres der.</p>
+			<p class="small muted">Når du starter, åpnes bingo-skjermen med koden elevene skal skrive inn.</p>
 		</section>
 	{/if}
 </TeacherPage>

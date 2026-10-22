@@ -247,23 +247,23 @@
 	<div class="status {s.kind ?? ''}" {id} role="status">{s.msg}</div>
 {/snippet}
 
-<TeacherPage subtitle="Bingo og koder" back={{ href: '/index.html', label: 'Til PokeMath' }}>
+<TeacherPage subtitle="Bingo og koder">
 	{#if teacher}
 		<section class="panel" id="sessionBox">
 			<h2>Hei, {teacher.name || 'lærer'}!</h2>
 			<div class="muted" id="whoEmail">{teacher.email || ''}</div>
 			<div class="actions">
-				<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Ny Bingo</a>
 				{#if savedBingoCode.length === 6}
-					<a class="pm-button secondary" id="continueBingoBtn" href="/lærer/bingo_host.html">Fortsett Bingo {savedBingoCode}</a>
+					<a class="pm-button" id="continueBingoBtn" href="/lærer/bingo_host.html">Fortsett bingo {savedBingoCode}</a>
+					<a class="pm-button secondary" id="startBingoBtn" href="/lærer/bingo_settings.html">Start ny bingo</a>
+				{:else}
+					<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Start bingo</a>
 				{/if}
-				<button class="pm-button small secondary" id="showCodesBtn" onclick={toggleCodes}>🔑 {codesOpen ? 'Skjul koder' : 'Kodeoversikt'}</button>
-				<button class="pm-button small secondary" id="showCreateCodeBtn" onclick={() => (createOpen = !createOpen)}>➕ {createOpen ? 'Skjul' : 'Lag kode'}</button>
 			</div>
 		</section>
 
 		<section class="panel" id="kidsPanel">
-			<h2>👧 Barn uten e-post</h2>
+			<h2>👧 Innlogging for barn</h2>
 			<p class="muted">
 				Gi hvert barn en egen kode. Med koden logger barnet inn og får sin egen lagring. Koden vises bare én gang, så skriv
 				den ned.
@@ -294,102 +294,110 @@
 			{@render status(kidStatus, 'kidStatus')}
 		</section>
 
-		{#if createOpen}
-			<section class="panel" id="createCodePanel">
-				<h2>➕ Lag en hemmelig kode</h2>
-				<p class="muted">
-					Du kan lage koder som alle elever kan bruke på redeem-siden.
-				</p>
-				<div class="form-grid">
-					<label class="field">
-						<span>Kode (det elevene skriver)</span>
-						<input id="tcCode" type="text" maxlength="100" placeholder="f.eks. Sommerfuglen2025" bind:value={tc.code} />
-					</label>
-					<label class="field">
-						<span>Tekst som vises (label)</span>
-						<input id="tcLabel" type="text" maxlength="200" placeholder="f.eks. 50 000 Mynter!" bind:value={tc.label} />
-					</label>
-					<label class="field">
-						<span>Premie-type</span>
-						<select id="tcType" bind:value={tc.type}>
-							<option value="coins">Mynter (maks 50 000)</option>
-							<option value="pokemon">Spesifikk Pokémon</option>
-							<option value="random_legendary">Tilfeldig legendarisk</option>
-							<option value="random_mythic">Tilfeldig mytisk</option>
-							<option value="random_shiny">Tilfeldig shiny</option>
-							<option value="random_shiny_mythic">Tilfeldig shiny mytisk</option>
-							<option value="message">Kun melding / overlay</option>
-							<option value="fireworks">Fyrverkeri</option>
-						</select>
-					</label>
-					{#if NEEDS_VALUE.includes(tc.type)}
-						<label class="field" id="tcValueField">
-							<span id="tcValueLabel">{tc.type === 'coins' ? 'Beløp (maks 50 000)' : 'Pokémon-kode'}</span>
-							<input id="tcValue" type="text" placeholder={tc.type === 'coins' ? 'f.eks. 10000' : 'f.eks. N25 eller S150'} bind:value={tc.value} />
-							{#if tc.type === 'pokemon'}
-								<small id="tcValueHint">
-									Pokémon-kode: <strong>N{'{id}'}</strong> for normal, <strong>S{'{id}'}</strong> for shiny. Eksempel: <code>N25</code> = Pikachu,
-									<code>S150</code> = Shiny Mewtwo, <code>N6-1</code> = Mega Charizard X. Unike Pokémon (U-varianter) er ikke tillatt.
-								</small>
-							{/if}
+		<section class="panel" id="codesSection">
+			<h2>🔑 Hemmelige koder</h2>
+			<p class="muted">
+				Koder gir mynter, Pokémon eller en melding. Barna skriver dem inn på siden for
+				<a href="/redeem.html">hemmelige koder</a>.
+			</p>
+			<div class="actions">
+				<button class="pm-button small secondary" id="showCodesBtn" aria-expanded={codesOpen} onclick={toggleCodes}>{codesOpen ? 'Skjul kodene' : 'Se kodene'}</button>
+				<button class="pm-button small secondary" id="showCreateCodeBtn" aria-expanded={createOpen} onclick={() => (createOpen = !createOpen)}>{createOpen ? 'Avbryt' : '➕ Lag kode'}</button>
+			</div>
+			{#if createOpen}
+				<div class="sub" id="createCodePanel">
+					<h3>Lag en hemmelig kode</h3>
+					<div class="form-grid">
+						<label class="field">
+							<span>Kode (det elevene skriver)</span>
+							<input id="tcCode" type="text" maxlength="100" placeholder="f.eks. Sommerfuglen2025" bind:value={tc.code} />
 						</label>
-					{/if}
-					<label class="field wide">
-						<span>Bilde i overlay</span>
-						<span class="image-row">
-							<select id="tcImage" bind:value={tc.image}>
-								<option value="">{tc.type === 'pokemon' ? 'Bruk pokemonens bilde' : 'Ingen bilde'}</option>
-								{#each IMAGES as group (group.group)}
-									<optgroup label={group.group}>
-										{#each group.items as [src, name] (src)}<option value={src}>{name}</option>{/each}
-									</optgroup>
-								{/each}
+						<label class="field">
+							<span>Tekst som vises (label)</span>
+							<input id="tcLabel" type="text" maxlength="200" placeholder="f.eks. 50 000 Mynter!" bind:value={tc.label} />
+						</label>
+						<label class="field">
+							<span>Premie-type</span>
+							<select id="tcType" bind:value={tc.type}>
+								<option value="coins">Mynter (maks 50 000)</option>
+								<option value="pokemon">Spesifikk Pokémon</option>
+								<option value="random_legendary">Tilfeldig legendarisk</option>
+								<option value="random_mythic">Tilfeldig mytisk</option>
+								<option value="random_shiny">Tilfeldig shiny</option>
+								<option value="random_shiny_mythic">Tilfeldig shiny mytisk</option>
+								<option value="message">Kun melding / overlay</option>
+								<option value="fireworks">Fyrverkeri</option>
 							</select>
-							{#if tc.image}<img id="tcImagePreview" src="/{tc.image}" alt="" />{/if}
-						</span>
-					</label>
-					{#if tc.type === 'message'}
-						<label class="check" id="tcRepeatableRow">
-							<input type="checkbox" id="tcRepeatable" bind:checked={tc.repeatable} /> Kan brukes flere ganger
 						</label>
-					{/if}
+						{#if NEEDS_VALUE.includes(tc.type)}
+							<label class="field" id="tcValueField">
+								<span id="tcValueLabel">{tc.type === 'coins' ? 'Beløp (maks 50 000)' : 'Pokémon-kode'}</span>
+								<input id="tcValue" type="text" placeholder={tc.type === 'coins' ? 'f.eks. 10000' : 'f.eks. N25 eller S150'} bind:value={tc.value} />
+								{#if tc.type === 'pokemon'}
+									<small id="tcValueHint">
+										Pokémon-kode: <strong>N{'{id}'}</strong> for normal, <strong>S{'{id}'}</strong> for shiny. Eksempel: <code>N25</code> = Pikachu,
+										<code>S150</code> = Shiny Mewtwo, <code>N6-1</code> = Mega Charizard X. Unike Pokémon (U-varianter) er ikke tillatt.
+									</small>
+								{/if}
+							</label>
+						{/if}
+						<label class="field wide">
+							<span>Bilde i overlay</span>
+							<span class="image-row">
+								<select id="tcImage" bind:value={tc.image}>
+									<option value="">{tc.type === 'pokemon' ? 'Bruk pokemonens bilde' : 'Ingen bilde'}</option>
+									{#each IMAGES as group (group.group)}
+										<optgroup label={group.group}>
+											{#each group.items as [src, name] (src)}<option value={src}>{name}</option>{/each}
+										</optgroup>
+									{/each}
+								</select>
+								{#if tc.image}<img id="tcImagePreview" src="/{tc.image}" alt="" />{/if}
+							</span>
+						</label>
+						{#if tc.type === 'message'}
+							<label class="check" id="tcRepeatableRow">
+								<input type="checkbox" id="tcRepeatable" bind:checked={tc.repeatable} /> Kan brukes flere ganger
+							</label>
+						{/if}
+					</div>
+					<div class="actions">
+						<button class="pm-button small" id="createTeacherCodeBtn" disabled={saving} onclick={createCode}>Lagre kode</button>
+					</div>
+					{@render status(createStatus, 'createCodeStatus')}
 				</div>
-				<div class="actions">
-					<button class="pm-button small" id="createTeacherCodeBtn" disabled={saving} onclick={createCode}>Lagre kode</button>
-				</div>
-				{@render status(createStatus, 'createCodeStatus')}
-			</section>
-		{/if}
+			{/if}
 
-		{#if codesOpen}
-			<section class="panel" id="codesPanel">
-				<h2>🔑 Kodeoversikt</h2>
-				<p class="muted">Aktive hemmelige koder som PokeMorten har gjort synlige for lærere. Trykk på en kode for å se den.</p>
-				<div id="codesList">
-					{#if codes === null}
-						Laster…
-					{:else if codesError}
-						<p class="muted bad">Feil: {codesError}</p>
-					{:else if codes.length === 0}
-						<p class="muted">Ingen synlige koder for øyeblikket.</p>
-					{:else}
-						{#each codes as c, i (i)}
-							<div class="code-row">
-								{#if c.prize_image}<img src="/{c.prize_image.replace(/^\//, '')}" alt="" />{/if}
-								<div>
-									<button class="code-blur" class:shown={revealed[i]} aria-pressed={!!revealed[i]} onclick={() => (revealed[i] = !revealed[i])}>
-										{c.plaintext_code}
-									</button>
-									<div class="code-meta">
-										{c.label} · {PRIZE_LABELS[c.prize_type] || c.prize_type}{codeExtra(c)} · {c.repeatable ? 'Kan brukes flere ganger' : 'Engangs'}
+			{#if codesOpen}
+				<div class="sub" id="codesPanel">
+					<h3>Aktive koder</h3>
+					<p class="muted">Kodene er skjult, så de ikke vises på en storskjerm. Trykk på en kode for å se den.</p>
+					<div id="codesList">
+						{#if codes === null}
+							Laster…
+						{:else if codesError}
+							<p class="muted bad">Feil: {codesError}</p>
+						{:else if codes.length === 0}
+							<p class="muted">Ingen synlige koder for øyeblikket.</p>
+						{:else}
+							{#each codes as c, i (i)}
+								<div class="code-row">
+									{#if c.prize_image}<img src="/{c.prize_image.replace(/^\//, '')}" alt="" />{/if}
+									<div>
+										<button class="code-blur" class:shown={revealed[i]} aria-pressed={!!revealed[i]} onclick={() => (revealed[i] = !revealed[i])}>
+											{c.plaintext_code}
+										</button>
+										<div class="code-meta">
+											{c.label} · {PRIZE_LABELS[c.prize_type] || c.prize_type}{codeExtra(c)} · {c.repeatable ? 'Kan brukes flere ganger' : 'Engangs'}
+										</div>
 									</div>
 								</div>
-							</div>
-						{/each}
-					{/if}
+							{/each}
+						{/if}
+					</div>
 				</div>
-			</section>
-		{/if}
+			{/if}
+		</section>
 
 	{:else if checked}
 		<section class="panel" id="notTeacher">
@@ -403,6 +411,19 @@
 <style>
 	.wide {
 		grid-column: 1 / -1;
+	}
+	.sub {
+		margin-top: 16px;
+		padding-top: 14px;
+		border-top: 1px solid var(--pm-line);
+	}
+	h3 {
+		margin: 0 0 6px;
+		font-size: 17px;
+	}
+	#codesSection p a {
+		color: var(--pm-red-deep);
+		font-weight: 600;
 	}
 	.image-row {
 		display: flex;
