@@ -26,6 +26,9 @@
 	let LIVES = $state(3);
 	/** @type {ReturnType<typeof createAdaptive> | null} The adaptive level, when ?adaptive=true. */
 	let adaptive = null;
+	// The signs Norwegian schools use: a raised dot for times and a colon for division.
+	/** @type {Record<string, string>} */
+	const SIGN = { x: '·', '/': ':' };
 	const GOOD_MESSAGES = ['Flott jobbet!', 'Nice!', 'Ny pokémon!', 'Trykk på ballen!', 'Enda en til samlingen!', 'Fortsett sånn!', 'Stå på!', 'Du er super!', 'Oh, hva får du nå?', 'Eyy! Bra jobbet!'];
 
 	/** @type {import('#lib/game/problems.js').MathValues | null} */
@@ -478,7 +481,7 @@
 		</div>
 
 		<p class="problem" class:shake={wrongAnimation} class:upside-down={aprilFools}>
-			{#if problem}{problem.numberOne} {problem.operator} {problem.numberTwo}{/if}
+			{#if problem}{problem.numberOne} {SIGN[problem.operator] ?? problem.operator} {problem.numberTwo}{/if}
 		</p>
 
 		<div class="input">
