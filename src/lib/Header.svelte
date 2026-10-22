@@ -343,6 +343,10 @@
 		cursor: pointer;
 	}
 	.back:active,
+	.menu-button:active,
+	.menu.open .menu-button {
+		background: var(--pm-red-deep);
+	}
 	/* The server did not answer the player id check: a warning dot, where the bottom bar had a light. */
 	.offline {
 		position: absolute;
@@ -353,10 +357,6 @@
 		border-radius: 50%;
 		background: var(--pm-gold);
 		box-shadow: 0 0 0 2px var(--pm-red-deep);
-	}
-	.menu-button:active,
-	.menu.open .menu-button {
-		background: var(--pm-red-deep);
 	}
 
 	.stat {
