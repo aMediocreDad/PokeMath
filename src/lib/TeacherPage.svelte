@@ -71,10 +71,6 @@
 		background: var(--pm-paper);
 		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
 	}
-	.teacher :global(.panel.warn) {
-		background: oklch(0.96 0.05 85);
-		box-shadow: 0 0 0 1px oklch(0.85 0.1 85);
-	}
 	.teacher :global(.panel.subtle) {
 		padding: 10px 14px;
 		background: none;

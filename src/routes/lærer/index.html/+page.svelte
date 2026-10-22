@@ -304,14 +304,7 @@
 	<div class="status {s.kind ?? ''}" {id} role="status">{s.msg}</div>
 {/snippet}
 
-<TeacherPage subtitle="Bingo (eksperiment)" back={{ href: '/index.html', label: 'Til PokeMath' }}>
-	<section class="panel warn">
-		<h1>Bingo er et eksperiment</h1>
-		<p>
-			Denne lærerfunksjonen er kun ment for voksne. Ikke del sensitiv informasjon. Data lagres hos Cloudflare i Europa.
-		</p>
-	</section>
-
+<TeacherPage subtitle="Bingo og koder" back={{ href: '/index.html', label: 'Til PokeMath' }}>
 	{#if teacher}
 		<section class="panel" id="sessionBox">
 			<h2>Du er logget inn</h2>
