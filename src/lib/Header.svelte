@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
+	import { me } from '#lib/me.svelte.js';
 	import { hasCookieConsent } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
@@ -188,6 +189,9 @@
 	<div class="menu" class:open={menuOpen}>
 		<button class="menu-button dropbtn" aria-label="Meny" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
 			<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+			{#if layout.connection === 'disconnected'}
+				<span class="offline" id="connection-status" title="Frakoblet: fikk ikke kontakt med serveren"></span>
+			{/if}
 		</button>
 		<nav class="pm-panel menu-panel dropdown-content" aria-label="Meny">
 			<!-- The order of the live menu (2026-10): your things first, then the site. -->
@@ -196,6 +200,9 @@
 			<a href="/shop.html">Butikk</a>
 			<!-- Phones hide the badge shortcut in the bar, so the menu offers it instead. -->
 			<a href="/badges.html" class="phone-only">Merker</a>
+			<hr />
+			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i bingo</a>
+			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærer: bingo og koder</a>{/if}
 			<hr />
 			<a href="/index.html">Hovedmeny</a>
 			<a href="/saveandload.html">Lagre / Last inn</a>
@@ -289,6 +296,7 @@
 	}
 	.back,
 	.menu-button {
+		position: relative;
 		display: grid;
 		place-items: center;
 		width: 44px;
@@ -300,6 +308,17 @@
 		cursor: pointer;
 	}
 	.back:active,
+	/* The server did not answer the player id check: a warning dot, where the bottom bar had a light. */
+	.offline {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--pm-gold);
+		box-shadow: 0 0 0 2px var(--pm-red-deep);
+	}
 	.menu-button:active,
 	.menu.open .menu-button {
 		background: var(--pm-red-deep);

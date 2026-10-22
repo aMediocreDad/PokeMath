@@ -36,6 +36,8 @@
 	let winScore = $state(5);
 	/** @type {(import('#lib/game/problems.js').Problem & { startedAt?: number }) | null} */
 	let problem = $state(null);
+	/** The bingo lobby this game reports catches to, or '' outside bingo. */
+	let bingoCode = $state('');
 	let answer = $state('');
 	/** @type {HTMLInputElement | undefined} */
 	let field = $state();
@@ -427,12 +429,12 @@
 		const pingTimer = setInterval(sendMathPing, 300_000);
 		trackEvent('/track-stage', { stage: params.get('stage') || (params.get('custom') ? 'custom' : 'unknown') });
 
-		layout.bingoCode = storedBingoCode();
+		bingoCode = storedBingoCode();
 		/** @type {ReturnType<typeof setTimeout> | undefined} */
 		let popupTimer;
 		bingo = startBingo({
 			onPrizes: applyBingoPrizes,
-			onCodeChange: (code) => (layout.bingoCode = code),
+			onCodeChange: (code) => (bingoCode = code),
 			onAdminPopup: (message, duration, position) => {
 				adminPopup = { message, position };
 				clearTimeout(popupTimer);
@@ -444,7 +446,6 @@
 			bingo?.stop();
 			bingo = undefined;
 			clearTimeout(popupTimer);
-			layout.bingoCode = '';
 			clearInterval(pingTimer);
 			clearTimeout(cheatTimer);
 			layout.cheater = false;
@@ -471,6 +472,11 @@
 			>.
 		</p>
 	</noscript>
+
+	{#if bingoCode}
+		<!-- In a bingo game: every catch counts on the board. Tapping it leads to leaving or switching. -->
+		<a class="bingo-chip" id="bingoIndicator" href="/bingo_join.html">🎲 Bingo · {bingoCode}</a>
+	{/if}
 
 	<section class="play main-ui" class:correct={correctAnimation} class:wrong={wrongAnimation} aria-label="Oppgave">
 		<div class="play-top">
@@ -624,6 +630,18 @@
 	}
 	.play.wrong {
 		box-shadow: var(--pm-shadow), 0 0 0 4px var(--pm-red);
+	}
+	.bingo-chip {
+		display: block;
+		width: fit-content;
+		margin: 0 auto 10px;
+		padding: 6px 14px;
+		border-radius: 999px;
+		background: var(--pm-green-deep);
+		color: var(--pm-paper);
+		font-family: var(--pm-display);
+		font-size: 17px;
+		text-decoration: none;
 	}
 	.play-top {
 		display: flex;

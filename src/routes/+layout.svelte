@@ -3,25 +3,26 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import Header from '#lib/Header.svelte';
-	import Botbar from '#lib/Botbar.svelte';
 	import Toaster from '#lib/Toaster.svelte';
 	import { player } from '#lib/player.svelte.js';
 	import { loadAchievements } from '#lib/achievements.js';
 	import { trackEvent } from '#lib/track.js';
 	import { getOrCreateUUID } from '#lib/uuid.js';
+	import { loadMe } from '#lib/me.svelte.js';
 	// Bundled with the site, so no pupil's browser has to ask a third party for it.
 	import '@fontsource/lilita-one/400.css';
 
 	/** @type {{children: import('svelte').Snippet}} */
 	let { children } = $props();
 
-	// Teacher pages are "bare": no player header, bottom bar or save, as on the legacy site.
+	// Teacher pages are "bare": no player header or save, as on the legacy site.
 	const bare = $derived(!!page.data.bare);
 
 	onMount(() => {
 		if (page.data.bare) return;
 		player.load();
 		loadAchievements();
+		loadMe();
 		// Every page makes sure the player has a valid id and token (live global.js, 2026-10). It
 		// waits a moment, as the live site does while its header loads, so the game draws its first
 		// problem before an id is made from the same random numbers.
@@ -41,11 +42,6 @@
 <Toaster />
 
 {@render children()}
-
-<!-- A page can bring its own bottom bar (the Pokédex shows its counters there). -->
-{#if !page.data.ownBotbar && !bare}
-	<div id="botbar" class="pm-botbar"><Botbar /></div>
-{/if}
 
 <style>
 	/*
@@ -102,9 +98,9 @@
 		background: var(--pm-cream);
 		color: var(--pm-ink);
 		font-family: var(--pm-body);
-		/* The header is fixed; keep content clear of it and of the bottom bar. */
+		/* The header is fixed; keep content clear of it. */
 		padding-top: var(--pm-bar-height);
-		padding-bottom: 56px;
+		padding-bottom: 24px;
 	}
 
 	/* A chunky button that presses in, the one primary style. */
@@ -243,20 +239,6 @@
 		text-transform: capitalize;
 	}
 
-	/* The bottom bar: the connection light and, on the game page, the bingo code. */
-	.pm-botbar {
-		position: fixed;
-		inset: auto 0 0 0;
-		height: 44px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 14px;
-		background: var(--pm-paper);
-		border-top: 1px solid var(--pm-line);
-		z-index: 900;
-	}
-
 	/* Touch screens: the shared button styles are big enough for fingers (44px). */
 	@media (pointer: coarse) {
 		:global(button.button-1),
@@ -284,8 +266,7 @@
 
 	/* Printing (the data processing agreement): just the page, without the bars. */
 	@media print {
-		:global(#header),
-		.pm-botbar {
+		:global(#header) {
 			display: none;
 		}
 		:global(body) {

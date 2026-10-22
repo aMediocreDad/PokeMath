@@ -2,6 +2,7 @@
 	// The front page: pick a stage. Ported from static/index.html and menu.js.
 	import { onMount } from 'svelte';
 	import { SPLASHES, EVENT_SPLASHES, APRIL_SPLASHES, HINTS } from '#lib/data/splashes.js';
+	import { me } from '#lib/me.svelte.js';
 
 	const ALERT_ID = '2026-03-22';
 
@@ -110,6 +111,11 @@
 		{@render tile('stage-custom', 'customizer.html', 'images/gear.png', 'Eget nivå', ['Velg regnearter', 'og tall selv'], 0, 'custom')}
 	</nav>
 
+	<section class="bingo-row" aria-label="Bingo">
+		<a class="pm-button secondary" id="homeJoinBingo" href="/bingo_join.html">🎲 Bli med i bingo</a>
+		{#if me.teacher}<a class="pm-button" id="homeStartBingo" href="/lærer/index.html">Start bingo</a>{/if}
+	</section>
+
 	<p class="hint" id="stage-hint-box" aria-live="polite">
 		<span class="hint-label">Tips</span>
 		<!-- The tips are this file's own text, not user input. -->
@@ -134,6 +140,13 @@
 {/if}
 
 <style>
+	.bingo-row {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 12px;
+		margin: 18px 0 6px;
+	}
 	.home {
 		max-width: 900px;
 		margin: 0 auto;
