@@ -16,6 +16,7 @@
 		launchConfetti,
 		localSprite,
 		logHover,
+		nok,
 		prizeSummary
 	} from '#lib/bingoHost.js';
 
@@ -68,6 +69,8 @@
 	let banner = $state(null);
 	/** @type {ReturnType<typeof prizeSummary> | null} */
 	let prize = $state(null);
+	/** The prize has been handed out; the board takes no more catches. */
+	let locked = $state(false);
 	let qrOpen = $state(false);
 	/** @type {{ message: string, position: string } | null} */
 	let adminPopup = $state(null);
@@ -135,6 +138,7 @@
 		currentCode = msg.code;
 		localStorage.setItem('teacherBingoCode', msg.code);
 		difficulty = msg.board?.difficulty || '';
+		locked = Boolean(msg.locked);
 		className = msg.className || '';
 		setBoard(msg.board);
 		playersUpdate(msg.players || []);
@@ -271,6 +275,12 @@
 		}
 	}
 
+	/** End the game with the prize now, for when the lesson runs out before the board is full. */
+	function giveNow() {
+		if (!currentCode || locked || !confirm('Dele ut premien nå? Bingoen stopper, og alle som har fanget minst én Pokémon får premien.')) return;
+		send({ type: 'hostLockLobby', code: currentCode });
+	}
+
 	function endGame() {
 		if (!currentCode || !confirm('Avslutte bingoen? Alle elevene kobles fra.')) return;
 		endLobby();
@@ -321,7 +331,14 @@
 	function onMessage(msg) {
 		switch (msg.type) {
 			case 'lobbyPrize':
+				locked = true;
 				prize = prizeSummary(msg.prize, msg.eligibleCount || 0);
+				return;
+			case 'linePrize':
+				showToast('match', [
+					[{ t: msg.lines.join(' og ') + ' full!', b: true }],
+					[{ t: msg.eligibleCount ? `+${nok(msg.amount)} mynter til ${msg.eligibleCount} ${msg.eligibleCount === 1 ? 'elev' : 'elever'}` : 'Ingen har fanget noe ennå' }]
+				]);
 				return;
 			case 'lobbyCreated':
 				status('Lobby opprettet: ' + msg.code);
@@ -523,6 +540,7 @@
 
 	<div class="controls">
 		<div class="group" role="group" aria-label="Spillet">
+			<button id="giveNowBtn" class="pm-button small" disabled={locked} onclick={giveNow}>{locked ? 'Premien er delt ut' : '🎁 Del ut premien nå'}</button>
 			<button id="newGameBtn" class="pm-button small secondary" onclick={newGame}>Nytt brett</button>
 			<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>Nye innstillinger</button>
 			<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt bingo</button>

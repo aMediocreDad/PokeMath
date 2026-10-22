@@ -45,7 +45,12 @@
 			return {
 				image: '/images/coinbag.svg',
 				plainImage: true,
-				lines: [(prize.source === 'admin' ? 'Gave fra admin: ' : '') + '+' + amount.toLocaleString('no-NO') + ' mynter!'],
+				lines: [
+					(prize.source === 'admin' ? 'Gave fra admin: ' : prize.source === 'line' ? `Bingo! ${prize.label || 'En rad'} er full: ` : prize.source === 'raid' ? 'Raid: ' : '') +
+						'+' +
+						amount.toLocaleString('no-NO') +
+						' mynter!'
+				],
 				small: prize.participationPot
 					? 'Pott: ' + Number(prize.participationPot).toLocaleString('no-NO') + ' mynter totalt'
 					: ''

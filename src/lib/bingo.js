@@ -32,7 +32,7 @@ function playerName() {
  * A prize from GET /bingo/claim-prizes.
  * @typedef {{ type: string, amount?: number, participationPot?: number, source?: string,
  *   entry?: string, pokedexId?: number, shiny?: boolean, legendary?: boolean,
- *   easterName?: string, easterCoins?: number }} Prize
+ *   easterName?: string, easterCoins?: number, label?: string }} Prize
  */
 
 /**

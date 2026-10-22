@@ -127,8 +127,21 @@ async function assertSilent(c, type, label) {
   assert(toast.matched && board.lastEvent.pokedexId === target, "matching catch marks a cell");
   assert(board.board.cells.filter((c) => c.marked).length === 2, "free space + matched cell marked");
 
+  // A full row pays every child with a catch, once.
+  for (const cell of cells.slice(0, 5)) {
+    host.send({ type: "hostMarkCell", teacherSession: token, code: created.code, cellId: cell.cellId, mark: true });
+    await host.next("boardUpdate");
+  }
+  const line = await host.next("linePrize");
+  assert(line.lines[0] === "Rad 1" && line.amount === 500 && line.eligibleCount === 1, "a full row pays the class");
+  await player.next("bingoReward");
+  const linePrizes = (await j(`/bingo/claim-prizes?uuid=${uuid}`)).body.prizes;
+  assert(linePrizes.length === 1 && linePrizes[0].amount === 500 && linePrizes[0].label === "Rad 1", "the child claims the row prize");
+  host.send({ type: "hostMarkCell", teacherSession: token, code: created.code, cellId: cells[0].cellId, mark: false });
+  await host.next("boardUpdate");
   host.send({ type: "hostMarkCell", teacherSession: token, code: created.code, cellId: cells[0].cellId, mark: true });
   await host.next("boardUpdate");
+  await assertSilent(host, "linePrize", "a row pays only once");
   host.send({ type: "hostLockLobby", teacherSession: token, code: created.code });
   const prize = await host.next("lobbyPrize");
   assert(prize.prize.amount === 50000 && prize.eligibleCount === 1, "lock gives coin prize");

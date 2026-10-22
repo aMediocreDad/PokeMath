@@ -15,6 +15,8 @@ import { sessionTeacher } from './teacher.js';
 const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025];
 const STAGE_ORDER = ['custom', 'stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
 const COIN_PRIZE = { easy: 5000, medium: 10000, hard: 25000, extreme: 35000, unik: 50000 };
+/** Every completed row or column pays this to each child who has caught something. */
+const LINE_COINS = 500;
 const MAX_EVENTS = 500;
 const HOUR = 60 * 60 * 1000;
 const CLEANUP_EVERY = 6 * HOUR;
@@ -66,6 +68,16 @@ function buildBoard(difficulty, gridSize = 5) {
 	const cells = chosen.map((task, i) => ({ cellId: `c${i}-${task.id}`, free: false, marked: false, hits: 0, task }));
 	cells.splice((count / 2) | 0, 0, { cellId: 'free', free: true, marked: true, hits: 0 });
 	return { difficulty, cells, rows: size, cols: size };
+}
+
+/** Rows and columns whose every cell is marked (or free). @param {any} board */
+function completedLines(board) {
+	const n = board.rows;
+	const done = (/** @type {number} */ i) => board.cells[i]?.free || board.cells[i]?.marked;
+	const lines = [];
+	for (let r = 0; r < n; r++) if (Array.from({ length: n }, (_, c) => r * n + c).every(done)) lines.push({ key: `row${r}`, label: `Rad ${r + 1}` });
+	for (let c = 0; c < n; c++) if (Array.from({ length: n }, (_, r) => r * n + c).every(done)) lines.push({ key: `col${c}`, label: `Kolonne ${c + 1}` });
+	return lines;
 }
 
 function matches(rule, catchMsg) {
@@ -232,12 +244,37 @@ export class BingoHub extends DurableObject {
 
 	snapshot(room) {
 		if (room.kind === 'raid') return { kind: 'raid', code: room.code, className: room.settings.className || '', players: this.playerList(room), raid: raidState(room), recent: room.recent };
-		return { kind: 'bingo', code: room.code, board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches };
+		return { kind: 'bingo', code: room.code, board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches, locked: Boolean(room.locked) };
 	}
 
 	/** @param {string} code @param {unknown} msg */
 	toPlayers(code, msg) {
 		for (const ws of this.sockets((w) => w.role === 'player' && w.code === code)) send(ws, msg);
+	}
+
+	/**
+	 * Pay each newly completed row or column once, to every child with a catch. Only storage calls
+	 * are awaited, so a catch arriving meanwhile cannot pay the same line twice.
+	 * @param {any} room @returns {Promise<{ labels: string[], eligible: number }>}
+	 */
+	async payLines(room) {
+		room.paidLines ??= [];
+		const fresh = room.locked ? [] : completedLines(room.board).filter((l) => !room.paidLines.includes(l.key));
+		const eligible = Object.values(room.players).filter((p) => p.catchCount > 0);
+		if (!fresh.length) return { labels: [], eligible: eligible.length };
+		room.paidLines.push(...fresh.map((l) => l.key));
+		for (const player of eligible) {
+			const key = `prizes:${player.uuid}`;
+			const lines = fresh.map((l) => ({ type: 'coins', amount: LINE_COINS, source: 'line', label: l.label }));
+			await this.ctx.storage.put(key, { at: Date.now(), prizes: [...unwrapPrizes(await this.ctx.storage.get(key)), ...lines] });
+			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
+		}
+		return { labels: fresh.map((l) => l.label), eligible: eligible.length };
+	}
+
+	/** Tell the host screens which lines just paid out. @param {any} room @param {{ labels: string[], eligible: number }} paid */
+	announceLines(room, paid) {
+		if (paid.labels.length) this.toHosts(room.code, { type: 'linePrize', lines: paid.labels, amount: LINE_COINS, eligibleCount: paid.eligible });
 	}
 
 	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
@@ -302,8 +339,11 @@ const HANDLERS = {
 		const cell = room?.board.cells.find((c) => c.cellId === msg.cellId);
 		if (!cell || cell.free) return;
 		cell.marked = Boolean(msg.mark);
+		// A line the teacher completes by hand pays too.
+		const paid = await this.payLines(room);
 		await this.saveRoom(room);
 		this.toHosts(room.code, { type: 'boardUpdate', board: room.board, totalCatches: room.totalCatches });
+		this.announceLines(room, paid);
 	},
 
 	async hostLockLobby(ws, msg) {
@@ -411,11 +451,13 @@ const HANDLERS = {
 		room.events.push(event);
 		// The whole lobby is one stored value, so the log keeps only the latest catches.
 		if (room.events.length > MAX_EVENTS) room.events.splice(0, room.events.length - MAX_EVENTS);
+		const paid = await this.payLines(room);
 		await this.saveRoom(room);
 
 		const names = matchedCells.map((c) => c.task.name);
 		this.toHosts(room.code, { type: 'toastCatch', ...event, totalCatches: room.totalCatches, matchedCells: names, matchedCell: names[0] || null });
 		this.toHosts(room.code, { type: 'boardUpdate', board: room.board, totalCatches: room.totalCatches, lastEvent: event });
+		this.announceLines(room, paid);
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
 

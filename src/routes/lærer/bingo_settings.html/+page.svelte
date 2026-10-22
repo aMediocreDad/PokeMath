@@ -136,7 +136,7 @@
 						<option value="per_catch_coins">50 mynter per pokemon eleven fanget</option>
 						<option value="stardust">Stardust (×1)</option>
 					</select>
-					<small>Gis til alle deltakere som fanget minst én Pokémon.</small>
+					<small>Gis til alle deltakere som fanget minst én Pokémon. Hver hele rad eller kolonne gir i tillegg 500 mynter til dem.</small>
 				</label>
 				<label class="check">
 					<input type="checkbox" id="prizeSecret" bind:checked={settings.prizeSecret} />
