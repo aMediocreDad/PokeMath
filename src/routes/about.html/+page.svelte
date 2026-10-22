@@ -129,7 +129,7 @@
 		<h3>Informasjonskapsler (cookies)</h3>
 		<p>Siden bruker bare informasjonskapsler som trengs for at den skal virke. Ingen av dem brukes til sporing.</p>
 		<div class="table-wrap">
-			<table>
+			<table class="cookies">
 				<thead><tr><th>Navn</th><th>Hva den gjør</th><th>Varighet</th></tr></thead>
 				<tbody>
 					<tr><td><code>pm_session</code></td><td>Husker at du er logget inn.</td><td>Ett år med kode, tre måneder med e-post, eller til du logger ut</td></tr>
@@ -155,7 +155,7 @@
 
 		<h3>Hva lagres på serveren, og hvor lenge</h3>
 		<div class="table-wrap">
-			<table>
+			<table class="stored">
 				<thead><tr><th>Hva</th><th>Innhold</th><th>Slettes</th></tr></thead>
 				<tbody>
 					<tr><td>Skylagring</td><td>En kopi av spillet fra localStorage, koblet til innloggingen. Oppdateres omtrent hvert minutt mens du spiller.</td><td>Når den voksne fjerner barnet og velger å slette lagringen, eller på forespørsel</td></tr>
@@ -258,14 +258,11 @@
 	.muted {
 		color: var(--pm-ink-soft);
 	}
-	/* Wide tables scroll inside the panel on a phone instead of widening the page. */
 	.table-wrap {
 		margin: 0 0 12px;
-		overflow-x: auto;
 	}
 	table {
 		width: 100%;
-		min-width: 520px;
 		border-collapse: collapse;
 		font-size: 15px;
 	}
@@ -281,6 +278,39 @@
 		font-size: 13px;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+	}
+	/* Phones: each row becomes a small block, with the last column labelled. */
+	@media (max-width: 560px) {
+		thead {
+			display: none;
+		}
+		tr,
+		td {
+			display: block;
+		}
+		tr {
+			padding: 8px 0;
+			border-bottom: 1px solid var(--pm-line);
+		}
+		td {
+			padding: 2px 0;
+			border: 0;
+		}
+		td:first-child {
+			font-weight: 700;
+		}
+		td:last-child {
+			color: var(--pm-ink-soft);
+			font-size: 14px;
+		}
+		.cookies td:last-child::before {
+			content: 'Varighet: ';
+			font-weight: 700;
+		}
+		.stored td:last-child::before {
+			content: 'Slettes: ';
+			font-weight: 700;
+		}
 	}
 	.credits {
 		color: var(--pm-ink-soft);
