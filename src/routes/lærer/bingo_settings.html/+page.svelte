@@ -6,13 +6,18 @@
 	import TeacherPage from '#lib/TeacherPage.svelte';
 	import { getTeacherSession } from '#lib/teacher.js';
 
-	const DEFAULTS = { difficulty: 'medium', minLevel: 'alle', className: '', prizeType: 'random', prizeSecret: false };
+	const DEFAULTS = { difficulty: 'medium', minLevel: 'alle', allowAdaptive: false, className: '', prizeType: 'random', prizeSecret: false, gridSize: '5' };
 
 	/** null until the browser has checked for a teacher session */
 	let loggedIn = $state(/** @type {boolean | null} */ (null));
 	let settings = $state({ ...DEFAULTS });
 	let status = $state('');
 	let starting = $state(false);
+	// Catches on the adaptive level can count too, unless every level or only that one already does.
+	let showAdaptive = $derived(settings.minLevel !== 'alle' && settings.minLevel !== 'tilpasset');
+	$effect(() => {
+		if (!showAdaptive) settings.allowAdaptive = false;
+	});
 
 	onMount(() => {
 		loggedIn = !!getTeacherSession();
@@ -22,20 +27,25 @@
 			const prev = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
 			if (prev.difficulty) settings.difficulty = prev.difficulty;
 			if (prev.minLevel) settings.minLevel = prev.minLevel;
+			if (prev.allowAdaptive !== undefined) settings.allowAdaptive = !!prev.allowAdaptive;
 			if (prev.className) settings.className = prev.className;
 			if (prev.prizeType) settings.prizeType = prev.prizeType;
 			if (prev.prizeSecret !== undefined) settings.prizeSecret = !!prev.prizeSecret;
+			if (prev.gridSize) settings.gridSize = String(prev.gridSize);
 		} catch {
 			// A broken value is ignored, as before.
 		}
 	});
 
 	function start() {
-		const { difficulty, minLevel, prizeType, prizeSecret } = settings;
+		const { difficulty, minLevel, allowAdaptive, prizeType, prizeSecret } = settings;
+		const gridSize = parseInt(settings.gridSize) || 5;
 		sessionStorage.setItem(
 			'bingoSettings',
-			JSON.stringify({ difficulty, minLevel, className: settings.className.trim(), prizeType, prizeSecret })
+			JSON.stringify({ difficulty, minLevel, allowAdaptive, className: settings.className.trim(), prizeType, prizeSecret, gridSize })
 		);
+		// The host page ends the teacher's running lobby and makes a new one.
+		sessionStorage.setItem('bingoForceNew', '1');
 		status = 'Starter bingo…';
 		starting = true;
 		goto('/lærer/bingo_host.html');
@@ -90,8 +100,27 @@
 						<option value="stage3">Nivå 3 eller høyere</option>
 						<option value="stage4">Nivå 4 eller høyere</option>
 						<option value="stage5">Kun nivå 5</option>
+						<option value="tilpasset">Bare tilpasset nivå</option>
 					</select>
 					<small>Pokémon fanget på lavere nivå vises i loggen, men teller ikke på brettet.</small>
+				</label>
+				{#if showAdaptive}
+					<label class="check" id="allowAdaptiveRow">
+						<input type="checkbox" id="allowAdaptive" bind:checked={settings.allowAdaptive} />
+						<span>Tillat tilpasset nivå <small>(elever som bruker «Tilpasset Nivå» får også godkjent sine fangster)</small></span>
+					</label>
+				{/if}
+				<label class="field">
+					<span>Brettstørrelse</span>
+					<select id="gridSize" bind:value={settings.gridSize}>
+						<option value="5">5×5 (standard)</option>
+						<option value="7">7×7</option>
+						<option value="9">9×9</option>
+						<option value="11">11×11</option>
+						<option value="13">13×13</option>
+						<option value="15">15×15</option>
+					</select>
+					<small>Større brett gir flere felter og lengre spill.</small>
 				</label>
 				<label class="field">
 					<span>Klasse-navn (valgfritt)</span>

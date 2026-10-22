@@ -1,5 +1,7 @@
 // The player's side of classroom bingo, ported from static/bingo_client_live.js.
 // Joins the lobby whose code bingo_join.html stored, reports catches, and claims prizes.
+import { goto } from '$app/navigation';
+import { player } from '#lib/player.svelte.js';
 import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
 
 /** @param {string | null | undefined} s */
@@ -154,6 +156,16 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup }) {
 			} else if (msg.type === 'bingoReward') {
 				// Give the server a moment to store the prize before claiming it.
 				setTimeout(claimPrizes, 300);
+			} else if (msg.type === 'kicked' || msg.type === 'forceRename') {
+				// The teacher removed the player, or asked for a new name (live bingo_client_live.js, 2026-10).
+				forgetCode();
+				ws?.close();
+				const kicked = msg.type === 'kicked';
+				alert(kicked ? 'Du ble kastet ut av bingo-sesjonen av læreren.' : 'Læreren har bedt deg endre navn. Gå til profilen din for å oppdatere det.');
+				goto(kicked ? '/' : '/player_profile.html');
+			} else if (msg.type === 'nameChanged') {
+				localStorage.setItem('username', msg.name);
+				player.username = msg.name;
 			} else if (msg.type === 'adminPopup') {
 				onAdminPopup(msg.message, msg.duration || 5, msg.position);
 			} else if (msg.type === 'error') {

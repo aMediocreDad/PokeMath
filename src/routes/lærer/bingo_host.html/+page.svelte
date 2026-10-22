@@ -25,13 +25,28 @@
 	/** @type {WebSocket | undefined} */
 	let ws;
 	let teacherSession = '';
-	let settings = $state(/** @type {{ difficulty?: string, minLevel?: string, className?: string, prizeType?: string, prizeSecret?: boolean }} */ ({}));
+	let settings = $state(
+		/** @type {{ difficulty?: string, minLevel?: string, allowAdaptive?: boolean, gridSize?: number, className?: string, prizeType?: string, prizeSecret?: boolean }} */ ({})
+	);
 
 	let currentCode = $state('');
 	let difficulty = $state('');
 	let className = $state('');
 	/** @type {Cell[]} */
 	let cells = $state([]);
+	/** The board is N×N, 5×5 up to 15×15 (live bingo_host_tasks.js, 2026-10). */
+	let boardN = $state(5);
+	/** Cell height in px; null fits the board to the screen. The slider sets it by hand. */
+	let manualSize = $state(/** @type {number | null} */ (null));
+	let autoSize = $state(/** @type {number | null} */ (null));
+	/** Cells too narrow for a name show only the picture; the tooltip has the rest. */
+	let compact = $state(false);
+	/** @type {HTMLTableElement | undefined} */
+	let boardEl = $state();
+	/** The player whose menu is open, and where. */
+	let playerMenu = $state(/** @type {{ player: Player, x: number, y: number } | null} */ (null));
+	/** The cell shown in the corner on boards of 9×9 and up, where names do not fit. */
+	let tooltipCell = $state(/** @type {Cell | null} */ (null));
 	/** @type {Player[]} */
 	let players = $state([]);
 	let totalCatches = $state(0);
@@ -75,6 +90,8 @@
 	});
 	const shownEvents = $derived(events.slice(-60).reverse());
 	const freePrize = $derived(freeSpacePrize(settings, players.length, totalCatches));
+	const cellSize = $derived(manualSize ?? autoSize);
+	const rows = $derived(Array.from({ length: boardN }, (_, r) => cells.slice(r * boardN, r * boardN + boardN)));
 
 	const status = (/** @type {string} */ text) => console.log('[BINGO HOST]', text);
 
@@ -118,9 +135,94 @@
 		localStorage.setItem('teacherBingoCode', msg.code);
 		difficulty = msg.board?.difficulty || '';
 		className = msg.className || '';
-		cells = msg.board?.cells ?? [];
+		setBoard(msg.board);
 		playersUpdate(msg.players || []);
 		setTotal(msg.totalCatches || 0);
+	}
+
+	/** @param {any} board */
+	function setBoard(board) {
+		cells = board?.cells ?? [];
+		boardN = board?.cols || board?.rows || 5;
+	}
+
+	/**
+	 * Fit the cells to the screen (adjustBoardSize()): as tall as the board is wide per cell, and
+	 * short enough to see the whole board where the screen allows. A 5×5 board keeps its design size.
+	 */
+	function fitBoard() {
+		if (!boardEl) return;
+		const spacing = innerWidth <= 640 ? 3 : 6;
+		const overhead = (boardN + 1) * spacing + 2 * spacing;
+		const widthFit = Math.floor((boardEl.clientWidth - overhead) / boardN);
+		compact = widthFit < 44;
+		if (boardN === 5) return (autoSize = null);
+		const heightFit = Math.floor((innerHeight - boardEl.getBoundingClientRect().top - 16 - overhead) / boardN);
+		autoSize = Math.max(24, Math.min(150, widthFit, Math.max(heightFit, widthFit * 0.6)));
+	}
+
+	$effect(() => {
+		void boardN;
+		void boardEl;
+		requestAnimationFrame(fitBoard);
+	});
+
+	/** @param {Player} p @param {MouseEvent} e */
+	function openPlayerMenu(p, e) {
+		e.stopPropagation();
+		playerMenu = { player: p, x: Math.min(e.clientX, innerWidth - 250), y: Math.min(e.clientY, innerHeight - 170) };
+	}
+
+	/** The teacher's tools for one student (showPlayerMenu()). @param {'kick' | 'rename' | 'setName'} action */
+	function playerAction(action) {
+		const p = playerMenu?.player;
+		playerMenu = null;
+		if (!p?.uuid) return;
+		const name = p.name || 'Ash';
+		if (action === 'kick') {
+			if (confirm(`Kaste ut ${name}?`)) send({ type: 'hostKickPlayer', code: currentCode, uuid: p.uuid });
+		} else if (action === 'rename') {
+			send({ type: 'hostForceRename', code: currentCode, uuid: p.uuid });
+		} else {
+			const newName = prompt(`Nytt navn for ${name}:`, name);
+			if (newName && newName.trim()) send({ type: 'hostSetName', code: currentCode, uuid: p.uuid, name: newName.trim() });
+		}
+	}
+
+	/** @param {string} icon  Icon names are stored lower case; the files start with a capital. */
+	const iconSrc = (icon) => `/images/playericons/${icon.charAt(0).toUpperCase() + icon.slice(1)}.webp`;
+
+	/** A missing .webp falls back to the .png under the stored name, once. @param {Event} e @param {string} icon */
+	function pngFallback(e, icon) {
+		const img = /** @type {HTMLImageElement} */ (e.currentTarget);
+		if (img.getAttribute('src')?.endsWith('.webp')) img.src = `/images/playericons/${icon}.png`;
+	}
+
+	/** What the corner tooltip shows for a cell; an unsolved Pokédex cell stays a mystery. @param {Cell} cell */
+	function tooltipFor(cell) {
+		const rule = cell.task?.rule;
+		const image = cell.task?.image ? `/${String(cell.task.image).replace(/^\//, '')}` : '';
+		const img = rule?.kind === 'pokedexExact' ? image || localSprite(rule.id ?? 0) : rule?.kind === 'pokedexRange' ? localSprite(rule.start ?? 0) : image;
+		const silhouette = !cell.marked && rule?.kind === 'pokedexExact';
+		return { img, silhouette, name: silhouette ? '???' : cell.task?.name || '', desc: silhouette ? '' : cell.task?.description || '', hits: cell.hits || 0 };
+	}
+
+	/** @type {ReturnType<typeof setTimeout> | undefined} */
+	let pressTimer;
+	let pressShown = false;
+	/** On touch, a long press shows the tooltip without marking the cell. @param {PointerEvent} e @param {Cell} cell */
+	function cellPointerDown(e, cell) {
+		pressShown = false;
+		clearTimeout(pressTimer);
+		if (e.pointerType === 'mouse' || boardN < 9 || cell.free) return;
+		pressTimer = setTimeout(() => {
+			pressShown = true;
+			tooltipCell = cell;
+		}, 450);
+	}
+	function cellPointerUp() {
+		clearTimeout(pressTimer);
+		if (pressShown) setTimeout(() => (tooltipCell = null), 2500);
 	}
 
 	function createLobby() {
@@ -133,8 +235,11 @@
 			settings: {
 				difficulty: settings.difficulty || 'easy',
 				minLevel: settings.minLevel || 'alle',
+				allowAdaptive: !!settings.allowAdaptive,
+				gridSize: settings.gridSize || 5,
 				className: settings.className || '',
-				prizeType: settings.prizeType || 'random'
+				prizeType: settings.prizeType || 'random',
+				prizeSecret: !!settings.prizeSecret
 			}
 		});
 	}
@@ -177,7 +282,7 @@
 
 	/** @param {Cell} cell */
 	function toggleCell(cell) {
-		if (cell.free) return;
+		if (cell.free || pressShown) return;
 		if (cell.marked && !confirm(`Fjerne godkjenning for "${cell.task?.name || cell.cellId}"?`)) return;
 		send({ type: 'hostMarkCell', code: currentCode, cellId: cell.cellId, mark: !cell.marked });
 	}
@@ -230,7 +335,7 @@
 				playersUpdate(msg.players || []);
 				return;
 			case 'boardUpdate': {
-				cells = msg.board.cells;
+				setBoard(msg.board);
 				if (msg.totalCatches != null) setTotal(msg.totalCatches);
 				if (msg.lastEvent) {
 					const ev = msg.lastEvent;
@@ -308,11 +413,17 @@
 
 		ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
 		ws.addEventListener('open', () => {
+			// Started from the settings page: end the teacher's running lobby and make a new one.
+			const forceNew = sessionStorage.getItem('bingoForceNew') === '1';
+			sessionStorage.removeItem('bingoForceNew');
 			const stored = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
-			if (stored.length === 6) {
+			if (!forceNew && stored.length === 6) {
 				status('Gjenoppretter lobby ' + stored + ' …');
 				send({ type: 'hostJoinLobby', code: stored });
 			} else {
+				if (stored.length === 6) send({ type: 'hostEndLobby', code: stored });
+				localStorage.removeItem('teacherBingoCode');
+				currentCode = '';
 				createLobby();
 			}
 		});
@@ -332,7 +443,13 @@
 		});
 
 		const cycler = setInterval(() => tick++, 1500);
+		const closeMenu = () => (playerMenu = null);
+		addEventListener('click', closeMenu);
+		addEventListener('resize', fitBoard);
 		return () => {
+			removeEventListener('click', closeMenu);
+			removeEventListener('resize', fitBoard);
+			clearTimeout(pressTimer);
 			clearInterval(cycler);
 			clearTimeout(toastTimer);
 			ws?.close();
@@ -396,6 +513,21 @@
 		<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt Bingo</button>
 		<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>← Innstillinger</button>
 		<span class="spacer"></span>
+		<span class="size-control">
+			<label for="cellSizeSlider">Størrelse</label>
+			<input
+				type="range"
+				id="cellSizeSlider"
+				min="24"
+				max="150"
+				value={cellSize ?? 118}
+				oninput={(e) => (manualSize = Number(e.currentTarget.value))}
+				ondblclick={() => (manualSize = null)}
+			/>
+			{#if manualSize !== null}
+				<button id="cellSizeAuto" class="pm-button small secondary" onclick={() => (manualSize = null)}>Auto</button>
+			{/if}
+		</span>
 		<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
 		<span id="totalCatches" class="total">Totalt fanget: {totalCatches}</span>
 	</div>
@@ -416,11 +548,12 @@
 				{#each sortedPlayers as p, i (p.uuid ?? i)}
 					<div class="player-row">
 						{#if p.icon}
-							<img class="player-icon" src="/images/playericons/{p.icon}.png" alt="" />
+							{@const icon = p.icon}
+							<img class="player-icon" src={iconSrc(icon)} alt="" onerror={(e) => pngFallback(e, icon)} />
 						{:else}
 							<span class="player-dot" class:connected={p.connected}></span>
 						{/if}
-						<span class="player-name">{p.name || 'Ash'}</span>
+						<button class="player-name" title="Trykk for alternativer" onclick={(e) => openPlayerMenu(p, e)}>{p.name || 'Ash'}</button>
 						{#if showCatches}
 							<span class="player-catches">
 								{p.catchCount ?? 0}<small>({totalCatches > 0 ? Math.round(((p.catchCount || 0) / totalCatches) * 100) : 0}%)</small>
@@ -433,11 +566,19 @@
 			</div>
 		</section>
 
-		<table id="bingoCard">
+		<table
+			id="bingoCard"
+			bind:this={boardEl}
+			class:board-tiny={boardN >= 13}
+			class:board-big={boardN >= 9}
+			class:board-compact={compact && boardN >= 9}
+			style:--cell-size={cellSize ? `${cellSize}px` : null}
+			onmouseleave={() => (tooltipCell = null)}
+		>
 			<tbody>
-				{#each [0, 1, 2, 3, 4] as r (r)}
+				{#each rows as row, r (r)}
 					<tr>
-						{#each cells.slice(r * 5, r * 5 + 5) as cell (cell.cellId)}
+						{#each row as cell (cell.cellId)}
 							{@const rule = cell.task?.rule}
 							<td
 								data-cell-id={cell.cellId}
@@ -445,8 +586,13 @@
 								class:toggled={cell.marked && !cell.free}
 								class:host-cell={!cell.free}
 								class:bingo-flash={flashing.has(cell.cellId)}
-								title={cell.free ? null : 'Trykk for å godkjenne / fjerne godkjenning'}
+								class:no-pic={!cell.free && !rule?.kind?.startsWith('pokedex') && !cell.task?.image && cell.task?.textClass !== 'letter-task'}
+								title={cell.free || boardN >= 9 ? null : 'Trykk for å godkjenne / fjerne godkjenning'}
 								onclick={() => toggleCell(cell)}
+								onpointerdown={(e) => cellPointerDown(e, cell)}
+								onpointerup={cellPointerUp}
+								onpointercancel={cellPointerUp}
+								onpointerover={(e) => e.pointerType === 'mouse' && (tooltipCell = boardN >= 9 && !cell.free ? cell : null)}
 							>
 								{#if !cell.free}<span class="hit-badge">{cell.hits || 0}</span>{/if}
 								{#if cell.free}
@@ -467,8 +613,8 @@
 										{/if}
 									{:else if cell.task?.image}
 										<img src="/{String(cell.task.image).replace(/^\//, '')}" alt={cell.task?.name || ''} />
-									{:else if cell.task?.text}
-										<span class={cell.task.textClass || ''}>{cell.task.text}</span>
+									{:else if cell.task?.textClass === 'letter-task'}
+										<span class="cell-letter">{cell.task.text || ''}</span>
 									{/if}
 									<span class="cell-name">{cell.task?.name || ''}</span>
 									<span class="task-description">{cell.task?.description || ''}</span>
@@ -505,6 +651,26 @@
 {#if toast}
 	<div id="toast" class="bingo-toast {toast.kind}" role="status">
 		{#each toast.lines as line, i (i)}<div>{@render segs(line)}</div>{/each}
+	</div>
+{/if}
+
+{#if tooltipCell}
+	{@const tip = tooltipFor(tooltipCell)}
+	<div id="cell-tooltip" role="status">
+		{#if tip.img}<img src={tip.img} alt="" class="tooltip-img" class:silhouette={tip.silhouette} />{/if}
+		{#if tip.name}<div class="tooltip-name">{tip.name}</div>{/if}
+		{#if tip.desc}<div class="tooltip-desc">{tip.desc}</div>{/if}
+		{#if compact}<div class="tooltip-desc">Treff: {tip.hits}</div>{/if}
+	</div>
+{/if}
+
+{#if playerMenu}
+	{@const name = playerMenu.player.name || 'Ash'}
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<div id="bingo-player-menu" role="menu" tabindex="-1" style:left="{playerMenu.x}px" style:top="{playerMenu.y}px" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && (playerMenu = null)}>
+		<button role="menuitem" class="danger" onclick={() => playerAction('kick')}>🚫 Kast ut {name}</button>
+		<button role="menuitem" onclick={() => playerAction('rename')}>✏️ Tving {name} til å endre navn</button>
+		<button role="menuitem" onclick={() => playerAction('setName')}>📝 Sett {name}s navn til…</button>
 	</div>
 {/if}
 
@@ -711,10 +877,100 @@
 	.player-name {
 		flex: 1;
 		min-width: 0;
+		min-height: 32px;
 		overflow: hidden;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
 		font-weight: 700;
+		text-align: left;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		cursor: pointer;
+	}
+	@media (hover: hover) {
+		.player-name:hover {
+			color: var(--pm-red-deep);
+			text-decoration: underline;
+		}
+	}
+	#bingo-player-menu {
+		position: fixed;
+		z-index: 2500;
+		display: grid;
+		min-width: 230px;
+		padding: 6px 0;
+		border-radius: 12px;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	#bingo-player-menu button {
+		min-height: 44px;
+		padding: 0 16px;
+		border: 0;
+		background: none;
+		color: var(--pm-ink);
+		font: inherit;
+		font-size: 15px;
+		text-align: left;
+		cursor: pointer;
+	}
+	#bingo-player-menu button.danger {
+		color: var(--pm-red-deep);
+	}
+	#bingo-player-menu button:hover,
+	#bingo-player-menu button:focus-visible {
+		background: var(--pm-cream);
+	}
+	.size-control {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+		font-weight: 700;
+	}
+	#cellSizeSlider {
+		width: 120px;
+		accent-color: var(--pm-red);
+	}
+	#cell-tooltip {
+		position: fixed;
+		bottom: 18px;
+		left: 18px;
+		z-index: 2300;
+		max-width: 220px;
+		padding: 12px 14px;
+		border-radius: 14px;
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		text-align: center;
+		pointer-events: none;
+		animation: tooltip-in 0.12s ease-out;
+	}
+	@keyframes tooltip-in {
+		from { opacity: 0; transform: translateY(6px); }
+	}
+	.tooltip-img {
+		display: block;
+		width: 80px;
+		height: 80px;
+		margin: 0 auto 8px;
+		object-fit: contain;
+	}
+	.tooltip-img.silhouette {
+		filter: brightness(0);
+	}
+	.tooltip-name {
+		margin-bottom: 4px;
+		font-weight: 700;
+	}
+	.tooltip-desc {
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		line-height: 1.4;
 	}
 	.player-catches {
 		font-family: var(--pm-display);
@@ -742,14 +998,18 @@
 		background: var(--pm-paper);
 		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
 	}
+	/* --cell-size is set for boards bigger than 5×5 and by the size slider; the rest scales with it. */
 	#bingoCard td {
 		position: relative;
-		height: 118px;
-		padding: 22px 6px 8px;
-		border-radius: 12px;
+		height: var(--cell-size, 118px);
+		overflow: hidden;
+		padding: min(22px, calc(var(--cell-size, 118px) * 0.19)) min(6px, calc(var(--cell-size, 118px) * 0.05)) min(8px, calc(var(--cell-size, 118px) * 0.05));
+		border-radius: min(12px, calc(var(--cell-size, 118px) * 0.12));
 		background: var(--pm-cream);
 		box-shadow: inset 0 0 0 1px var(--pm-line);
-		font-size: 13px;
+		font-size: clamp(9px, calc(var(--cell-size, 118px) * 0.11), 13px);
+		-webkit-touch-callout: none;
+		user-select: none;
 		line-height: 1.2;
 		text-align: center;
 		vertical-align: top;
@@ -774,8 +1034,8 @@
 	}
 	#bingoCard td img {
 		display: block;
-		width: 48px;
-		height: 48px;
+		width: min(48px, calc(var(--cell-size, 118px) * 0.4));
+		height: min(48px, calc(var(--cell-size, 118px) * 0.4));
 		margin: 0 auto 4px;
 		object-fit: contain;
 	}
@@ -789,8 +1049,56 @@
 	.task-description {
 		display: block;
 		margin-top: 2px;
-		font-size: 12px;
+		font-size: clamp(8px, calc(var(--cell-size, 118px) * 0.1), 12px);
 		opacity: 0.75;
+	}
+	#bingoCard.board-tiny .task-description,
+	#bingoCard.board-compact .cell-name,
+	#bingoCard.board-compact .task-description,
+	#bingoCard.board-compact .free-prize,
+	#bingoCard.board-compact .free-note {
+		display: none;
+	}
+	#bingoCard.board-compact td {
+		padding: 2px;
+		vertical-align: middle;
+	}
+	#bingoCard.board-compact td img {
+		width: min(40px, calc(var(--cell-size, 118px) * 0.7));
+		height: min(40px, calc(var(--cell-size, 118px) * 0.7));
+		margin: 0 auto;
+	}
+	/* A task with no picture keeps its name, cut to fit. */
+	#bingoCard.board-compact td.no-pic .cell-name {
+		display: block;
+		overflow: hidden;
+		font-size: 8px;
+		line-height: 1.1;
+		max-height: 2.2em;
+		overflow-wrap: anywhere;
+	}
+	#bingoCard.board-compact .hit-badge {
+		display: none;
+	}
+	/* Big boards: the hit count would cover the picture, so it shrinks with the cell. */
+	#bingoCard.board-big .hit-badge {
+		top: 2px;
+		left: 2px;
+		min-width: 14px;
+		height: 14px;
+		padding: 0 3px;
+		font-size: 9px;
+		line-height: 14px;
+	}
+	.cell-letter {
+		display: block;
+		color: var(--pm-red);
+		font-family: var(--pm-display);
+		font-size: min(40px, calc(var(--cell-size, 118px) * 0.36));
+		line-height: 1;
+	}
+	.toggled .cell-letter {
+		color: var(--pm-paper);
 	}
 	.hit-badge {
 		position: absolute;
@@ -811,7 +1119,7 @@
 	.cell-range-solved {
 		display: block;
 		margin: 4px 0;
-		font-size: 34px;
+		font-size: min(34px, calc(var(--cell-size, 118px) * 0.4));
 		font-weight: 900;
 		line-height: 1;
 	}
@@ -1065,13 +1373,13 @@
 			padding: 3px;
 		}
 		#bingoCard td {
-			height: 92px;
-			padding: 20px 2px 4px;
-			font-size: 11px;
+			height: var(--cell-size, 92px);
+			padding: min(20px, calc(var(--cell-size, 92px) * 0.19)) 2px 4px;
+			font-size: clamp(9px, calc(var(--cell-size, 92px) * 0.11), 11px);
 		}
 		#bingoCard td img {
-			width: 34px;
-			height: 34px;
+			width: min(34px, calc(var(--cell-size, 92px) * 0.4));
+			height: min(34px, calc(var(--cell-size, 92px) * 0.4));
 		}
 		.task-description {
 			display: none;

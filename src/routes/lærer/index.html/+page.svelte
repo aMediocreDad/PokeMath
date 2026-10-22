@@ -26,6 +26,8 @@
 
 	let deleteStatus = $state(NONE);
 	let deleting = $state(false);
+	/** The lobby the host page is running, so the teacher can go back to it. */
+	let savedBingoCode = $state('');
 
 	onMount(async () => {
 		const t = await validateSession();
@@ -33,6 +35,7 @@
 		if (!t) setTeacherSession('');
 		teacher = t;
 		checked = true;
+		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 	});
 
 	const sessionHint = $derived(
@@ -302,7 +305,7 @@
 	<div class="status {s.kind ?? ''}" {id} role="status">{s.msg}</div>
 {/snippet}
 
-<TeacherPage subtitle="Bingo (eksperiment)" back={{ href: '/index.html', label: 'Tilbake til forsiden' }}>
+<TeacherPage subtitle="Bingo (eksperiment)" back={{ href: '/index.html', label: 'Til PokeMath' }}>
 	<section class="panel warn">
 		<h1>Bingo er et eksperiment</h1>
 		<p>
@@ -322,7 +325,10 @@
 				<button class="pm-button small danger" id="logoutBtn" onclick={logout}>Logg ut</button>
 			</div>
 			<div class="actions">
-				<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Start Bingo</a>
+				<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Ny Bingo</a>
+				{#if savedBingoCode.length === 6}
+					<a class="pm-button secondary" id="continueBingoBtn" href="/lærer/bingo_host.html">Fortsett Bingo {savedBingoCode}</a>
+				{/if}
 				<button class="pm-button small secondary" id="showCodesBtn" onclick={toggleCodes}>🔑 {codesOpen ? 'Skjul koder' : 'Kodeoversikt'}</button>
 				<button class="pm-button small secondary" id="showCreateCodeBtn" onclick={() => (createOpen = !createOpen)}>➕ {createOpen ? 'Skjul' : 'Lag kode'}</button>
 			</div>

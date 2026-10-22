@@ -27,13 +27,16 @@ export const nok = (n) => Number(n).toLocaleString('no-NO');
  */
 
 /**
- * Rows, columns, the inner 3×3, the outer frame and the full board, each celebrated once.
+ * Rows, columns, everything inside the frame, the outer frame and the full board, each celebrated once.
  * @param {Cell[]} cells
  * @param {Set<string>} celebrated  keys already celebrated; new ones are added
  * @returns {Milestone[]}
  */
 export function checkNewMilestones(cells, celebrated) {
-	if (!Array.isArray(cells) || cells.length < 25) return [];
+	if (!Array.isArray(cells) || cells.length < 9) return [];
+	// Boards are N×N since the live host of 2026-10 (5×5 up to 15×15).
+	const N = Math.round(Math.sqrt(cells.length));
+	if (N * N !== cells.length) return [];
 	/** @param {number} i */
 	const hit = (i) => cells[i] && (cells[i].free || cells[i].marked);
 	/** @type {Milestone[]} */
@@ -45,12 +48,15 @@ export function checkNewMilestones(cells, celebrated) {
 			newly.push({ ...m, indices });
 		}
 	};
-	const five = [0, 1, 2, 3, 4];
-	for (let r = 0; r < 5; r++) check(`row${r}`, { type: 'line', label: `Rad ${r + 1} fullført!`, intensity: 1 }, five.map((c) => r * 5 + c));
-	for (let c = 0; c < 5; c++) check(`col${c}`, { type: 'line', label: `Kolonne ${c + 1} fullført!`, intensity: 1 }, five.map((r) => r * 5 + c));
-	check('inner', { type: 'inner', label: 'Indre brett fullført!', intensity: 2 }, [6, 7, 8, 11, 12, 13, 16, 17, 18]);
-	check('frame', { type: 'frame', label: 'Ytre ramme fullført!', intensity: 2 }, [0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24]);
-	check('full', { type: 'full', label: 'FULLT BRETT! Bingo avsluttet!', intensity: 4 }, Array.from({ length: 25 }, (_, i) => i));
+	const line = Array.from({ length: N }, (_, i) => i);
+	const all = Array.from({ length: N * N }, (_, i) => i);
+	/** @param {number} i */
+	const onFrame = (i) => i < N || i >= N * (N - 1) || i % N === 0 || i % N === N - 1;
+	for (let r = 0; r < N; r++) check(`row${r}`, { type: 'line', label: `Rad ${r + 1} fullført!`, intensity: 1 }, line.map((c) => r * N + c));
+	for (let c = 0; c < N; c++) check(`col${c}`, { type: 'line', label: `Kolonne ${c + 1} fullført!`, intensity: 1 }, line.map((r) => r * N + c));
+	if (N >= 5) check('inner', { type: 'inner', label: 'Indre brett fullført!', intensity: 2 }, all.filter((i) => !onFrame(i)));
+	check('frame', { type: 'frame', label: 'Ytre ramme fullført!', intensity: 2 }, all.filter(onFrame));
+	check('full', { type: 'full', label: 'FULLT BRETT! Bingo avsluttet!', intensity: 4 }, all);
 	return newly;
 }
 

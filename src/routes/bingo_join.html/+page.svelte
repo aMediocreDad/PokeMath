@@ -11,6 +11,54 @@
 	let uuid = $state('—');
 	let status = $state(/** @type {{ msg: string, kind: string }} */ ({ msg: '', kind: 'info' }));
 	let joining = $state(false);
+	/** Why this tab cannot see the player's save (live bingo_join.html, 2026-10). */
+	let warning = $state(/** @type {{ title: string, body: string, canOpen: boolean } | null} */ (null));
+	let copied = $state(false);
+
+	/**
+	 * A QR code scanned with the camera can open the page in private mode, on another address, or
+	 * in an isolated iOS tab. None of them can see the save, so the player would join as "Ash".
+	 */
+	function browserWarning() {
+		try {
+			localStorage.setItem('__pm_bw__', '1');
+			localStorage.removeItem('__pm_bw__');
+		} catch {
+			return { title: 'Privat surfing er på', body: 'Nettleseren din blokkerer lagring i privat modus. Åpne et vanlig nettleservindu og gå til PokeMath der.', canOpen: false };
+		}
+		const hasPlayerData =
+			['uuid', 'user_uuid', 'pokemath_uuid'].some((key) => isUuidLike(localStorage.getItem(key))) || !!(localStorage.getItem('username') || '').trim();
+		if (hasPlayerData) return null;
+		const urlCode = new URLSearchParams(location.search).get('code');
+		if (urlCode === null && !/\/[A-Z0-9]{6}$/i.test(location.pathname)) return null;
+
+		const h = location.hostname;
+		if (/^\d+\.\d+\.\d+\.\d+$/.test(h) || h === 'localhost' || h.endsWith('.local') || location.protocol === 'http:') {
+			const codeHint = urlCode ? ` Koden du skal skrive inn er: ${urlCode.toUpperCase()}.` : '';
+			return {
+				title: 'Feil adresse – data ikke tilgjengelig',
+				body: `QR-koden peker til en lokal nettverksadresse (${location.host}), men PokeMath-dataen din er lagret på den vanlige adressen til siden. Bytt til PokeMath-fanen din og skriv inn koden manuelt der.${codeHint}`,
+				canOpen: false
+			};
+		}
+		const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+		if (!isIOS) return null;
+		return {
+			title: 'Data ikke tilgjengelig i denne fanen',
+			body: 'Siden ble åpnet i en isolert nettleserkontekst (skjer ofte når QR-koder skannes med kameraet). PokeMath-dataen din ligger i en annen fane. Trykk «Åpne i nettleser» for å åpne siden på nytt med tilgang til profilen din, eller kopier lenken og lim den inn i adressefeltet.',
+			canOpen: true
+		};
+	}
+
+	function copyLink() {
+		navigator.clipboard
+			.writeText(location.href)
+			.then(() => {
+				copied = true;
+				setTimeout(() => (copied = false), 2000);
+			})
+			.catch(() => prompt('Kopier lenken:', location.href));
+	}
 
 	/** The id the bingo lobby knows the player by, kept under 'uuid' (getOrCreateUUID() on the legacy page). */
 	function joinUUID() {
@@ -40,6 +88,13 @@
 	}
 
 	onMount(() => {
+		// Before joinUUID(), which stores an id and would hide a missing save.
+		warning = browserWarning();
+		if (warning && !warning.canOpen && warning.title.startsWith('Privat')) {
+			// localStorage throws here, so only the code from the address can be shown.
+			code = codeFromUrl();
+			return;
+		}
 		uuid = joinUUID();
 		student = (localStorage.getItem('username') || localStorage.getItem('playerName') || localStorage.getItem('name') || '').trim() || 'Ash';
 		code = codeFromUrl() || code6(localStorage.getItem('bingoJoinedCode') || localStorage.getItem('bingoCode') || '');
@@ -118,6 +173,25 @@
 		<p class="small uuid">Spiller-ID: <span id="uuidOut">{uuid}</span></p>
 	</section>
 </div>
+
+{#if warning}
+	<div id="browser-warning" class="backdrop">
+		<div class="warning pm-surface" role="dialog" aria-labelledby="bw-title">
+			<div class="lock" aria-hidden="true">🔒</div>
+			<h2 id="bw-title">{warning.title}</h2>
+			<p id="bw-body">{warning.body}</p>
+			{#if warning.canOpen}
+				<a id="bw-open" class="pm-button" href={location.href} target="_blank" rel="noopener">Åpne i nettleser</a>
+			{/if}
+			<label class="copy-label" for="bw-url">Eller kopier og lim inn denne lenken i nettleseren:</label>
+			<div class="copy-row">
+				<input id="bw-url" readonly type="text" value={location.href} onfocus={(e) => e.currentTarget.select()} />
+				<button id="bw-copy" class="pm-button small secondary" type="button" onclick={copyLink}>{copied ? 'Kopiert!' : 'Kopier'}</button>
+			</div>
+			<button id="bw-dismiss" class="dismiss" type="button" onclick={() => (warning = null)}>Fortsett uansett</button>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.join {
@@ -209,6 +283,72 @@
 	.uuid {
 		margin: 0;
 		overflow-wrap: anywhere;
+	}
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 1200;
+		display: grid;
+		place-items: center;
+		padding: 16px;
+		background: oklch(0.28 0.035 265 / 0.55);
+	}
+	.warning {
+		box-sizing: border-box;
+		width: min(400px, 100%);
+		padding: 24px 22px 16px;
+		text-align: center;
+	}
+	.lock {
+		font-size: 40px;
+	}
+	.warning h2 {
+		margin: 4px 0 10px;
+		font-family: var(--pm-display);
+		font-weight: 400;
+		font-size: 22px;
+	}
+	.warning p {
+		margin: 0 0 18px;
+		line-height: 1.5;
+	}
+	#bw-open {
+		display: block;
+		margin-bottom: 14px;
+	}
+	.copy-label {
+		display: block;
+		margin-bottom: 6px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
+		text-align: left;
+	}
+	.copy-row {
+		display: flex;
+		gap: 8px;
+	}
+	#bw-url {
+		flex: 1;
+		min-width: 0;
+		padding: 8px 10px;
+		border: 2px solid var(--pm-line);
+		border-radius: 10px;
+		background: var(--pm-paper);
+		color: var(--pm-ink);
+		font-family: monospace;
+		/* 16px or larger, or iOS zooms the page when the field is focused. */
+		font-size: 16px;
+	}
+	.dismiss {
+		min-height: 44px;
+		margin-top: 8px;
+		border: 0;
+		background: none;
+		color: var(--pm-ink-soft);
+		font: inherit;
+		font-size: 15px;
+		text-decoration: underline;
+		cursor: pointer;
 	}
 	@media (pointer: coarse) {
 		.pm-button.small {
