@@ -23,6 +23,32 @@ export function getStorageArray(key, splitter) {
 	return stored ? stored.split(splitter).map((item) => item.replace(/^"+|"+$/g, '').trim()) : [];
 }
 
+/**
+ * Keys that belong to this device, not to the player: the cloud copy, backup files and the
+ * IndexedDB copy leave them out, and restoring one never writes them. Everything else is the save,
+ * which also covers keys only the legacy Christmas and Easter pages know about.
+ */
+export const DEVICE_KEYS = new Set([
+	'pm-cloud', 'pm-round', 'teacherSession', 'teacherBingoCode', 'teacherRaidCode', 'bingoJoinedCode', 'bingoCode',
+	'__pm_bw__', 'storageNoticeSeen', 'backupReminder', 'alertDismissed', 'bingoMuted', 'dexBarsCollapsed'
+]);
+
+/** The player's save: every key in localStorage but the device's own. @returns {Record<string, string>} */
+export function saveData() {
+	/** @type {Record<string, string>} */
+	const data = {};
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = /** @type {string} */ (localStorage.key(i));
+		if (!DEVICE_KEYS.has(key)) data[key] = /** @type {string} */ (localStorage.getItem(key));
+	}
+	return data;
+}
+
+/** Write a save into localStorage, skipping keys that belong to whichever device it came from. */
+export function writeSaveData(/** @type {Record<string, string>} */ data) {
+	for (const [key, value] of Object.entries(data)) if (!DEVICE_KEYS.has(key)) localStorage.setItem(key, String(value));
+}
+
 /** Whether the old cookie notice was accepted: it set cookies=true, setLegacySaveFlag() sets cookies=saved. */
 export function acceptedOldNotice() {
 	return document.cookie.split(';').some((c) => c.trim() === 'cookies=true');

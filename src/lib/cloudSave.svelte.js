@@ -1,25 +1,26 @@
 // The cloud save: a copy of the save per login (GET/PUT /api/save), an email or a child's code,
 // so a player can move between the iPad and a phone, and children can share one.
 //
-// It copies localStorage the way a backup file does (everything but a few keys that belong to
-// this device), which also covers the legacy Christmas and Easter pages. Nothing is uploaded
-// until the cloud copy has been checked: a fresh device has an empty save, and uploading that
-// first would hide the real one; an empty device takes the cloud copy instead. When both sides
-// have moved on, the player chooses (cloud.offer). The Worker also refuses an upload with fewer
-// Pokémon than the cloud copy unless the player chose it.
+// It copies localStorage the way a backup file does (everything but the keys that belong to this
+// device, DEVICE_KEYS), which also covers the legacy Christmas and Easter pages. Nothing is
+// uploaded until the cloud copy has been checked: a fresh device has an empty save, and uploading
+// that first would hide the real one; an empty device takes the cloud copy instead. When both
+// sides have moved on, the player chooses (cloud.offer).
 //
-// 'pm-cloud' remembers whose save this device holds and a fingerprint of it as it was when this
-// device and the cloud last agreed; comparing both sides to it tells which one has moved since.
+// 'pm-cloud' remembers whose save this device holds, a fingerprint of it as it was when this
+// device and the cloud last agreed, and that cloud copy's updatedAt (base). Comparing both sides
+// to the fingerprint tells which one has moved since. Every upload names its base, and the Worker
+// refuses it when the cloud copy has changed since then, so a device left open on old progress
+// can never overwrite what was played elsewhere: it is checked again instead.
 // A device holding someone else's save (two children, one iPad) never uploads it: it takes the
 // new player's cloud copy, or starts them afresh. Logging out uploads, then clears the device.
 
 import { deleteBackup } from '#lib/idbBackup.js';
 import { forgetMe, loadMe, me } from '#lib/me.svelte.js';
+import { DEVICE_KEYS, saveData as snapshot } from '#lib/storage.js';
 
 const META = 'pm-cloud';
 const UPLOAD_EVERY = 60_000;
-/** Keys that belong to this device, not to the player. */
-const DEVICE_KEYS = new Set([META, 'teacherSession', 'teacherBingoCode', 'teacherRaidCode', 'bingoJoinedCode', 'bingoCode', '__pm_bw__', 'storageNoticeSeen', 'pm-round']);
 
 /**
  * @typedef {{ data: Record<string, string>, pokemon: number, updatedAt: number }} CloudCopy
@@ -41,17 +42,6 @@ let ready = false;
 /** @param {string | null | undefined} list */
 export const countPokemon = (list) => String(list || '').split('|').filter((p) => p.trim()).length;
 
-/** @returns {Record<string, string>} */
-function snapshot() {
-	/** @type {Record<string, string>} */
-	const data = {};
-	for (let i = 0; i < localStorage.length; i++) {
-		const key = /** @type {string} */ (localStorage.key(i));
-		if (!DEVICE_KEYS.has(key)) data[key] = /** @type {string} */ (localStorage.getItem(key));
-	}
-	return data;
-}
-
 /** A short fingerprint of a save, the same whatever order its keys are in (FNV-1a). */
 function fingerprint(/** @type {Record<string, string>} */ data) {
 	const text = JSON.stringify(Object.keys(data).sort().map((k) => [k, data[k]]));
@@ -60,7 +50,7 @@ function fingerprint(/** @type {Record<string, string>} */ data) {
 	return (h >>> 0).toString(36) + ':' + text.length;
 }
 
-/** @typedef {{ owner?: string, hash?: string, pending?: string }} Meta */
+/** @typedef {{ owner?: string, hash?: string, base?: number, pending?: string }} Meta */
 
 /** @returns {Meta} */
 function readMeta() {
@@ -71,7 +61,7 @@ function readMeta() {
 	}
 }
 
-/** Always records the current player as the owner. */
+/** Replaces the note, and always records the current player as the owner. */
 function writeMeta(/** @type {Meta} */ meta) {
 	localStorage.setItem(META, JSON.stringify({ ...meta, owner: me.id }));
 }
@@ -86,13 +76,15 @@ function clearSave() {
 export function useCloud(/** @type {CloudCopy} */ copy) {
 	for (const key of Object.keys(snapshot())) if (!(key in copy.data)) localStorage.removeItem(key);
 	for (const [key, value] of Object.entries(copy.data)) localStorage.setItem(key, value);
-	writeMeta({ hash: fingerprint(copy.data) });
+	writeMeta({ hash: fingerprint(copy.data), base: copy.updatedAt });
 	location.reload();
 }
 
-/** Keep this device's save, and put it in the cloud even if it has fewer Pokémon. */
+/** Keep this device's save: it replaces the cloud copy the player was shown. */
 export async function keepDevice() {
+	const offer = cloud.offer;
 	cloud.offer = null;
+	if (offer) writeMeta({ ...readMeta(), base: offer.cloud.updatedAt });
 	ready = true;
 	await upload(true);
 }
@@ -102,28 +94,32 @@ export function decideLater() {
 	cloud.offer = null;
 }
 
-/** @param {boolean} [force] @returns {Promise<boolean>} whether the cloud copy is now this device's save */
-async function upload(force = false) {
+/**
+ * @param {boolean} [always] upload even when nothing changed since the last upload
+ * @returns {Promise<boolean>} whether the cloud copy is now this device's save
+ */
+async function upload(always = false) {
 	if (!ready) return false;
 	const data = snapshot();
 	const hash = fingerprint(data);
-	if (!force && hash === readMeta().hash) return true;
+	const meta = readMeta();
+	if (!always && hash === meta.hash) return true;
 	try {
 		const res = await fetch('/api/save', {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ data, force })
+			body: JSON.stringify({ data, base: meta.base ?? null })
 		});
 		if (res.status === 409) {
-			// The cloud has more Pokémon than this device: let the player choose.
+			// The cloud copy changed since this device last saw it: decide again, as on a page load.
 			ready = false;
-			const { save } = await res.json();
-			cloud.offer = { cloud: save, local: countPokemon(data.pokemonlist) };
-			return false;
+			await reconcile((await res.json()).save);
+			return ready && readMeta().hash === hash;
 		}
 		if (!res.ok) return false;
-		writeMeta({ hash });
-		cloud.savedAt = (await res.json()).updatedAt;
+		const { updatedAt } = await res.json();
+		writeMeta({ hash, base: updatedAt });
+		cloud.savedAt = updatedAt;
 		return true;
 	} catch {
 		// Offline: the next round tries again.
@@ -143,7 +139,10 @@ export async function logOut() {
 	location.href = '/login.html';
 }
 
-/** When the page is hidden there is no time to wait for an answer; remember what was sent. */
+/**
+ * When the page is hidden there is no time to wait for an answer; remember what was sent. The
+ * next check sees whether it arrived, since this device never learns the new updatedAt.
+ */
 function uploadOnLeave() {
 	if (!ready) return;
 	const data = snapshot();
@@ -151,7 +150,12 @@ function uploadOnLeave() {
 	const meta = readMeta();
 	if (hash === meta.hash) return;
 	writeMeta({ ...meta, pending: hash });
-	fetch('/api/save', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data }), keepalive: true }).catch(() => {});
+	fetch('/api/save', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data, base: meta.base ?? null }), keepalive: true }).catch(() => {});
+}
+
+/** Check the cloud copy now, e.g. right after a backup file was restored. */
+export function syncNow() {
+	return check();
 }
 
 /**
@@ -161,15 +165,19 @@ function uploadOnLeave() {
  */
 export function startCloudSave() {
 	const timer = setInterval(() => upload(), UPLOAD_EVERY);
-	const onHide = () => document.visibilityState === 'hidden' && uploadOnLeave();
-	document.addEventListener('visibilitychange', onHide);
+	// Hidden: upload. Shown again: an iPad wakes on a page left open for days, so check first.
+	const onVisibility = () => {
+		if (document.visibilityState === 'hidden') uploadOnLeave();
+		else if (ready && !cloud.offer) check();
+	};
+	document.addEventListener('visibilitychange', onVisibility);
 	check().finally(() => (cloud.checked = true));
 	// A page opened offline has not checked the cloud copy yet, so it uploads nothing until it has.
 	const onOnline = () => !ready && !cloud.offer && check();
 	window.addEventListener('online', onOnline);
 	return () => {
 		clearInterval(timer);
-		document.removeEventListener('visibilitychange', onHide);
+		document.removeEventListener('visibilitychange', onVisibility);
 		window.removeEventListener('online', onOnline);
 	};
 }
@@ -196,15 +204,18 @@ async function check() {
 		writeMeta({ hash: fingerprint(snapshot()) });
 		return location.reload();
 	}
+	await reconcile(copy);
+}
 
+/**
+ * Bring this device and the cloud copy together: on a page load, and when an upload is refused.
+ * @param {CloudCopy | null} copy
+ */
+async function reconcile(copy) {
+	const meta = readMeta();
 	const local = snapshot();
 	const localHash = fingerprint(local);
 	const localCount = countPokemon(local.pokemonlist);
-	// An upload sent while leaving the last page counts if it arrived.
-	if (copy && meta.pending && fingerprint(copy.data) === meta.pending) {
-		meta.hash = meta.pending;
-		writeMeta({ hash: meta.hash });
-	}
 
 	if (!copy) {
 		ready = true;
@@ -213,11 +224,13 @@ async function check() {
 	}
 
 	const cloudHash = fingerprint(copy.data);
+	// An upload sent while leaving the last page counts if it arrived.
+	if (meta.pending && cloudHash === meta.pending) meta.hash = meta.pending;
 	const cloudMoved = cloudHash !== meta.hash;
 	const localMoved = localHash !== meta.hash;
 
 	if (cloudHash === localHash) {
-		writeMeta({ hash: localHash });
+		writeMeta({ hash: localHash, base: copy.updatedAt });
 		ready = true;
 	} else if (localCount === 0 && copy.pokemon > 0) {
 		// A fresh or cleared device, or a child logging in after another: nothing to lose here.
@@ -226,8 +239,11 @@ async function check() {
 		// Played elsewhere since this device last synced, nothing new here: bring it over.
 		useCloud(copy);
 	} else if (cloudMoved && localMoved) {
+		ready = false;
 		cloud.offer = { cloud: copy, local: localCount };
 	} else {
+		// Only this device has moved, from the copy the cloud still holds.
+		writeMeta({ hash: meta.hash, base: copy.updatedAt });
 		ready = true;
 		await upload();
 	}

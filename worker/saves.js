@@ -1,12 +1,17 @@
 // Cloud saves: one copy of the save per login (an email, or a child's code), so a player can move
 // between devices. The saves.email column holds the login's id (worker/auth.js).
 //
-// The Worker never lets a save lose Pokémon by accident: a PUT with fewer Pokémon than the stored
-// save is refused with the stored save, unless the page says the player chose it (force). That
-// stops a fresh device's empty save from replacing a real one, whatever the page gets wrong.
+// A PUT names the stored save it was made from (base: that save's updatedAt, or null when the
+// device has seen none). When the stored save has changed since, the PUT is refused with it (409),
+// so a device left open on old progress never overwrites what was played elsewhere; the page then
+// takes the newer save or lets the player choose. updated_at is the version, and only goes up.
+//
+// A page from before base existed sends none. It gets the old guard: a PUT with fewer Pokémon
+// than the stored save is refused, unless the player chose it (force).
 import { json } from './http.js';
 
 const MAX_BYTES = 1_000_000;
+const encoder = new TextEncoder();
 
 /** @param {string | undefined} list */
 export const countPokemon = (list) => String(list || '').split('|').filter((p) => p.trim()).length;
@@ -25,7 +30,7 @@ export async function route(url, request, env, who) {
 
 	if (request.method === 'PUT') {
 		const text = await request.text();
-		if (text.length > MAX_BYTES) return json({ error: 'Lagringen er for stor.' }, 413);
+		if (encoder.encode(text).length > MAX_BYTES) return json({ error: 'Lagringen er for stor.' }, 413);
 		let input;
 		try {
 			input = JSON.parse(text);
@@ -37,14 +42,35 @@ export async function route(url, request, env, who) {
 			return json({ error: 'Ugyldig lagring.' }, 400);
 		}
 		const pokemon = countPokemon(data.pokemonlist);
-		if (stored && pokemon < Number(stored.pokemon) && input.force !== true) {
+		const versioned = input && 'base' in input;
+		if (!versioned && stored && pokemon < Number(stored.pokemon) && input.force !== true) {
 			return json({ error: 'Lagringen i skyen har flere Pokémon.', save: view(stored) }, 409);
 		}
-		const updatedAt = Date.now();
-		await db
-			.prepare('INSERT INTO saves (email, data, pokemon, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO UPDATE SET data = excluded.data, pokemon = excluded.pokemon, updated_at = excluded.updated_at')
-			.bind(who.id, JSON.stringify(data), pokemon, updatedAt)
-			.run();
+		const updatedAt = Math.max(Date.now(), Number(stored?.updated_at || 0) + 1);
+		const body = JSON.stringify(data);
+		let written;
+		if (!versioned) {
+			written = await db
+				.prepare('INSERT INTO saves (email, data, pokemon, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO UPDATE SET data = excluded.data, pokemon = excluded.pokemon, updated_at = excluded.updated_at')
+				.bind(who.id, body, pokemon, updatedAt)
+				.run();
+		} else if (stored) {
+			// Only over the save this device last saw; a change in between leaves no row written.
+			written = await db
+				.prepare('UPDATE saves SET data = ?, pokemon = ?, updated_at = ? WHERE email = ? AND updated_at = ?')
+				.bind(body, pokemon, updatedAt, who.id, Number(input.base))
+				.run();
+		} else {
+			// Nothing stored yet (or it was deleted): there is nothing to overwrite, whatever the base.
+			written = await db
+				.prepare('INSERT INTO saves (email, data, pokemon, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (email) DO NOTHING')
+				.bind(who.id, body, pokemon, updatedAt)
+				.run();
+		}
+		if (!written.meta.changes) {
+			const current = await db.prepare('SELECT data, pokemon, updated_at FROM saves WHERE email = ?').bind(who.id).first();
+			return json({ error: 'Lagringen i skyen er nyere.', save: view(current) }, 409);
+		}
 		return json({ ok: true, pokemon, updatedAt });
 	}
 

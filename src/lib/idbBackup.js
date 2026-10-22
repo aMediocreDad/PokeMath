@@ -2,19 +2,13 @@
 // Clearing the browser history often clears localStorage but keeps IndexedDB, so when the save is
 // gone the page can offer to bring it back. The copy is refreshed at most every three hours and
 // never leaves the device. Private browsing can block IndexedDB; every call then does nothing.
+// It holds the whole save, as the cloud copy and backup files do (saveData()).
+import { saveData } from '#lib/storage.js';
 
 const DB_NAME = 'PokemathBackup';
 const STORE = 'snapshots';
 const KEY = 'daily';
 const INTERVAL_MS = 3 * 60 * 60 * 1000;
-const KEYS = [
-	'money', 'pkmncaught', 'pokemonlist', 'username',
-	'tier1Solved', 'tier2Solved', 'tier3Solved', 'tier4Solved', 'tier5Solved', 'customSolved', 'adaptiveSolved',
-	'adaptiveSkills', 'adaptivePoints',
-	'boughtPlayerIcons', 'playerIcon', 'boughtBackgrounds', 'shopBackground',
-	'claimedSecrets', 'shinyLevel', 'legendLevel', 'mythicLevel', 'specialLevel', 'coinLevel',
-	'shinyBaitCount', 'shinyBaitPurchases', 'badges'
-];
 
 /** @typedef {{ timestamp: number, data: Record<string, string> }} Snapshot */
 
@@ -58,12 +52,7 @@ export async function maybeSaveBackup() {
 			freshUntil = existing.timestamp + INTERVAL_MS;
 			return db.close();
 		}
-		/** @type {Record<string, string>} */
-		const data = {};
-		for (const key of KEYS) {
-			const value = localStorage.getItem(key);
-			if (value !== null) data[key] = value;
-		}
+		const data = saveData();
 		if (data.pokemonlist) {
 			await run(db, 'readwrite', (s) => s.put({ timestamp: now, data }, KEY));
 			freshUntil = now + INTERVAL_MS;

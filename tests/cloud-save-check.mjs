@@ -101,9 +101,70 @@ await sleep(1500);
 check('Child A gets their own save back', (await getList(ipad)) === 'N10|N11', await getList(ipad));
 check("B's save is untouched", (await count(kidB)) === 3);
 
-// The Worker refuses a smaller save unless the player chose it.
-const shrink = await fetch(BASE + '/api/save', { method: 'PUT', headers: { ...WHO, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { pokemonlist: 'N1' } }) });
-check('The Worker refuses a smaller save', shrink.status === 409 && (await cloudCount()) === 4);
+// A file made under one login, restored under another, stays and goes to the new login's cloud.
+const file = await ipad.page.evaluate(() => btoa(JSON.stringify({ ...localStorage })));
+check('The file carries the old cloud note', !!JSON.parse(atob(file))['pm-cloud']);
+const kidC = { 'x-dev-email': `barn-c-${Date.now()}@test.no` };
+await ipad.page.setExtraHTTPHeaders(kidC);
+// A real login clears the tab's cached identity (worker/login.js); switching the header does not.
+await ipad.page.evaluate(() => sessionStorage.clear());
+await open(ipad, '/saveandload.html');
+ipad.page.on('dialog', (d) => d.accept());
+await ipad.page.setInputFiles('#fileInput', { name: 'a.pkmth', mimeType: 'application/octet-stream', buffer: Buffer.from(file) });
+await sleep(1500);
+await open(ipad);
+await sleep(1500);
+check('A restored file survives a reload under another login', (await getList(ipad)) === 'N10|N11', await getList(ipad));
+check("…and becomes that login's cloud save", (await count(kidC)) === 2, `cloud has ${await count(kidC)}`);
+
+// Two synced devices; one is left open on old progress and uploads while being hidden. The
+// cloud keeps the newer save, and the stale device is asked on its next load.
+const money = (d, n) => d.page.evaluate((v) => localStorage.setItem('money', v), String(n));
+const cloudMoney = async () => (await (await fetch(BASE + '/api/save', { headers: WHO })).json()).save?.data?.money;
+const hide = (d) => d.page.evaluate(() => {
+	Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+	document.dispatchEvent(new Event('visibilitychange'));
+});
+const show = (d) => d.page.evaluate(() => {
+	Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+	document.dispatchEvent(new Event('visibilitychange'));
+});
+await open(a);
+await open(b);
+check('Both devices agree before the test', !(await offer(a)) && !(await offer(b)) && (await getList(a)) === (await getList(b)));
+await money(a, 500);
+await open(a);
+check('A uploads its coins', (await cloudMoney()) === '500', `cloud has ${await cloudMoney()}`);
+await money(b, 7);
+await hide(b);
+await sleep(1500);
+check('A stale device cannot overwrite newer progress', (await cloudMoney()) === '500', `cloud has ${await cloudMoney()}`);
+await open(b);
+check('The stale device is asked which to keep', await offer(b));
+await b.page.click('#cloud-use-btn');
+await sleep(1500);
+check('Taking the cloud copy brings the coins over', (await b.page.evaluate(() => localStorage.getItem('money'))) === '500');
+
+// Hidden then shown without a reload: the upload sent on leaving counts, and nothing is asked.
+await money(a, 600);
+await hide(a);
+await sleep(1500);
+await show(a);
+await sleep(1500);
+check('An upload on leaving reaches the cloud', (await cloudMoney()) === '600', `cloud has ${await cloudMoney()}`);
+await money(a, 650);
+await open(a);
+check('…and the next upload is not refused', !(await offer(a)) && (await cloudMoney()) === '650', `cloud has ${await cloudMoney()}`);
+
+// The Worker refuses a write over a save it has changed since (base), and a smaller save from a
+// page that sends no base, unless the player chose it.
+const put = (body) => fetch(BASE + '/api/save', { method: 'PUT', headers: { ...WHO, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const stale = await put({ data: { pokemonlist: 'N1|N4|N7|N25|N150' }, base: 1 });
+check('The Worker refuses a write over a newer save', stale.status === 409 && (await cloudCount()) === 4);
+const shrink = await put({ data: { pokemonlist: 'N1' } });
+check('The Worker refuses a smaller save from an old page', shrink.status === 409 && (await cloudCount()) === 4);
+const grow = await put({ data: { pokemonlist: 'N1|N4|N7|N25|N150' } });
+check('…and still takes a bigger one', grow.status === 200 && (await cloudCount()) === 5);
 
 await browser.close();
 const failed = results.filter((ok) => !ok).length;

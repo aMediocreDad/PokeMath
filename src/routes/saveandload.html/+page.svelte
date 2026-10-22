@@ -3,6 +3,7 @@
 	import { loadAchievements } from '#lib/achievements.js';
 	import { toast, notify } from '#lib/toast.svelte.js';
 	import { createBackup, parseOldBackup, restoreBackup } from '#lib/backup.js';
+	import { syncNow } from '#lib/cloudSave.svelte.js';
 
 	function snoozeReminderThreeDays() {
 		const until = new Date();
@@ -45,11 +46,11 @@
 			player.load();
 			loadAchievements();
 			announceRestore();
+			syncNow();
 		} catch (error) {
 			console.warn('Prøver å laste inn dataen din med en gammel versjon...', error);
 			try {
-				restoreOldBackup(contents);
-				alert('Dataen din ble lastet inn ved bruk av den gamle versjonen!');
+				if (restoreOldBackup(contents)) alert('Dataen din ble lastet inn ved bruk av den gamle versjonen!');
 			} catch (oldError) {
 				console.error('Error restoring LocalStorage data:', oldError);
 				alert('Det oppstod en feil når vi prøvde å laste inn dataen din... Kontakt PokeMorten og send inn filen din!');
@@ -57,24 +58,34 @@
 		}
 	}
 
+	/** An old file's comma list, without the empty entry that splitting '' gives. */
+	const list = (/** @type {string} */ text) => (text || '').split(',').filter((item) => item.trim() !== '');
+
 	/**
-	 * handleOldFileLoad() from static/saveandload.js.
+	 * handleOldFileLoad() from static/saveandload.js, with the same "most Pokémon wins" rule as the
+	 * current format.
 	 * @param {string} contents
+	 * @returns {boolean} whether it was loaded
 	 */
 	function restoreOldBackup(contents) {
 		const backup = parseOldBackup(contents);
 		const { state, shop } = backup;
+		const incoming = list(state.pkmnList).length;
+		if (incoming < player.pkmnList.length) {
+			alert(`Filen har ${incoming} Pokémon, men du har allerede ${player.pkmnList.length} her. Ingen data ble overskrevet – du beholder versjonen med flest Pokémon.`);
+			return false;
+		}
 
 		player.username = state.username;
 		player.money = Number(state.totalScore) || 0;
-		player.pkmnList = state.pkmnList.split(',');
+		player.pkmnList = list(state.pkmnList);
 		player.tiersSolved = [state.t1, state.t2, state.t3, state.t4, state.t5].map((n) => Number(n) || 0);
 		player.customSolved = Number(state.customSolved) || 0;
 		player.background = shop.background;
 		player.playerIcon = shop.playerIcon;
-		player.boughtBackgrounds = shop.boughtBackgrounds.split(',');
-		player.boughtPlayerIcons = shop.boughtPlayerIcons.split(',');
-		player.claimedSecrets = shop.claimedSecrets.split(',');
+		player.boughtBackgrounds = list(shop.boughtBackgrounds);
+		player.boughtPlayerIcons = list(shop.boughtPlayerIcons);
+		player.claimedSecrets = list(shop.claimedSecrets);
 		player.shinyLevel = Number(shop.shinyLevel) || 1;
 		player.mythicLevel = Number(shop.mythicLevel) || 0;
 		player.legendLevel = Number(shop.legendLevel) || 0;
@@ -95,6 +106,8 @@
 		toast('Dataen din har blitt lastet inn!');
 		announceRestore();
 		snoozeReminderThreeDays();
+		syncNow();
+		return true;
 	}
 </script>
 

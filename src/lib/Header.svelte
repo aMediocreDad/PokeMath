@@ -7,7 +7,7 @@
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
 	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
-	import { acceptedOldNotice, setLegacySaveFlag } from '#lib/storage.js';
+	import { acceptedOldNotice, setLegacySaveFlag, writeSaveData } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
 	let showCookieNotice = $state(false);
@@ -52,7 +52,7 @@
 		const backupCount = countPokemon(found.data.pokemonlist);
 		const currentCount = countPokemon(localStorage.getItem('pokemonlist'));
 		if (backupCount < currentCount && !confirm(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`)) return;
-		for (const [key, value] of Object.entries(found.data)) localStorage.setItem(key, value);
+		writeSaveData(found.data);
 		restore = null;
 		location.reload();
 	}

@@ -1,15 +1,31 @@
 // Backup files (.pkmth), ported from static/saveandload.js.
 //
-// Current format: every localStorage key as JSON, base64-encoded with btoa().
+// Current format: every localStorage key as JSON, base64-encoded with btoa(). The keys that belong
+// to the device (DEVICE_KEYS, like the cloud-save note and a teacher's login) are left out, and
+// skipped when an older file that has them is restored. The JSON is encoded as UTF-8 first, so a
+// name with an emoji in it can be saved; files from the legacy page are read either way.
 // Old format: base64 of "state|...*SPLIT*shop|...*SPLIT*xmas*SPLIT*badges*SPLIT*codes".
+import { saveData, writeSaveData } from '#lib/storage.js';
+
+/** base64 of the UTF-8 bytes: btoa() alone throws on anything past Latin-1. */
+const encode = (/** @type {string} */ text) => btoa(unescape(encodeURIComponent(text)));
+
+/** Reads both encode() and the legacy page's plain btoa(), which has Latin-1 like "ø" as one byte. */
+function decode(/** @type {string} */ contents) {
+	const bytes = atob(contents);
+	try {
+		return decodeURIComponent(escape(bytes));
+	} catch {
+		return bytes;
+	}
+}
 
 /**
  * saveLocalStorageToFile(): the file name and contents for a backup of everything in localStorage.
  * @param {string} username  The loaded player name, as in the legacy page.
  */
 export function createBackup(username) {
-	const data = Object.fromEntries(Object.entries(localStorage));
-	const contents = btoa(JSON.stringify(data));
+	const contents = encode(JSON.stringify(saveData()));
 
 	const date = new Date();
 	date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
@@ -26,14 +42,14 @@ export function createBackup(username) {
  * @param {string} contents
  */
 export function restoreBackup(contents) {
-	const data = JSON.parse(atob(contents));
+	const data = JSON.parse(decode(contents));
 	// Most Pokémon wins (live saveandload.js, 2026-10): a file with fewer Pokémon than this device
 	// has is not loaded.
 	const count = (/** @type {string | null | undefined} */ list) => (list || '').split('|').filter((p) => p.trim()).length;
 	const incoming = count(data.pokemonlist);
 	const current = count(localStorage.getItem('pokemonlist'));
 	if (incoming < current) return { refused: true, incoming, current };
-	for (const [key, value] of Object.entries(data)) localStorage.setItem(key, value);
+	writeSaveData(data);
 	return { refused: false, incoming, current };
 }
 
@@ -53,7 +69,7 @@ export function restoreBackup(contents) {
  * @returns {OldBackup}
  */
 export function parseOldBackup(contents) {
-	const text = atob(contents);
+	const text = decode(contents);
 	if (!text) throw new Error('Filen du lastet opp hadde ingenting vi kunne lese.');
 	const parts = text.split('*SPLIT*');
 	if (parts.length < 2) throw new Error('Filen du lastet opp er satt sammen på feil måte.');
