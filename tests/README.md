@@ -12,6 +12,8 @@ image fallback. `tests/serve-build.sh` serves the old in-memory mock in `dev/` i
   Worker treats every request as `laerer@test.no`, a teacher; an `x-dev-email` header makes it
   someone else. The old mock in `dev/` still expects password logins and fails the teacher part.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
+- `cloud-save-check.mjs`: two devices on one login; progress moves over, and an empty or
+  smaller save never replaces a bigger one without the player choosing.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
   touch checks per page. Stale since the redesign, against the mock as much as the Worker:

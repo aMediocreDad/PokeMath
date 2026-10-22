@@ -4,6 +4,7 @@
 // Cloudflare Access login. After that check, files in build/ are served as they are.
 import { identify } from './access.js';
 import * as core from './core.js';
+import * as saves from './saves.js';
 import * as teacher from './teacher.js';
 
 export { BingoHub } from './bingo.js';
@@ -22,7 +23,10 @@ export default {
 			return ns.get(ns.idFromName('hub')).fetch(request);
 		}
 
-		const response = (await core.route(url, request, env, who)) ?? (await teacher.route(url, request, env, who));
+		const response =
+			(await core.route(url, request, env, who)) ??
+			(await saves.route(url, request, env, who)) ??
+			(await teacher.route(url, request, env, who));
 		if (response) return response;
 
 		const file = await env.ASSETS.fetch(request);

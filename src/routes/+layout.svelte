@@ -9,6 +9,7 @@
 	import { trackEvent } from '#lib/track.js';
 	import { getOrCreateUUID } from '#lib/uuid.js';
 	import { loadMe } from '#lib/me.svelte.js';
+	import { startCloudSave } from '#lib/cloudSave.svelte.js';
 	// Bundled with the site, so no pupil's browser has to ask a third party for it.
 	import '@fontsource/lilita-one/400.css';
 
@@ -27,7 +28,11 @@
 		// waits a moment, as the live site does while its header loads, so the game draws its first
 		// problem before an id is made from the same random numbers.
 		const idTimer = setTimeout(() => getOrCreateUUID(), 0);
-		return () => clearTimeout(idTimer);
+		const stopCloud = startCloudSave();
+		return () => {
+			clearTimeout(idTimer);
+			stopCloud();
+		};
 	});
 
 	// Once per page view, including navigation between Svelte pages.

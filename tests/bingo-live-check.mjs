@@ -31,7 +31,8 @@ const cellCount = await teacher.locator("#bingoCard td[data-cell-id]").count();
 check("7×7 board has 49 cells", cellCount === 49, `got ${cellCount}`);
 
 async function student(name) {
-	const ctx = await browser.newContext({ ...devices["iPhone 13"] });
+	// Each student is their own Access login, so they do not share a cloud save.
+	const ctx = await browser.newContext({ ...devices["iPhone 13"], extraHTTPHeaders: { "x-dev-email": `${name.toLowerCase()}-${Date.now()}@test.no` } });
 	await ctx.addCookies([{ name: "cookies", value: "true", url: BASE }]);
 	await ctx.addInitScript((n) => { if (!localStorage.getItem("username")) localStorage.setItem("username", n); }, name);
 	const page = await ctx.newPage();

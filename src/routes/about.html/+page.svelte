@@ -99,7 +99,7 @@
 			<p>Dette er en privat kopi av PokéMath, laget av Tirco og videreutviklet for bruk i familien. Den er ikke åpen for alle: bare de som er invitert kan logge inn. Spørsmål om kopien går til den som inviterte deg.</p>
 			<h3>Kort oppsummert</h3>
 			<ul>
-			<li>Spilldata (Pokémon, mynter, fremgang) ligger i din egen nettleser.</li>
+			<li>Spilldata (Pokémon, mynter, fremgang) ligger i nettleseren din, og en kopi lagres i skyen så du kan spille videre på en annen enhet.</li>
 			<li>Serveren lagrer en anonym spiller-ID, bingo-spill mens de pågår, og hemmelige koder lærerne lager.</li>
 			<li>Innlogging skjer med en engangskode på e-post, via Cloudflare.</li>
 			</ul>
@@ -114,10 +114,11 @@
 			<li>Oppgavestatistikk (antall løste oppgaver per nivå)</li>
 			<li>En tilfeldig generert, anonym spiller-ID (UUID)</li>
 			</ul>
-			<p>Spillet lager også en sikkerhetskopi av det samme i nettleserens <strong>IndexedDB</strong>, høyst hver tredje time. Hvis localStorage blir tømt, tilbyr spillet å hente fremdriften tilbake derfra. Ingen av delene sendes til serveren. Du kan slette alt ved å tømme nettstedsdata i nettleseren.</p>
+			<p>Spillet lager også en sikkerhetskopi av det samme i nettleserens <strong>IndexedDB</strong>, høyst hver tredje time. Hvis localStorage blir tømt, tilbyr spillet å hente fremdriften tilbake derfra. IndexedDB-kopien forlater aldri enheten. Du kan slette begge ved å tømme nettstedsdata i nettleseren.</p>
 			<h3>Hva lagres på serveren</h3>
 			<ul>
 			<li><strong>Spiller-ID</strong>: den anonyme IDen og en nøkkel som hører til den, første gang du åpner siden. IDen inneholder ingen personlig informasjon.</li>
+			<li><strong>Skylagring</strong>: en kopi av alt spillet lagrer i localStorage, koblet til e-postadressen du logger inn med. Den oppdateres omtrent hvert minutt mens du spiller, så du kan fortsette på en annen enhet. Bruker flere samme innlogging, deler de også lagringen.</li>
 			<li><strong>Felles telleverk</strong>: antall fangster i vår-eventet, uten kobling til hvem som fanget.</li>
 			<li><strong>Bingo</strong>: når du er med i et bingo-spill, lagres spiller-IDen, brukernavnet ditt, figuren din og Pokémon du fanger i spillet. Det ligger der til den som styrer bingoen avslutter spillet. Premier ligger der til spillet ditt har hentet dem.</li>
 			<li><strong>Lærere</strong>: e-postadressen fra innloggingen og de hemmelige kodene læreren lager. Den som drifter kopien bestemmer hvem som er lærer.</li>

@@ -6,6 +6,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
+	import { cloud, useCloud, keepDevice, decideLater } from '#lib/cloudSave.svelte.js';
 	import { hasCookieConsent } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 
@@ -13,15 +14,28 @@
 	let backupDue = $state(false);
 	let snoozeDays = $state('7');
 
+	/** The save was gone when the page opened (cleared history, or a new device). */
+	let saveMissing = false;
+
 	onMount(() => {
 		showCookieNotice = !hasCookieConsent();
-		// The save is gone (cleared history?): offer the IndexedDB copy, if there is one.
-		if (localStorage.getItem('pokemonlist') === null) {
-			readBackup().then((found) => {
-				if (found?.data?.pokemonlist) restore = found;
-			});
-		}
+		saveMissing = localStorage.getItem('pokemonlist') === null;
 	});
+
+	// With no save, offer the IndexedDB copy, but only once the cloud copy has been checked and
+	// not offered: one question at a time, and the cloud copy first.
+	let backupChecked = false;
+	$effect(() => {
+		if (!cloud.checked || backupChecked) return;
+		backupChecked = true;
+		if (!saveMissing || cloud.offer) return;
+		readBackup().then((found) => {
+			if (found?.data?.pokemonlist) restore = found;
+		});
+	});
+
+	/** @param {number} at */
+	const when = (at) => new Date(at).toLocaleString('nb-NO', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 
 	/** @type {import('#lib/idbBackup.js').Snapshot | null} A backup to offer, when the save is gone. */
 	let restore = $state(null);
@@ -234,6 +248,35 @@
 			<div class="snooze">
 				<button id="idb-delete-btn" class="pm-button secondary" onclick={dropBackup}>Slett backup</button>
 				<button id="idb-close-btn" class="pm-button secondary" onclick={() => (restore = null)}>Lukk</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if cloud.offer}
+	<div id="cloud-offer" class="backdrop">
+		<div class="reminder" role="dialog" aria-labelledby="cloud-title">
+			{#if cloud.offer.kind === 'restore'}
+				<h2 id="cloud-title">Fortsett der du slapp?</h2>
+				<p>
+					Det finnes en lagring i skyen med <strong>{cloud.offer.cloud.pokemon}</strong> Pokémon, sist lagret
+					{when(cloud.offer.cloud.updatedAt)}.
+				</p>
+				<button id="cloud-use-btn" class="pm-button" onclick={() => cloud.offer && useCloud(cloud.offer.cloud)}>Hent lagringen</button>
+			{:else}
+				<h2 id="cloud-title">To ulike lagringer</h2>
+				<p>
+					Denne enheten har <strong>{cloud.offer.local}</strong> Pokémon. Lagringen i skyen har
+					<strong>{cloud.offer.cloud.pokemon}</strong>, sist lagret {when(cloud.offer.cloud.updatedAt)}. Hvilken vil du fortsette
+					med? Den andre blir borte.
+				</p>
+				<div class="actions centered">
+					<button id="cloud-use-btn" class="pm-button" onclick={() => cloud.offer && useCloud(cloud.offer.cloud)}>Skyen ({cloud.offer.cloud.pokemon})</button>
+					<button id="cloud-keep-btn" class="pm-button secondary" onclick={keepDevice}>Denne enheten ({cloud.offer.local})</button>
+				</div>
+			{/if}
+			<div class="snooze centered">
+				<button id="cloud-later-btn" class="pm-button secondary" onclick={decideLater}>Ikke nå</button>
 			</div>
 		</div>
 	</div>
@@ -560,6 +603,10 @@
 		place-items: center;
 		padding: 16px;
 		background: oklch(0.28 0.035 265 / 0.55);
+	}
+	.actions.centered,
+	.snooze.centered {
+		justify-content: center;
 	}
 	.backdrop.hidden {
 		display: none;
