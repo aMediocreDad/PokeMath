@@ -95,55 +95,117 @@
 
 	<section id="privacy" class="panel pm-surface">
 		<h2>Personvernerklæring</h2>
-			<p>Sist oppdatert: oktober 2026</p>
-			<p>Dette er en privat kopi av PokéMath, laget av Tirco og videreutviklet for bruk i familien. Den er ikke åpen for alle: bare de som er invitert kan logge inn. Spørsmål om kopien går til den som inviterte deg.</p>
-			<h3>Kort oppsummert</h3>
-			<ul>
-			<li>Spilldata (Pokémon, mynter, fremgang) ligger i nettleseren din, og en kopi lagres i skyen så du kan spille videre på en annen enhet.</li>
-			<li>Serveren lagrer en anonym spiller-ID, bingo-spill mens de pågår, og hemmelige koder lærerne lager.</li>
-			<li>Barn logger inn med en kode de får av en voksen; voksne logger inn med en engangskode på e-post.</li>
-			</ul>
-			<h3>Innlogging</h3>
-			<p>Ingenting på siden vises uten innlogging. Det finnes to måter å logge inn på:</p>
-			<ul>
-			<li><strong>Med kode</strong>: en voksen lager en kode til barnet på lærersiden. Serveren lagrer barnets navn og en tilfeldig ID, men ikke selve koden, bare et fingeravtrykk av den. Feil koder telles per nettverksadresse i et kvarter, for å hindre gjetting.</li>
-			<li><strong>Med e-post</strong>: Cloudflare Access sender en engangskode til e-postadressen din. Cloudflare behandler e-postadressen og IP-adressen din for å gjøre dette, og bare e-postadresser som er lagt inn på forhånd, slipper inn.</li>
-			</ul>
-			<p>Etterpå husker siden innloggingen med en nødvendig informasjonskapsel (cookie): i et år for en kode, i tre måneder for e-post, eller til du logger ut. Når du logger ut, lagres spillet i skyen og fjernes fra enheten, så neste person starter med sin egen lagring.</p>
-			<h3>Hva lagres på enheten din</h3>
-			<p>Spillet lagrer fremdriften din i nettleserens <strong>localStorage</strong>:</p>
-			<ul>
-			<li>Pokémon du har fanget</li>
-			<li>Mynter og kjøpte butikkgjenstander (bakgrunner, figurer, Stardust o.l.)</li>
-			<li>Brukernavn du selv har satt</li>
-			<li>Oppgavestatistikk (antall løste oppgaver per nivå)</li>
-			<li>En tilfeldig generert, anonym spiller-ID (UUID)</li>
-			</ul>
-			<p>Spillet lager også en sikkerhetskopi av det samme i nettleserens <strong>IndexedDB</strong>, høyst hver tredje time. Hvis localStorage blir tømt, tilbyr spillet å hente fremdriften tilbake derfra. IndexedDB-kopien forlater aldri enheten. Du kan slette begge ved å tømme nettstedsdata i nettleseren.</p>
-			<h3>Hva lagres på serveren</h3>
-			<ul>
-			<li><strong>Spiller-ID</strong>: den anonyme IDen og en nøkkel som hører til den, første gang du åpner siden. IDen inneholder ingen personlig informasjon.</li>
-			<li><strong>Skylagring</strong>: en kopi av alt spillet lagrer i localStorage, koblet til innloggingen din, enten e-post eller kode. Den oppdateres omtrent hvert minutt mens du spiller, så du kan fortsette på en annen enhet. Bruker flere samme innlogging, deler de også lagringen.</li>
-			<li><strong>Felles telleverk</strong>: antall fangster i vår-eventet, uten kobling til hvem som fanget.</li>
-			<li><strong>Bingo</strong>: når du er med i et bingo-spill, lagres spiller-IDen, brukernavnet ditt, figuren din og Pokémon du fanger i spillet. Det ligger der til den som styrer bingoen avslutter spillet. Premier ligger der til spillet ditt har hentet dem.</li>
-			<li><strong>Lærere</strong>: e-postadressen fra innloggingen og de hemmelige kodene læreren lager. Den som drifter kopien bestemmer hvem som er lærer.</li>
-			</ul>
-			<p>Hemmelige koder sjekkes mot serveren, men det lagres ikke hvem som har brukt dem.</p>
-			<p>Dataene lagres hos Cloudflare i EU. Cloudflare fører i tillegg tekniske logger over forespørsler en kort periode, til feilsøking.</p>
-			<h3>Tredjeparter</h3>
-			<ul>
-			<li><strong>Cloudflare</strong> driver siden, databasen og innloggingen. Se Cloudflares <a href="https://www.cloudflare.com/privacypolicy/">personvernregler</a>.</li>
-			<li><strong>QR-koder</strong> på bingo- og figursidene lages av <a href="https://goqr.me/">api.qrserver.com</a>, som da får lenken QR-koden viser.</li>
-			<li><strong>PayPal</strong>: donasjonsknappen går til Tirco, som laget PokéMath. PayPals egne regler gjelder om du bruker den.</li>
-			<li><strong>Pokémon-data og bilder</strong> kommer fra <a href="https://pokeapi.co/">PokéAPI</a>, <a href="https://github.com/poketwo/poketwo">Pokétwo</a>, <a href="https://nintendo.fandom.com/">Nintendo Fandom Wiki</a> og <a href="https://pokemondb.net/">PokémonDB</a>, og ligger på siden selv. Nettleseren din spør ikke disse direkte.</li>
-			</ul>
-			<h3>Barn</h3>
-			<p>Barn kan bruke siden. Det samles ikke inn navn eller e-post fra barna selv, utover e-posten som brukes til innlogging. Brukernavnet i spillet er valgfritt og trenger ikke være et ekte navn.</p>
-			<h3>Dine rettigheter</h3>
-			<ul>
-			<li>Du kan slette alle lokale data ved å tømme nettstedsdata i nettleseren.</li>
-			<li>Du kan be den som inviterte deg om innsyn i eller sletting av data knyttet til spiller-IDen eller e-postadressen din.</li>
-			</ul>
+		<p class="muted">Sist oppdatert: 22. oktober 2026</p>
+		<p>
+			Dette er en privat kopi av PokéMath, laget av Tirco og videreutviklet for bruk i familien og blant venner. Bare de
+			som er invitert, kan logge inn. Den som drifter kopien og inviterte deg, er ansvarlig for opplysningene, og
+			spørsmål om personvern går dit.
+		</p>
+
+		<h3>Kort oppsummert</h3>
+		<ul>
+			<li>Spillet lagres i nettleseren din, og en kopi lagres i skyen sammen med innloggingen din.</li>
+			<li>Det er ingen reklame, ingen sporing og ingen analyseverktøy.</li>
+			<li>Alt lagres hos Cloudflare i EU, og ingenting deles med andre.</li>
+		</ul>
+
+		<h3>Innlogging</h3>
+		<p>Ingenting på siden vises uten innlogging. Det finnes to måter å logge inn på:</p>
+		<ul>
+			<li>
+				<strong>Med kode</strong>: en voksen lager en kode til barnet på lærersiden. Serveren lagrer barnets navn, en
+				tilfeldig ID og hvem som laget koden, men ikke selve koden, bare et fingeravtrykk av den.
+			</li>
+			<li>
+				<strong>Med e-post</strong>: Cloudflare Access sender en engangskode til e-postadressen din. Bare e-postadresser
+				som er lagt inn på forhånd, slipper inn.
+			</li>
+		</ul>
+		<p>
+			Feil koder telles per nettverksadresse (IP-adresse) i et kvarter, for å hindre gjetting. Når du logger ut, lagres
+			spillet i skyen og fjernes fra enheten, så neste person starter med sin egen lagring.
+		</p>
+
+		<h3>Informasjonskapsler (cookies)</h3>
+		<p>Siden bruker bare informasjonskapsler som trengs for at den skal virke. Ingen av dem brukes til sporing.</p>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Navn</th><th>Hva den gjør</th><th>Varighet</th></tr></thead>
+				<tbody>
+					<tr><td><code>pm_session</code></td><td>Husker at du er logget inn.</td><td>Ett år med kode, tre måneder med e-post, eller til du logger ut</td></tr>
+					<tr><td><code>CF_Authorization</code></td><td>Settes av Cloudflare Access ved innlogging med e-post, og gjelder bare innloggingssiden.</td><td>Så lenge Access-økten varer</td></tr>
+					<tr><td><code>cookies</code></td><td>Lar de eldste sidene (jul og påske) lagre spillet.</td><td>Tre måneder</td></tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h3>Hva lagres på enheten din</h3>
+		<p>Spillet lagrer fremdriften i nettleserens <strong>localStorage</strong>:</p>
+		<ul>
+			<li>Pokémon du har fanget, mynter og ting du har kjøpt i butikken</li>
+			<li>Brukernavnet du selv har satt, og figuren din</li>
+			<li>Hvor mange oppgaver du har løst per nivå</li>
+			<li>En tilfeldig, anonym spiller-ID</li>
+			<li>Koden til bingo-spillet du er med i</li>
+		</ul>
+		<p>
+			Spillet lager også en sikkerhetskopi av det samme i nettleserens <strong>IndexedDB</strong>, høyst hver tredje time.
+			Den kopien forlater aldri enheten. Du kan slette begge ved å tømme nettstedsdata i nettleseren.
+		</p>
+
+		<h3>Hva lagres på serveren, og hvor lenge</h3>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Hva</th><th>Innhold</th><th>Slettes</th></tr></thead>
+				<tbody>
+					<tr><td>Skylagring</td><td>En kopi av spillet fra localStorage, koblet til innloggingen. Oppdateres omtrent hvert minutt mens du spiller.</td><td>Når den voksne fjerner barnet og velger å slette lagringen, eller på forespørsel</td></tr>
+					<tr><td>Innlogginger</td><td>Hvem som er logget inn (e-post eller barnets navn) og når innloggingen går ut.</td><td>Når du logger ut, eller når innloggingen går ut</td></tr>
+					<tr><td>Barn</td><td>Navnet den voksne skrev inn, fingeravtrykket av koden og hvem som laget den.</td><td>Når den voksne fjerner barnet</td></tr>
+					<tr><td>Feil koder</td><td>IP-adresse og antall feil.</td><td>Etter et kvarter</td></tr>
+					<tr><td>Lærere</td><td>E-postadressen og de hemmelige kodene læreren lager.</td><td>På forespørsel</td></tr>
+					<tr><td>Spiller-ID</td><td>Den anonyme IDen. Jule- og påskesidene sender også brukernavn, poeng og antall fangster.</td><td>På forespørsel</td></tr>
+					<tr><td>Bingo</td><td>Spiller-ID, brukernavn, figur og fangster i spillet.</td><td>Når bingoen avsluttes, eller etter et døgn uten aktivitet. Premier som ikke er hentet, etter en måned</td></tr>
+					<tr><td>Felles telleverk</td><td>Antall fangster i vår-eventet, uten kobling til hvem som fanget.</td><td>Beholdes, siden den ikke sier noe om noen</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<p>Hemmelige koder sjekkes mot serveren, men det lagres ikke hvem som har brukt dem.</p>
+		<p>
+			Cloudflare fører i tillegg tekniske logger over forespørsler en kort periode, til feilsøking. Loggene kan
+			inneholde brukernavn og e-postadresse.
+		</p>
+
+		<h3>Tredjeparter</h3>
+		<ul>
+			<li>
+				<strong>Cloudflare</strong> driver siden, databasen og innloggingen, som databehandler. Dataene lagres i EU. Se
+				<a href="/dpa.html">databehandling</a> og Cloudflares <a href="https://www.cloudflare.com/privacypolicy/">personvernregler</a>.
+			</li>
+			<li><strong>QR-koder</strong> lages i nettleseren din. Lenken i dem sendes ikke til noen.</li>
+			<li><strong>PayPal</strong>: donasjonsknappen går til Tirco. PayPals egne regler gjelder om du bruker den.</li>
+			<li>
+				<strong>Pokémon-data og bilder</strong> kommer fra <a href="https://pokeapi.co/">PokéAPI</a>,
+				<a href="https://github.com/poketwo/poketwo">Pokétwo</a>, <a href="https://nintendo.fandom.com/">Nintendo Fandom Wiki</a>
+				og <a href="https://pokemondb.net/">PokémonDB</a>, og ligger på siden selv. Nettleseren din spør ikke disse direkte.
+			</li>
+		</ul>
+
+		<h3>Barn</h3>
+		<p>
+			Barn spiller med en kode som en voksen lager. Det eneste som lagres om barnet, er navnet den voksne skriver inn og
+			brukernavnet barnet velger i spillet. Ingen av dem trenger å være et ekte navn.
+		</p>
+
+		<h3>Dine rettigheter</h3>
+		<ul>
+			<li>Du kan slette alt som ligger på enheten ved å tømme nettstedsdata i nettleseren.</li>
+			<li>
+				Du kan be den som inviterte deg om innsyn i, retting av eller sletting av opplysninger om deg eller barnet ditt.
+			</li>
+			<li>
+				Mener du at opplysningene behandles feil, kan du klage til <a href="https://www.datatilsynet.no/">Datatilsynet</a>.
+			</li>
+		</ul>
 	</section>
 
 	<p class="secret"><a href="redeem.html" aria-label="Hemmelige koder">:)</a></p>
@@ -192,6 +254,33 @@
 	.panel :global(ul) {
 		margin: 0 0 10px;
 		padding-left: 22px;
+	}
+	.muted {
+		color: var(--pm-ink-soft);
+	}
+	/* Wide tables scroll inside the panel on a phone instead of widening the page. */
+	.table-wrap {
+		margin: 0 0 12px;
+		overflow-x: auto;
+	}
+	table {
+		width: 100%;
+		min-width: 520px;
+		border-collapse: collapse;
+		font-size: 15px;
+	}
+	th,
+	td {
+		padding: 8px 10px 8px 0;
+		border-bottom: 1px solid var(--pm-line);
+		text-align: left;
+		vertical-align: top;
+	}
+	th {
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
 	}
 	.credits {
 		color: var(--pm-ink-soft);
