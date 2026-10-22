@@ -1,4 +1,4 @@
-// End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round.
+// End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round and a raid.
 const WebSocket = require("ws");
 const BASE = process.argv[2];
 const WS = BASE.replace("http", "ws") + "/ws";
@@ -23,15 +23,27 @@ function client() {
     ws,
     open: () => new Promise((r) => ws.on("open", r)),
     send: (m) => ws.send(JSON.stringify(m)),
-    next: (type) => {
+    next: (type, ms = 2000) => {
       const i = inbox.findIndex((m) => m.type === type);
       if (i >= 0) return Promise.resolve(inbox.splice(i, 1)[0]);
       return new Promise((resolve, reject) => {
-        waiters.push({ type, resolve });
-        setTimeout(() => reject(new Error("timeout waiting for " + type)), 2000);
+        const waiter = { type, resolve };
+        waiters.push(waiter);
+        setTimeout(() => {
+          // A waiter that timed out must not take a later message.
+          const at = waiters.indexOf(waiter);
+          if (at >= 0) waiters.splice(at, 1);
+          reject(new Error("timeout waiting for " + type));
+        }, ms);
       });
     },
   };
+}
+
+/** Passes when no message of this type arrives within a short wait. */
+async function assertSilent(c, type, label) {
+  const arrived = await c.next(type, 600).then(() => true, () => false);
+  assert(!arrived, label);
 }
 
 (async () => {
@@ -135,6 +147,60 @@ function client() {
   assert(/ugyldig/i.test((await host.next("error")).message), "bad teacher session rejected");
 
   host.ws.close(); player.ws.close();
+
+  // Raid round: two children beat the boss together, and both catch it.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const rhost = client();
+  await rhost.open();
+  rhost.send({ type: "hostCreateRaid", teacherSession: token, settings: { boss: 150, length: "short", className: "5B" } });
+  const raid = await rhost.next("raidState");
+  assert(raid.kind === "raid" && raid.raid.phase === "lobby" && raid.raid.bossId === 150, "raid created in the lobby phase");
+  const kids = [crypto.randomUUID(), crypto.randomUUID()];
+  const sockets = [];
+  for (const [i, id] of kids.entries()) {
+    const c = client();
+    await c.open();
+    c.send({ type: "joinLobby", code: raid.code, uuid: id, name: `Barn${i}`, icon: "" });
+    const joined = await c.next("joinResult");
+    assert(joined.ok && joined.kind === "raid" && joined.raid.phase === "lobby", `child ${i} joined the raid`);
+    sockets.push(c);
+  }
+  sockets[0].send({ type: "raidHit", code: raid.code, uuid: kids[0] });
+  await assertSilent(rhost, "raidHit", "a hit before the start does nothing");
+  sockets[0].send({ type: "catchPokemon", code: raid.code, uuid: kids[0], name: "Barn0", pokemonCode: "N25", pokedexId: 25, pokemonName: "Pikachu", types: [], flags: {}, difficulty: "stage3" });
+  await assertSilent(rhost, "toastCatch", "a catch in a raid is ignored");
+  rhost.send({ type: "hostMarkCell", teacherSession: token, code: raid.code, cellId: "free", mark: true });
+  await assertSilent(rhost, "boardUpdate", "bingo-only host messages ignore a raid");
+
+  rhost.send({ type: "hostStartRaid", teacherSession: token, code: raid.code });
+  const started = await rhost.next("raidState");
+  assert(started.raid.phase === "fight" && started.raid.maxHp === 20 && started.raid.hp === 20, "start sets 10 health per child");
+  assert((await sockets[1].next("raidUpdate")).raid.phase === "fight", "children hear the raid started");
+
+  sockets[0].send({ type: "raidHit", code: raid.code, uuid: kids[0] });
+  sockets[0].send({ type: "raidHit", code: raid.code, uuid: kids[0] });
+  const first = await rhost.next("raidHit");
+  await assertSilent(rhost, "raidHit", "a second hit within a second is dropped");
+  assert(first.raid.hp === 19 && first.name === "Barn0", "a hit takes one health");
+  for (let round = 0; round < 10; round++) {
+    await sleep(1050);
+    for (const [i, id] of kids.entries()) if (round < 9 || i === 1) sockets[i].send({ type: "raidHit", code: raid.code, uuid: id });
+  }
+  const won = await rhost.next("raidWon");
+  assert(won.raid.phase === "won" && won.raid.hp === 0 && won.winners.length === 2, "the class beats the boss together");
+  await sockets[0].next("bingoReward");
+  for (const id of kids) {
+    const prizes = (await j(`/bingo/claim-prizes?uuid=${id}`)).body.prizes;
+    assert(/^[NS]150$/.test(prizes[0]?.entry) && prizes[1]?.type === "coins", "every child who hit catches the boss");
+  }
+  const late = client();
+  await late.open();
+  late.send({ type: "joinLobby", code: raid.code, uuid: crypto.randomUUID(), name: "Sen", icon: "" });
+  assert((await late.next("joinResult")).ok === false, "no joining after the win");
+  rhost.send({ type: "hostEndLobby", teacherSession: token, code: raid.code });
+  await sockets[0].next("ended");
+  assert(true, "children told the raid ended");
+  for (const c of [rhost, late, ...sockets]) c.ws.close();
 
   // The login gate: x-dev-anonymous makes a request logged out, as on the real site.
   const anon = { "x-dev-anonymous": "1" };

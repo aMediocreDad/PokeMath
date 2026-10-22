@@ -1,5 +1,6 @@
 // Classroom bingo, ported from dev/bingo.js: the /ws WebSocket used by the teacher's host page
-// and the players' game page, plus GET /bingo/claim-prizes.
+// and the players' game page, plus GET /bingo/claim-prizes. The class raid (worker/raid.js) runs
+// in the same object as a room of kind "raid"; bingo-only handlers ignore raid rooms.
 //
 // One Durable Object holds every lobby. The client names its lobby only in messages sent after
 // the socket opens, so the Worker cannot pick a lobby's object when the socket connects; at
@@ -8,6 +9,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import bingoTasks from '../static/bingo-tasks.js';
 import { log } from './http.js';
+import { hit, newRaid, raidPrizes, raidState, startRaid } from './raid.js';
 import { sessionTeacher } from './teacher.js';
 
 const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025];
@@ -229,7 +231,25 @@ export class BingoHub extends DurableObject {
 	}
 
 	snapshot(room) {
-		return { code: room.code, board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches };
+		if (room.kind === 'raid') return { kind: 'raid', code: room.code, className: room.settings.className || '', players: this.playerList(room), raid: raidState(room), recent: room.recent };
+		return { kind: 'bingo', code: room.code, board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches };
+	}
+
+	/** @param {string} code @param {unknown} msg */
+	toPlayers(code, msg) {
+		for (const ws of this.sockets((w) => w.role === 'player' && w.code === code)) send(ws, msg);
+	}
+
+	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
+	async awardRaid(room) {
+		const players = Object.values(room.players).filter((p) => p.catchCount > 0);
+		for (const player of players) {
+			const key = `prizes:${player.uuid}`;
+			const prizes = [...unwrapPrizes(await this.ctx.storage.get(key)), ...raidPrizes(room, player)];
+			await this.ctx.storage.put(key, { at: Date.now(), prizes });
+			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
+		}
+		return players.map((p) => p.name);
 	}
 
 	async makeCode() {
@@ -240,13 +260,17 @@ export class BingoHub extends DurableObject {
 		return code;
 	}
 
-	/** The lobby a host message names, once its teacher session checks out. */
-	async hostRoom(ws, msg) {
+	/**
+	 * The lobby a host message names, once its teacher session checks out.
+	 * @param {WebSocket} ws @param {any} msg @param {'bingo' | 'raid'} [kind] only a lobby of this kind
+	 */
+	async hostRoom(ws, msg, kind) {
 		if (!(await sessionTeacher(this.env, msg.teacherSession))) {
 			send(ws, BAD_SESSION);
 			return null;
 		}
-		return (await this.room(msg.code)) || null;
+		const room = (await this.room(msg.code)) || null;
+		return room && (!kind || (room.kind || 'bingo') === kind) ? room : null;
 	}
 }
 
@@ -270,11 +294,11 @@ const HANDLERS = {
 		const room = await this.room(msg.code);
 		if (!room) return send(ws, { type: 'lobbyNotFound', code: msg.code });
 		ws.serializeAttachment({ role: 'host', code: room.code });
-		send(ws, { type: 'lobbyState', ...this.snapshot(room), events: room.events });
+		send(ws, { type: room.kind === 'raid' ? 'raidState' : 'lobbyState', ...this.snapshot(room), events: room.events });
 	},
 
 	async hostMarkCell(ws, msg) {
-		const room = await this.hostRoom(ws, msg);
+		const room = await this.hostRoom(ws, msg, 'bingo');
 		const cell = room?.board.cells.find((c) => c.cellId === msg.cellId);
 		if (!cell || cell.free) return;
 		cell.marked = Boolean(msg.mark);
@@ -283,7 +307,7 @@ const HANDLERS = {
 	},
 
 	async hostLockLobby(ws, msg) {
-		const room = await this.hostRoom(ws, msg);
+		const room = await this.hostRoom(ws, msg, 'bingo');
 		if (!room || room.locked) return;
 		room.locked = true;
 		const { prize, perPlayer } = computePrize(room);
@@ -302,6 +326,8 @@ const HANDLERS = {
 	async hostEndLobby(ws, msg) {
 		const room = await this.hostRoom(ws, msg);
 		if (!room) return;
+		// A raid ended before the boss fell still pays every child for their hits.
+		if (room.kind === 'raid' && room.phase === 'fight') await this.awardRaid(room);
 		for (const p of this.sockets((w) => w.role === 'player' && w.code === room.code)) send(p, { type: 'ended' });
 		await this.ctx.storage.delete(`room:${room.code}`);
 		log('bingo', `rom ${room.code} avsluttet`);
@@ -341,20 +367,21 @@ const HANDLERS = {
 
 	async joinLobby(ws, msg) {
 		const room = await this.room(msg.code);
-		if (!room || room.locked || !msg.uuid) return send(ws, { type: 'joinResult', ok: false });
+		if (!room || room.locked || room.phase === 'won' || !msg.uuid) return send(ws, { type: 'joinResult', ok: false });
 		const existing = room.players[msg.uuid];
 		room.players[msg.uuid] = { uuid: msg.uuid, name: msg.name || 'Ash', icon: msg.icon || '', catchCount: existing?.catchCount || 0 };
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'player', code: room.code, uuid: msg.uuid });
 		if (!existing) log('bingo', `${msg.name} ble med i ${room.code}`);
-		send(ws, { type: 'joinResult', ok: true });
+		send(ws, { type: 'joinResult', ok: true, kind: room.kind || 'bingo', raid: room.kind === 'raid' ? raidState(room) : undefined });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
 
 	async catchPokemon(_ws, msg) {
 		const room = await this.room(msg.code);
 		const player = room?.players[msg.uuid];
-		if (!room || !player || room.locked) return;
+		// Children in a raid catch Pokémon too; only their correct answers count there (raidHit).
+		if (!room || !player || room.locked || room.kind === 'raid') return;
 
 		const minLevel = room.settings.minLevel || 'alle';
 		// "tilpasset" is the adaptive level. The settings page offers "only adaptive" and, for a
@@ -390,5 +417,43 @@ const HANDLERS = {
 		this.toHosts(room.code, { type: 'toastCatch', ...event, totalCatches: room.totalCatches, matchedCells: names, matchedCell: names[0] || null });
 		this.toHosts(room.code, { type: 'boardUpdate', board: room.board, totalCatches: room.totalCatches, lastEvent: event });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
+	},
+
+	// ── Raid ──
+
+	async hostCreateRaid(ws, msg) {
+		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
+		const room = newRaid(msg.settings || {}, await this.makeCode());
+		await this.saveRoom(room);
+		ws.serializeAttachment({ role: 'host', code: room.code });
+		log('raid', `raid ${room.code} opprettet (#${room.bossId})`);
+		send(ws, { type: 'raidState', ...this.snapshot(room) });
+	},
+
+	async hostStartRaid(ws, msg) {
+		const room = await this.hostRoom(ws, msg, 'raid');
+		if (!room || room.phase !== 'lobby') return;
+		startRaid(room);
+		await this.saveRoom(room);
+		log('raid', `raid ${room.code} startet, ${room.maxHp} liv`);
+		this.toHosts(room.code, { type: 'raidState', ...this.snapshot(room) });
+		this.toPlayers(room.code, { type: 'raidUpdate', raid: raidState(room) });
+	},
+
+	// Only storage calls may be awaited between reading and saving the room: the object's input
+	// gate then keeps two hits from interleaving, so none is lost and the win is awarded once.
+	async raidHit(_ws, msg) {
+		const room = await this.room(msg.code);
+		if (room?.kind !== 'raid' || !hit(room, msg.uuid, Date.now())) return;
+		const won = room.phase === 'won';
+		const winners = won ? await this.awardRaid(room) : [];
+		await this.saveRoom(room);
+		const player = room.players[msg.uuid];
+		this.toHosts(room.code, { type: 'raidHit', name: player.name, uuid: player.uuid, raid: raidState(room), players: this.playerList(room) });
+		this.toPlayers(room.code, { type: 'raidUpdate', raid: raidState(room) });
+		if (won) {
+			log('raid', `raid ${room.code} vunnet av ${winners.length}`);
+			this.toHosts(room.code, { type: 'raidWon', raid: raidState(room), winners });
+		}
 	},
 };
