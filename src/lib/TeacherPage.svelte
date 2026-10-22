@@ -150,9 +150,10 @@
 		color: var(--pm-red-deep);
 	}
 
+	/* Phones: the way back to the game wraps under the logo instead of disappearing. */
 	@media (max-width: 520px) {
-		.back {
-			display: none;
+		.teacher-header {
+			flex-wrap: wrap;
 		}
 	}
 </style>
