@@ -14,6 +14,13 @@ const GEN_END = [151, 251, 386, 493, 649, 721, 809, 905, 1025];
 const STAGE_ORDER = ['custom', 'stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
 const COIN_PRIZE = { easy: 5000, medium: 10000, hard: 25000, extreme: 35000, unik: 50000 };
 const MAX_EVENTS = 500;
+const HOUR = 60 * 60 * 1000;
+const CLEANUP_EVERY = 6 * HOUR;
+const ROOM_LIFETIME = 24 * HOUR;
+const PRIZE_LIFETIME = 30 * 24 * HOUR;
+
+/** Unclaimed prizes are stored as { at, prizes }; the first deploy stored the bare list. */
+const unwrapPrizes = (value) => (Array.isArray(value) ? value : value?.prizes || []);
 
 // The production server's category lists are not public; these are a reasonable stand-in.
 const CATEGORIES = {
@@ -128,7 +135,7 @@ export class BingoHub extends DurableObject {
 		const url = new URL(request.url);
 		if (url.pathname === '/bingo/claim-prizes') {
 			const key = `prizes:${url.searchParams.get('uuid') || ''}`;
-			const prizes = (await this.ctx.storage.get(key)) || [];
+			const prizes = unwrapPrizes(await this.ctx.storage.get(key));
 			await this.ctx.storage.delete(key);
 			return Response.json({ ok: true, prizes });
 		}
@@ -168,8 +175,33 @@ export class BingoHub extends DurableObject {
 		return code ? this.ctx.storage.get(`room:${String(code).toUpperCase()}`) : Promise.resolve(undefined);
 	}
 
-	saveRoom(room) {
-		return this.ctx.storage.put(`room:${room.code}`, room);
+	async saveRoom(room) {
+		room.updatedAt = Date.now();
+		await this.ctx.storage.put(`room:${room.code}`, room);
+		await this.scheduleCleanup();
+	}
+
+	async scheduleCleanup() {
+		if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + CLEANUP_EVERY);
+	}
+
+	/** Lobbies nobody has touched for a day, and prizes nobody has claimed for a month, go. */
+	async alarm() {
+		const now = Date.now();
+		let left = 0;
+		for (const [key, room] of await this.ctx.storage.list({ prefix: 'room:' })) {
+			if (now - (room.updatedAt || 0) > ROOM_LIFETIME) {
+				for (const p of this.sockets((w) => w.code === room.code)) send(p, { type: 'ended' });
+				await this.ctx.storage.delete(key);
+				log('bingo', `rom ${room.code} ryddet bort`);
+			} else left++;
+		}
+		for (const [key, value] of await this.ctx.storage.list({ prefix: 'prizes:' })) {
+			// A bare list from the first deploy has no date; it waits for its player.
+			if (!Array.isArray(value) && now - (value?.at || 0) > PRIZE_LIFETIME) await this.ctx.storage.delete(key);
+			else left++;
+		}
+		if (left) await this.ctx.storage.setAlarm(now + CLEANUP_EVERY);
 	}
 
 	/** Sockets whose attachment matches. @param {(who: any) => boolean} test */
@@ -258,7 +290,8 @@ const HANDLERS = {
 		const eligible = Object.values(room.players).filter((p) => p.catchCount > 0);
 		for (const player of eligible) {
 			const key = `prizes:${player.uuid}`;
-			await this.ctx.storage.put(key, [...((await this.ctx.storage.get(key)) || []), ...perPlayer(player)]);
+			const prizes = [...unwrapPrizes(await this.ctx.storage.get(key)), ...perPlayer(player)];
+			await this.ctx.storage.put(key, { at: Date.now(), prizes });
 			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
 		}
 		await this.saveRoom(room);
