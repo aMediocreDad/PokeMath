@@ -66,7 +66,7 @@
 <TeacherPage subtitle="Bingo · Innstillinger" back={{ href: '/lærer/index.html', label: 'Tilbake' }}>
 	<section class="panel warn">
 		<h1>Bingo er et eksperiment</h1>
-		<p>Dette er en testfunksjon. Ikke del sensitiv info. Data lagres på DreamHost-servere (utenfor Norge).</p>
+		<p>Dette er en testfunksjon. Ikke del sensitiv info. Data lagres hos Cloudflare i Europa.</p>
 	</section>
 
 	{#if loggedIn === false}

@@ -86,7 +86,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
-			registerStatus = { msg: data.message || 'Registrert! Vent på godkjenning.', kind: 'good' };
+			registerStatus = { msg: data.message || 'Registrert!', kind: 'good' };
 		} catch (e) {
 			registerStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
 		}
@@ -125,7 +125,7 @@
 			const data = await apiJson('/teacher/account', { method: 'DELETE', headers: authHeaders() });
 			if (!data.ok) throw new Error(data.message || 'Noe gikk galt.');
 			setTeacherSession('');
-			deleteStatus = { msg: 'Konto slettet. Du vil motta en bekreftelse på e-post.', kind: 'good' };
+			deleteStatus = { msg: 'Konto slettet.', kind: 'good' };
 			setTimeout(() => {
 				teacher = null;
 				deleteStatus = NONE;
@@ -309,8 +309,7 @@
 	<section class="panel warn">
 		<h1>Bingo er et eksperiment</h1>
 		<p>
-			Denne lærerfunksjonen er kun ment for voksne lærere. Ikke del sensitiv informasjon. Data lagres på DreamHost-servere
-			(utenfor Norge). Tilgang gis ikke automatisk – kontoer må godkjennes manuelt.
+			Denne lærerfunksjonen er kun ment for voksne. Ikke del sensitiv informasjon. Data lagres hos Cloudflare i Europa.
 		</p>
 	</section>
 
@@ -435,7 +434,7 @@
 		<section class="panel">
 			<details>
 				<summary>Kontoinnstillinger</summary>
-				<p class="muted small">Sletting er permanent. Kontoen og all tilhørende data fjernes fra databasen, og du vil motta en bekreftelse på e-post.</p>
+				<p class="muted small">Sletting er permanent. Kontoen og all tilhørende data fjernes fra databasen.</p>
 				<div class="actions">
 					<button class="pm-button small danger" id="deleteAccountBtn" disabled={deleting} onclick={deleteAccount}>Slett kontoen min</button>
 				</div>
@@ -463,7 +462,7 @@
 		</section>
 
 		<section class="panel" id="registerBox">
-			<h2>Registrer lærer (må godkjennes)</h2>
+			<h2>Registrer lærer</h2>
 			<p class="muted">Velg et unikt passord du husker. Sikkerheten er enkel (ingen automatisk reset), men passord blir hashet på server.</p>
 			<div class="form-grid">
 				<label class="field"><span>Fornavn</span><input id="regName" type="text" maxlength="40" placeholder="F.eks. Morten" bind:value={reg.name} /></label>
@@ -494,7 +493,7 @@
 	<div id="forgotBox" class="modal-overlay" onclick={(e) => e.target === e.currentTarget && closeForgot()}>
 		<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="forgot-title">
 			<h2 id="forgot-title">Glemt passord</h2>
-			<p class="muted">Skriv inn e-posten din, så sender vi en link for å tilbakestille passordet. Linken er gyldig i 1 time.</p>
+			<p class="muted">Denne kopien av PokeMath sender ikke e-post. Skriv inn e-posten din, og be den som drifter siden om lenken. Den er gyldig i 1 time.</p>
 			<label class="field">
 				<span>E-post</span>
 				<input id="forgotEmail" type="email" autocomplete="email" placeholder="navn@skole.no" bind:value={forgotEmail} onkeydown={(e) => onEnter(e, sendForgot)} />
