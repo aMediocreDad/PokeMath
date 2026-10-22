@@ -12,7 +12,8 @@
 		"run_worker_first": true
 	},
 	// TEAM_DOMAIN and POLICY_AUD come from the Access application; see worker/access.js.
-	"vars": { "TEAM_DOMAIN": "", "POLICY_AUD": "" },
+	// BINGO_JURISDICTION keeps the bingo Durable Object in the EU; D1 is created with --jurisdiction=eu.
+	"vars": { "TEAM_DOMAIN": "", "POLICY_AUD": "", "BINGO_JURISDICTION": "eu" },
 	"d1_databases": [
 		{
 			"binding": "DB",

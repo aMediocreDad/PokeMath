@@ -40,3 +40,4 @@ vite.config.mjs.timestamp-*
 
 # ── Cloudflare ────────────────────────────────────────────────────────────────
 /.wrangler
+/.mirror-missing.txt

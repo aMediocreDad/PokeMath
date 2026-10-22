@@ -5,7 +5,9 @@ import { body, fail, json, log, randomHex } from './http.js';
 
 const SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 const RESET_LIFETIME = 60 * 60 * 1000;
-const PBKDF2_ROUNDS = 100_000;
+// The free plan allows 10 ms of CPU per request; 100 000 rounds take 11 ms on a fast laptop.
+// Cloudflare Access is the real gate, so the password is a second lock.
+const PBKDF2_ROUNDS = 20_000;
 
 /** @param {Uint8Array} buf */
 const hex = (buf) => [...buf].map((b) => b.toString(16).padStart(2, '0')).join('');

@@ -86,4 +86,4 @@ async function download(rel) {
 }
 await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 console.log(`fetched ${done - missing.length} files, ${(bytes / 1e6).toFixed(1)} MB; ${missing.length} not on the live site`);
-fs.writeFileSync(path.join(STATIC, 'images', '.mirror-missing.txt'), missing.join('\n') + '\n');
+fs.writeFileSync(path.join(ROOT, '.mirror-missing.txt'), missing.join('\n') + '\n');

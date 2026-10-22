@@ -2,7 +2,7 @@
 -- The test teacher logs in with laerer@test.no / passord123.
 INSERT INTO teachers (id, name, email, password_hash, email_verified)
 VALUES ('test-teacher', 'Testlærer', 'laerer@test.no',
-  'pbkdf2$100000$27e4638637eb582dc6d6942df1811ab1$45ab551bcc76d6fa63bb5e8f57687be0c4c0d30e5208a5b5a0ce19e2988783ee', 1);
+  'pbkdf2$20000$90839c05419f44b0d93cd50c75e81992$07e6f0a7e156d84f885317f0c1eb9dd584b7bd1c432c6285c0354530c12a7ff8', 1);
 
 INSERT INTO codes (code, type, value, label, created_at) VALUES
   ('MYNTER', 'coins', '500', '500 mynter!', 0),

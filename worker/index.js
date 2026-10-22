@@ -16,7 +16,10 @@ export default {
 		const url = new URL(request.url);
 
 		if (url.pathname === '/ws' || url.pathname === '/bingo/claim-prizes') {
-			return env.BINGO.get(env.BINGO.idFromName('hub')).fetch(request);
+			// BINGO_JURISDICTION ("eu") keeps the lobbies in the EU, as the teacher pages say. Local
+			// development leaves it empty: workerd does not implement jurisdictions.
+			const ns = env.BINGO_JURISDICTION ? env.BINGO.jurisdiction(env.BINGO_JURISDICTION) : env.BINGO;
+			return ns.get(ns.idFromName('hub')).fetch(request);
 		}
 
 		const response = (await core.route(url, request, env)) ?? (await teacher.route(url, request, env));
