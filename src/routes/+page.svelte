@@ -62,7 +62,7 @@
 		content="En nettside hvor man kan øve på de fire regneartene og få informasjon om ulike pokemon når man løser nok oppgaver."
 	/>
 	<meta name="keywords" content="Matte, Pokemon, pokemth, poekmath, mate, pokematte" />
-	<meta name="robots" content="index, nofollow" />
+	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 {#snippet tile(/** @type {string} */ id, /** @type {string} */ href, /** @type {string} */ image, /** @type {string} */ title, /** @type {string[]} */ lines, /** @type {number} */ level, /** @type {string} */ variant = '')}

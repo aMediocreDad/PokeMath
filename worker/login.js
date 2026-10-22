@@ -1,6 +1,7 @@
-// The only routes open without a session: the login page, the two ways to log in, and logging
-// out. The login page is served from here, whole and self-contained, so nothing of the app itself
-// (its code, the Pokémon art) is public.
+// The only routes open without a session: the login page, the two ways to log in, logging out,
+// and what browsers and link previews fetch without cookies (the Home Screen manifest, its icons,
+// the favicon, the preview image). The login page is served from here, whole and self-contained,
+// so nothing of the app itself (its code, the Pokémon art) is public.
 import { accessEmail, endSession, startSession } from './auth.js';
 import { body, json, log } from './http.js';
 
@@ -32,12 +33,17 @@ function safeNext(/** @type {string | null} */ next) {
 	return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
 }
 
+/** Files anyone may fetch. */
+const PUBLIC = /^\/(manifest\.webmanifest|favicon\.ico|icons\/[\w-]+\.png)$/;
+
 /** @param {URL} url @param {Request} request @param {Env} env @returns {Promise<Response | null>} */
 export async function route(url, request, env) {
 	const { pathname } = url;
 
+	if (PUBLIC.test(pathname) && request.method === 'GET') return env.ASSETS.fetch(request);
+
 	if (pathname === '/login.html' && request.method === 'GET') {
-		return new Response(PAGE, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
+		return new Response(PAGE.replaceAll('%ORIGIN%', url.origin), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
 	}
 
 	if (pathname === '/login/code' && request.method === 'POST') {
@@ -92,6 +98,23 @@ const PAGE = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Logg inn – PokéMath</title>
+<meta name="description" content="Regn mattestykker, fang Pokémon og fyll Pokédexen.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="PokéMath">
+<meta property="og:title" content="PokéMath">
+<meta property="og:description" content="Regn mattestykker, fang Pokémon og fyll Pokédexen.">
+<meta property="og:locale" content="nb_NO">
+<meta property="og:url" content="%ORIGIN%/">
+<meta property="og:image" content="%ORIGIN%/icons/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="PokéMath-logoen">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="theme-color" content="#db3834">
+<meta name="apple-mobile-web-app-title" content="PokéMath">
 <style>
 	:root { --red: oklch(0.59 0.2 27); --red-deep: oklch(0.46 0.17 27); --ink: oklch(0.28 0.035 265); --soft: oklch(0.45 0.03 265); --cream: oklch(0.96 0.02 85); --paper: oklch(0.99 0.008 85); --line: oklch(0.88 0.02 85); }
 	* { box-sizing: border-box; }

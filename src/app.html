@@ -1,10 +1,18 @@
 <!doctype html>
-<html lang="no">
+<html lang="nb">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="author" content="Tirco" />
+		<meta name="description" content="Regn mattestykker, fang Pokémon og fyll Pokédexen." />
 		<link rel="icon" href="/favicon.ico" />
+		<!-- Home Screen app: worker/login.js serves these without a login, as browsers fetch them without cookies. -->
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+		<meta name="theme-color" content="#db3834" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="PokéMath" />
 		<script>
 			// SvelteKit's runtime uses Object.hasOwn, which iPadOS only has from 15.4.
 			if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
