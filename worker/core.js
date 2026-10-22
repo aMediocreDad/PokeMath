@@ -1,15 +1,24 @@
 // Player endpoints: UUID validation, stats upload, redeem codes, the spring event and tracking.
 // Ported from dev/core.js; the data lives in D1.
+import { isTeacher } from './access.js';
 import { body, json, log, randomHex } from './http.js';
 
 const EVENT = 'easter';
 const MILESTONE_STEP = 250_000;
 
-/** @param {URL} url @param {Request} request @param {Env} env @returns {Promise<Response | null>} */
-export async function route(url, request, env) {
+/**
+ * @param {URL} url @param {Request} request @param {Env} env @param {import('./access.js').Identity} who
+ * @returns {Promise<Response | null>}
+ */
+export async function route(url, request, env, who) {
 	const { pathname } = url;
 	const method = request.method;
 	const db = env.DB;
+
+	// Who the Access login says this is, so the pages can show the teacher links.
+	if (method === 'GET' && pathname === '/api/me') {
+		return json({ email: who.email, teacher: isTeacher(who, env) });
+	}
 
 	if (method === 'GET' && pathname === '/validate-user') {
 		const uuid = url.searchParams.get('uuid');

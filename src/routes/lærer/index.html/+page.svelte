@@ -1,10 +1,10 @@
 <script>
-	// The teacher start page, ported from static/lærer/index.html and teacher.js: log in, register,
-	// reset a forgotten password, and once logged in start bingo, see the shared secret codes and
-	// make new ones.
+	// The teacher start page, ported from static/lærer/index.html and teacher.js: start bingo, see
+	// the shared secret codes and make new ones. The Access login is the teacher login, so there
+	// is nothing to register or log in to here.
 	import { onMount } from 'svelte';
 	import TeacherPage from '#lib/TeacherPage.svelte';
-	import { apiJson, authHeaders, setTeacherSession, validateSession } from '#lib/teacher.js';
+	import { apiJson, authHeaders, ensureTeacher } from '#lib/teacher.js';
 
 	/** @typedef {{ msg: string, kind?: 'good' | 'bad' | '' }} Status */
 	/** @type {Status} */ const NONE = { msg: '' };
@@ -13,27 +13,11 @@
 	/** Until the stored session is checked, show neither the login nor the session. */
 	let checked = $state(false);
 
-	let loginEmail = $state('');
-	let loginPassword = $state('');
-	let loginStatus = $state(NONE);
-
-	let reg = $state({ name: '', email: '', password: '', county: '', municipality: '', schoolName: '', howFound: '' });
-	let registerStatus = $state(NONE);
-
-	let forgotOpen = $state(false);
-	let forgotEmail = $state('');
-	let forgotStatus = $state(NONE);
-
-	let deleteStatus = $state(NONE);
-	let deleting = $state(false);
 	/** The lobby the host page is running, so the teacher can go back to it. */
 	let savedBingoCode = $state('');
 
 	onMount(async () => {
-		const t = await validateSession();
-		// Drop an invalid token, so the page is not misleading.
-		if (!t) setTeacherSession('');
-		teacher = t;
+		teacher = await ensureTeacher();
 		checked = true;
 		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 	});
@@ -41,101 +25,6 @@
 	const sessionHint = $derived(
 		teacher?.exp ? `Sesjon utløper: ${new Date(teacher.exp).toLocaleString('no-NO', { hour12: false })}` : ''
 	);
-
-	async function login() {
-		loginStatus = { msg: 'Logger inn…' };
-		try {
-			const data = await apiJson('/teacher/login', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email: loginEmail.trim().toLowerCase(), password: loginPassword })
-			});
-			if (!data.ok) throw new Error(data.message || 'Kunne ikke logge inn.');
-			setTeacherSession(data.teacherSession);
-			const t = await validateSession();
-			if (!t) throw new Error('Sesjonen var ikke gyldig etter innlogging.');
-			loginStatus = NONE;
-			forgotOpen = false;
-			teacher = t;
-		} catch (e) {
-			loginStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
-		}
-	}
-
-	function logout() {
-		setTeacherSession('');
-		teacher = null;
-		codesOpen = false;
-		createOpen = false;
-	}
-
-	async function register() {
-		registerStatus = { msg: 'Sender registrering…' };
-		try {
-			const payload = {
-				name: reg.name.trim(),
-				email: reg.email.trim().toLowerCase(),
-				password: reg.password,
-				county: reg.county.trim(),
-				municipality: reg.municipality.trim(),
-				schoolName: reg.schoolName.trim(),
-				howFound: reg.howFound.trim()
-			};
-			const data = await apiJson('/teacher/register', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload)
-			});
-			registerStatus = { msg: data.message || 'Registrert!', kind: 'good' };
-		} catch (e) {
-			registerStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
-		}
-	}
-
-	function openForgot() {
-		forgotEmail = loginEmail.trim();
-		forgotStatus = NONE;
-		forgotOpen = true;
-	}
-
-	function closeForgot() {
-		forgotOpen = false;
-		forgotStatus = NONE;
-	}
-
-	async function sendForgot() {
-		forgotStatus = { msg: 'Sender forespørsel…' };
-		try {
-			const data = await apiJson('/teacher/forgot-password', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() })
-			});
-			forgotStatus = { msg: data.message || 'Forespørsel registrert. Du vil snart motta en e-post.', kind: 'good' };
-		} catch (e) {
-			forgotStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
-		}
-	}
-
-	async function deleteAccount() {
-		if (!confirm('Er du sikker på at du vil slette kontoen din permanent? Dette kan ikke angres.')) return;
-		deleteStatus = { msg: 'Sletter konto…' };
-		deleting = true;
-		try {
-			const data = await apiJson('/teacher/account', { method: 'DELETE', headers: authHeaders() });
-			if (!data.ok) throw new Error(data.message || 'Noe gikk galt.');
-			setTeacherSession('');
-			deleteStatus = { msg: 'Konto slettet.', kind: 'good' };
-			setTimeout(() => {
-				teacher = null;
-				deleteStatus = NONE;
-				deleting = false;
-			}, 2500);
-		} catch (e) {
-			deleteStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
-			deleting = false;
-		}
-	}
 
 	// ── The code overview ──
 	const PRIZE_LABELS = /** @type {Record<string, string>} */ ({
@@ -307,14 +196,8 @@
 <TeacherPage subtitle="Bingo og koder" back={{ href: '/index.html', label: 'Til PokeMath' }}>
 	{#if teacher}
 		<section class="panel" id="sessionBox">
-			<h2>Du er logget inn</h2>
-			<div class="session-row">
-				<div>
-					<div class="big" id="who">Du er logget inn som {teacher.name || 'Lærer'}.</div>
-					<div class="muted" id="whoEmail">{teacher.email || ''}</div>
-				</div>
-				<button class="pm-button small danger" id="logoutBtn" onclick={logout}>Logg ut</button>
-			</div>
+			<h2>Hei, {teacher.name || 'lærer'}!</h2>
+			<div class="muted" id="whoEmail">{teacher.email || ''}</div>
 			<div class="actions">
 				<a class="pm-button" id="startBingoBtn" href="/lærer/bingo_settings.html">Ny Bingo</a>
 				{#if savedBingoCode.length === 6}
@@ -323,7 +206,6 @@
 				<button class="pm-button small secondary" id="showCodesBtn" onclick={toggleCodes}>🔑 {codesOpen ? 'Skjul koder' : 'Kodeoversikt'}</button>
 				<button class="pm-button small secondary" id="showCreateCodeBtn" onclick={() => (createOpen = !createOpen)}>➕ {createOpen ? 'Skjul' : 'Lag kode'}</button>
 			</div>
-			<div class="muted small" id="sessionHint">{sessionHint}</div>
 		</section>
 
 		{#if createOpen}
@@ -423,97 +305,16 @@
 			</section>
 		{/if}
 
-		<section class="panel">
-			<details>
-				<summary>Kontoinnstillinger</summary>
-				<p class="muted small">Sletting er permanent. Kontoen og all tilhørende data fjernes fra databasen.</p>
-				<div class="actions">
-					<button class="pm-button small danger" id="deleteAccountBtn" disabled={deleting} onclick={deleteAccount}>Slett kontoen min</button>
-				</div>
-				{@render status(deleteStatus, 'deleteStatus')}
-			</details>
-		</section>
 	{:else if checked}
-		<section class="panel" id="loginBox">
-			<h2>Logg inn</h2>
-			<div class="form-grid">
-				<label class="field">
-					<span>E-post</span>
-					<input id="loginEmail" type="email" autocomplete="email" placeholder="navn@skole.no" bind:value={loginEmail} onkeydown={(e) => onEnter(e, login)} />
-				</label>
-				<label class="field">
-					<span>Passord</span>
-					<input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" bind:value={loginPassword} onkeydown={(e) => onEnter(e, login)} />
-				</label>
-			</div>
-			<div class="actions">
-				<button class="pm-button small" id="loginBtn" onclick={login}>Logg inn</button>
-				<button class="pm-button small secondary" id="forgotBtn" onclick={openForgot}>Glemt passord</button>
-			</div>
-			{@render status(loginStatus, 'loginStatus')}
-		</section>
-
-		<section class="panel" id="registerBox">
-			<h2>Registrer lærer</h2>
-			<p class="muted">Velg et unikt passord du husker. Sikkerheten er enkel (ingen automatisk reset), men passord blir hashet på server.</p>
-			<div class="form-grid">
-				<label class="field"><span>Fornavn</span><input id="regName" type="text" maxlength="40" placeholder="F.eks. Morten" bind:value={reg.name} /></label>
-				<label class="field"><span>E-post</span><input id="regEmail" type="email" autocomplete="email" placeholder="navn@skole.no" bind:value={reg.email} /></label>
-				<label class="field">
-					<span>Passord (min. 8 tegn)</span>
-					<input id="regPassword" type="password" autocomplete="new-password" placeholder="Lag noe unikt" bind:value={reg.password} />
-					<small>Bruk et passord du ikke bruker andre steder.</small>
-				</label>
-				<label class="field"><span>Fylke</span><input id="regCounty" type="text" maxlength="60" placeholder="F.eks. Kanto" bind:value={reg.county} /></label>
-				<label class="field"><span>Kommune</span><input id="regMunicipality" type="text" maxlength="60" placeholder="F.eks. Pallet Town" bind:value={reg.municipality} /></label>
-				<label class="field"><span>Skolenavn</span><input id="regSchool" type="text" maxlength="80" placeholder="F.eks. Pallet Town School of Rock" bind:value={reg.schoolName} /></label>
-				<label class="field wide">
-					<span>Hvordan fant du ut om lærerpålogging?</span>
-					<input id="regHow" type="text" maxlength="120" placeholder="F.eks. kollega / facebook / møtte PokeMorten på by'n" bind:value={reg.howFound} />
-				</label>
-			</div>
-			<div class="actions">
-				<button class="pm-button small" id="registerBtn" onclick={register}>Send registrering</button>
-			</div>
-			{@render status(registerStatus, 'registerStatus')}
+		<section class="panel" id="notTeacher">
+			<h2>Ikke lærer</h2>
+			<p>Lærersidene er for dem som styrer bingo og lager koder. Du er logget inn som en som ikke står på lærerlisten.</p>
+			<p>Vil du bli med i et bingo-spill? <a href="/bingo_join.html">Skriv inn koden her</a>.</p>
 		</section>
 	{/if}
 </TeacherPage>
 
-{#if forgotOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div id="forgotBox" class="modal-overlay" onclick={(e) => e.target === e.currentTarget && closeForgot()}>
-		<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="forgot-title">
-			<h2 id="forgot-title">Glemt passord</h2>
-			<p class="muted">Denne kopien av PokeMath sender ikke e-post. Skriv inn e-posten din, og be den som drifter siden om lenken. Den er gyldig i 1 time.</p>
-			<label class="field">
-				<span>E-post</span>
-				<input id="forgotEmail" type="email" autocomplete="email" placeholder="navn@skole.no" bind:value={forgotEmail} onkeydown={(e) => onEnter(e, sendForgot)} />
-			</label>
-			<div class="actions">
-				<button class="pm-button small" id="forgotSendBtn" onclick={sendForgot}>Send forespørsel</button>
-				<button class="pm-button small secondary" id="forgotCloseBtn" onclick={closeForgot}>Lukk</button>
-			</div>
-			{@render status(forgotStatus, 'forgotStatus')}
-		</div>
-	</div>
-{/if}
-
 <style>
-	.session-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 12px;
-	}
-	.session-row .pm-button {
-		flex-shrink: 0;
-		white-space: nowrap;
-	}
-	.big {
-		font-size: 18px;
-		font-weight: 700;
-	}
 	.wide {
 		grid-column: 1 / -1;
 	}
@@ -581,65 +382,8 @@
 	.bad {
 		color: var(--pm-red-deep);
 	}
-	summary {
-		min-height: 32px;
-		color: var(--pm-ink-soft);
-		font-weight: 700;
-		cursor: pointer;
-	}
-
-	.modal-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 1500;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 16px;
-		background: oklch(0.2 0.03 265 / 0.5);
-	}
-	.modal-box {
-		width: min(440px, 100%);
-		padding: 22px;
-		border-radius: var(--pm-radius);
-		background: var(--pm-paper);
-		box-shadow: 0 30px 60px -20px oklch(0.2 0.03 265 / 0.6);
-	}
-	.modal-box h2 {
-		margin: 0 0 8px;
-		font-family: var(--pm-display);
-		font-weight: 400;
-		font-size: 24px;
-	}
-	.modal-box .field {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		margin-top: 12px;
-		font-weight: 700;
-	}
-	.modal-box input {
-		min-height: 44px;
-		padding: 0 12px;
-		border: 2px solid var(--pm-line);
-		border-radius: 10px;
-		font: inherit;
-		font-size: 16px;
-	}
-	.modal-box .actions {
-		display: flex;
-		gap: 8px;
-		margin-top: 14px;
-	}
-	.modal-box .status {
-		min-height: 1.4em;
-		margin-top: 10px;
-		font-weight: 700;
-	}
-	.modal-box .status.good {
-		color: var(--pm-green-deep);
-	}
-	.modal-box .status.bad {
+	#notTeacher a {
 		color: var(--pm-red-deep);
+		font-weight: 600;
 	}
 </style>

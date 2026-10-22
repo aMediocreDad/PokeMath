@@ -2,7 +2,7 @@
 //
 // The Worker runs before every request, files included, so that nothing is served without a
 // Cloudflare Access login. After that check, files in build/ are served as they are.
-import { checkAccess } from './access.js';
+import { identify } from './access.js';
 import * as core from './core.js';
 import * as teacher from './teacher.js';
 
@@ -11,8 +11,8 @@ export { BingoHub } from './bingo.js';
 export default {
 	/** @param {Request} request @param {Env} env */
 	async fetch(request, env) {
-		const denied = await checkAccess(request, env);
-		if (denied) return denied;
+		const who = await identify(request, env);
+		if (who instanceof Response) return who;
 		const url = new URL(request.url);
 
 		if (url.pathname === '/ws' || url.pathname === '/bingo/claim-prizes') {
@@ -22,7 +22,7 @@ export default {
 			return ns.get(ns.idFromName('hub')).fetch(request);
 		}
 
-		const response = (await core.route(url, request, env)) ?? (await teacher.route(url, request, env));
+		const response = (await core.route(url, request, env, who)) ?? (await teacher.route(url, request, env, who));
 		if (response) return response;
 
 		const file = await env.ASSETS.fetch(request);

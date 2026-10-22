@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import TeacherPage from '#lib/TeacherPage.svelte';
-	import { getTeacherSession } from '#lib/teacher.js';
+	import { ensureTeacher } from '#lib/teacher.js';
 
 	const DEFAULTS = { difficulty: 'medium', minLevel: 'alle', allowAdaptive: false, className: '', prizeType: 'random', prizeSecret: false, gridSize: '5' };
 
@@ -19,8 +19,8 @@
 		if (!showAdaptive) settings.allowAdaptive = false;
 	});
 
-	onMount(() => {
-		loggedIn = !!getTeacherSession();
+	onMount(async () => {
+		loggedIn = !!(await ensureTeacher());
 		if (!loggedIn) return;
 		// Restore the previous choices.
 		try {
@@ -66,9 +66,9 @@
 <TeacherPage subtitle="Bingo · Innstillinger" back={{ href: '/lærer/index.html', label: 'Tilbake' }}>
 	{#if loggedIn === false}
 		<section class="panel" id="mustLogin">
-			<h2>Du må være logget inn</h2>
-			<p class="muted">Gå tilbake og logg inn før du kan starte bingo.</p>
-			<div class="actions"><a class="pm-button small" href="/lærer/index.html">Gå til innlogging</a></div>
+			<h2>Bare for lærere</h2>
+			<p class="muted">Du står ikke på lærerlisten, så du kan ikke starte bingo.</p>
+			<div class="actions"><a class="pm-button small" href="/bingo_join.html">Bli med i et bingo-spill</a></div>
 		</section>
 	{:else if loggedIn}
 		<section class="panel" id="settingsBox">

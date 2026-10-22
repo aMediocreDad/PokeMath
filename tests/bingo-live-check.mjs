@@ -9,7 +9,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok, detail }); console.log(ok ? "PASS" : "FAIL", name, detail); };
 
-const login = await (await fetch(BASE + "/teacher/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "laerer@test.no", password: "passord123" }) })).json();
+const login = await (await fetch(BASE + "/teacher/access-login", { method: "POST" })).json();
 const browser = await webkit.launch();
 
 const teacherCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });

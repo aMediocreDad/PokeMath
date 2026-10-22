@@ -4,7 +4,7 @@
 	// code, and their catches mark cells. A reload rejoins the same lobby (teacherBingoCode).
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { getTeacherSession } from '#lib/teacher.js';
+	import { ensureTeacher, getTeacherSession } from '#lib/teacher.js';
 	import { qrDataUrl } from '#lib/qr.js';
 	import {
 		DIFF_NO,
@@ -402,13 +402,14 @@
 		}
 	}
 
-	onMount(() => {
-		teacherSession = getTeacherSession();
-		if (!teacherSession) {
-			alert('Du må logge inn som lærer først.');
-			goto('/lærer/index.html');
+	/** Log in through Access, then connect. @param {() => boolean} gone true once the page has closed */
+	async function start(gone) {
+		if (!(await ensureTeacher())) {
+			if (!gone()) goto('/lærer/index.html');
 			return;
 		}
+		if (gone()) return;
+		teacherSession = getTeacherSession();
 		settings = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
 		muted = localStorage.getItem('bingoMuted') === '1';
 
@@ -442,7 +443,11 @@
 			}
 			onMessage(msg);
 		});
+	}
 
+	onMount(() => {
+		let gone = false;
+		start(() => gone);
 		const cycler = setInterval(() => tick++, 1500);
 		const closeMenu = () => (playerMenu = null);
 		addEventListener('click', closeMenu);
@@ -453,6 +458,7 @@
 			clearTimeout(pressTimer);
 			clearInterval(cycler);
 			clearTimeout(toastTimer);
+			gone = true;
 			ws?.close();
 		};
 	});

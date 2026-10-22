@@ -64,15 +64,22 @@ function client() {
   const ping = await fetch(BASE + "/math-ping", { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } });
   assert(ping.status === 204, "math-ping");
 
-  // Teacher
-  const badLogin = await post("/teacher/login", { email: "laerer@test.no", password: "feil" });
-  assert(badLogin.status === 401 && badLogin.body.message, "login wrong password");
-  const login = await post("/teacher/login", { email: "laerer@test.no", password: "passord123" });
+  // Who is asking: the local Worker is laerer@test.no unless x-dev-email says otherwise.
+  const kid = { "x-dev-email": "elev@test.no" };
+  const meTeacher = await j("/api/me");
+  assert(meTeacher.body.email === "laerer@test.no" && meTeacher.body.teacher === true, "me as teacher");
+  const meKid = await j("/api/me", { headers: kid });
+  assert(meKid.body.email === "elev@test.no" && meKid.body.teacher === false, "me as non-teacher");
+
+  // Teacher: the Access login is the teacher login.
+  const refused = await post("/teacher/access-login", {}, kid);
+  assert(refused.status === 403 && refused.body.message, "non-teacher gets no session");
+  const login = await post("/teacher/access-login", {});
   const token = login.body.teacherSession;
-  assert(login.body.ok && token, "login seeded teacher");
+  assert(login.body.ok && token && login.body.teacher.email === "laerer@test.no", "teacher gets a session");
   const auth = { Authorization: `Bearer ${token}` };
   const sess = await j("/teacher/session", { headers: auth });
-  assert(sess.body.ok && sess.body.teacher.code_tokens === 10, "session");
+  assert(sess.body.ok && sess.body.teacher.email === "laerer@test.no", "session");
   const noAuth = await j("/teacher/session");
   assert(noAuth.status === 401, "session without token -> 401");
   const mk = await post("/teacher/codes", { plaintext_code: "Klasse5b", label: "Hei 5B", prize_type: "coins", prize_value: "100" }, auth);
@@ -81,10 +88,6 @@ function client() {
   assert(list.body.codes.length === 1, "list codes");
   const red = await post("/redeem", { code: "klasse5b" });
   assert(red.body.ok && red.body.prize.value === "100", "teacher code is redeemable");
-  const reg = await post("/teacher/register", { name: "Ny", email: "ny@test.no", password: "kort" });
-  assert(reg.status === 400, "register short password -> 400");
-  const reset = await post("/teacher/reset-password", { token: "x", password: "langtpassord" });
-  assert(reset.status === 400 && reset.body.message.toLowerCase().includes("ugyldig"), "reset bad token says ugyldig");
 
   // Bingo round
   const host = client();

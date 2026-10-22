@@ -100,7 +100,7 @@
 			<h3>Kort oppsummert</h3>
 			<ul>
 			<li>Spilldata (Pokémon, mynter, fremgang) ligger i din egen nettleser.</li>
-			<li>Serveren lagrer en anonym spiller-ID, bingo-spill mens de pågår, og lærerkontoer for dem som lager en.</li>
+			<li>Serveren lagrer en anonym spiller-ID, bingo-spill mens de pågår, og hemmelige koder lærerne lager.</li>
 			<li>Innlogging skjer med en engangskode på e-post, via Cloudflare.</li>
 			</ul>
 			<h3>Innlogging</h3>
@@ -120,7 +120,7 @@
 			<li><strong>Spiller-ID</strong>: den anonyme IDen og en nøkkel som hører til den, første gang du åpner siden. IDen inneholder ingen personlig informasjon.</li>
 			<li><strong>Felles telleverk</strong>: antall fangster i vår-eventet, uten kobling til hvem som fanget.</li>
 			<li><strong>Bingo</strong>: når du er med i et bingo-spill, lagres spiller-IDen, brukernavnet ditt, figuren din og Pokémon du fanger i spillet. Det ligger der til den som styrer bingoen avslutter spillet. Premier ligger der til spillet ditt har hentet dem.</li>
-			<li><strong>Lærerkontoer</strong>: navn, e-postadresse, skole om du oppgir den, og passordet i hashet form. Kontoen og kodene den har laget slettes når du sletter kontoen på lærersiden.</li>
+			<li><strong>Lærere</strong>: e-postadressen fra innloggingen og de hemmelige kodene læreren lager. Den som drifter kopien bestemmer hvem som er lærer.</li>
 			</ul>
 			<p>Hemmelige koder sjekkes mot serveren, men det lagres ikke hvem som har brukt dem.</p>
 			<p>Dataene lagres hos Cloudflare i EU. Cloudflare fører i tillegg tekniske logger over forespørsler en kort periode, til feilsøking.</p>

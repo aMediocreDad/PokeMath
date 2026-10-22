@@ -1,5 +1,6 @@
 -- Local development data, the same as dev/ had in memory. Never applied to the deployed database.
--- The test teacher logs in with laerer@test.no / passord123.
+-- laerer@test.no is the local Worker's Access identity and on its TEACHER_EMAILS; the password
+-- hash is left over from the password era and no longer used.
 INSERT INTO teachers (id, name, email, password_hash, email_verified)
 VALUES ('test-teacher', 'Testlærer', 'laerer@test.no',
   'pbkdf2$20000$90839c05419f44b0d93cd50c75e81992$07e6f0a7e156d84f885317f0c1eb9dd584b7bd1c432c6285c0354530c12a7ff8', 1);

@@ -8,7 +8,9 @@ image fallback. `tests/serve-build.sh` serves the old in-memory mock in `dev/` i
 `playwright-core` is pinned to the version whose WebKit build is already installed locally;
 `npx playwright-core install webkit` fetches it on a new machine.
 
-- `smoke.js <base>`: the server's HTTP endpoints and a full bingo round, no browser.
+- `smoke.js <base>`: the Worker's HTTP endpoints and a full bingo round, no browser. The local
+  Worker treats every request as `laerer@test.no`, a teacher; an `x-dev-email` header makes it
+  someone else. The old mock in `dev/` still expects password logins and fails the teacher part.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and

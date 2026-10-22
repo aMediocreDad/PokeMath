@@ -1,5 +1,6 @@
 // The teacher session and API calls, from static/lærer/teacher.js. The session token lives in
-// localStorage under 'teacherSession', as before, so the bingo pages can read it.
+// localStorage under 'teacherSession', as before, so the bingo pages can read it. There is no
+// password: the Cloudflare Access login decides who is a teacher (ensureTeacher()).
 
 export function getTeacherSession() {
 	return localStorage.getItem('teacherSession') || '';
@@ -34,7 +35,7 @@ export async function apiJson(url, opts) {
 export const authHeaders = () => ({ Authorization: `Bearer ${getTeacherSession()}` });
 
 /**
- * @typedef {{ name?: string, email?: string, exp?: string | number, code_tokens?: number }} Teacher
+ * @typedef {{ name?: string, email?: string, exp?: string | number }} Teacher
  * @returns {Promise<Teacher | null>} the teacher, or null when not logged in or the session expired
  */
 export async function validateSession() {
@@ -43,6 +44,23 @@ export async function validateSession() {
 		const data = await apiJson('/teacher/session', { headers: authHeaders() });
 		return data.ok ? data.teacher : null;
 	} catch {
+		return null;
+	}
+}
+
+/**
+ * The teacher, logging in through Access when the stored session is missing or expired.
+ * @returns {Promise<Teacher | null>} null when this Access login is not on the teacher list
+ */
+export async function ensureTeacher() {
+	const current = await validateSession();
+	if (current) return current;
+	try {
+		const data = await apiJson('/teacher/access-login', { method: 'POST' });
+		setTeacherSession(data.teacherSession);
+		return data.teacher;
+	} catch {
+		setTeacherSession('');
 		return null;
 	}
 }

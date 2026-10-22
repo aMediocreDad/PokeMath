@@ -1,162 +1,69 @@
-// Teacher account endpoints under /teacher/*, ported from dev/teacher.js; the data lives in D1.
-// Nothing sends email: the site sits behind Cloudflare Access, so new accounts are ready at once,
-// and a password reset link is only written to the Worker log (wrangler tail).
+// Teacher endpoints under /teacher/*, ported from dev/teacher.js; the data lives in D1.
+// There are no passwords: the site sits behind Cloudflare Access, which has already checked the
+// visitor's email, and the emails in TEACHER_EMAILS are teachers. Logging in turns that into the
+// session token the bingo pages have always sent.
+import { isTeacher } from './access.js';
 import { body, fail, json, log, randomHex } from './http.js';
 
 const SESSION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
-const RESET_LIFETIME = 60 * 60 * 1000;
-// The free plan allows 10 ms of CPU per request; 100 000 rounds take 11 ms on a fast laptop.
-// Cloudflare Access is the real gate, so the password is a second lock.
-const PBKDF2_ROUNDS = 20_000;
-
-/** @param {Uint8Array} buf */
-const hex = (buf) => [...buf].map((b) => b.toString(16).padStart(2, '0')).join('');
-/** @param {string} s */
-const unhex = (s) => new Uint8Array(s.match(/../g)?.map((b) => parseInt(b, 16)) ?? []);
-
-/** @param {string} password @param {Uint8Array} salt @param {number} rounds */
-async function derive(password, salt, rounds) {
-	const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-	const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: rounds }, key, 256);
-	return hex(new Uint8Array(bits));
-}
-
-/** Stored as pbkdf2$rounds$salt$hash. @param {string} password */
-export async function hashPassword(password) {
-	const salt = crypto.getRandomValues(new Uint8Array(16));
-	return `pbkdf2$${PBKDF2_ROUNDS}$${hex(salt)}$${await derive(password, salt, PBKDF2_ROUNDS)}`;
-}
-
-/** @param {string} password @param {string} stored */
-async function checkPassword(password, stored) {
-	const [scheme, rounds, salt, hash] = stored.split('$');
-	if (scheme !== 'pbkdf2') return false;
-	return (await derive(password, unhex(salt), Number(rounds))) === hash;
-}
 
 /**
- * The teacher a session token belongs to, or null. The bingo Durable Object uses it too.
- * @param {D1Database} db @param {unknown} token
+ * The teacher a session token belongs to, or null, also when their email has since left
+ * TEACHER_EMAILS. The bingo Durable Object uses it too.
+ * @param {Env} env @param {unknown} token
  */
-export async function sessionTeacher(db, token) {
+export async function sessionTeacher(env, token) {
 	if (!token || typeof token !== 'string') return null;
-	return db
+	const teacher = await env.DB
 		.prepare('SELECT t.*, s.exp FROM teacher_sessions s JOIN teachers t ON t.id = s.teacher_id WHERE s.token = ? AND s.exp > ?')
 		.bind(token, Date.now())
 		.first();
+	return teacher && isTeacher({ email: String(teacher.email) }, env) ? teacher : null;
 }
 
 /** @param {Request} request */
 const bearer = (request) => (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
 
-/** @param {URL} url @param {Request} request @param {Env} env @returns {Promise<Response | null>} */
-export async function route(url, request, env) {
+/**
+ * @param {URL} url @param {Request} request @param {Env} env @param {import('./access.js').Identity} who
+ * @returns {Promise<Response | null>}
+ */
+export async function route(url, request, env, who) {
 	const { pathname } = url;
 	if (!pathname.startsWith('/teacher/')) return null;
 	const method = request.method;
 	const db = env.DB;
 
-	if (method === 'POST' && pathname === '/teacher/register') {
-		const input = await body(request);
-		const email = String(input.email || '').trim().toLowerCase();
-		const name = String(input.name || '').trim();
-		const password = String(input.password || '');
-		if (!name || !email || !password) return fail(400, 'Fyll ut navn, e-post og passord.');
-		if (password.length < 8) return fail(400, 'Passordet må være minst 8 tegn.');
-		if (await db.prepare('SELECT 1 FROM teachers WHERE email = ?').bind(email).first()) {
-			return fail(409, 'Det finnes allerede en konto med denne e-posten.');
+	// The Access login is the teacher login: a listed email gets a session, and a teacher row the
+	// first time. Rows from the password era are matched by email, so their codes stay theirs.
+	if (method === 'POST' && pathname === '/teacher/access-login') {
+		if (!isTeacher(who, env)) return fail(403, 'Du står ikke på lærerlisten.');
+		let teacher = await db.prepare('SELECT id, name, email FROM teachers WHERE email = ?').bind(who.email).first();
+		if (!teacher) {
+			teacher = { id: crypto.randomUUID(), name: who.email.split('@')[0], email: who.email };
+			await db
+				.prepare("INSERT INTO teachers (id, name, email, password_hash, email_verified) VALUES (?, ?, ?, '', 1)")
+				.bind(teacher.id, teacher.name, teacher.email)
+				.run();
+			log('teacher', `ny lærer: ${who.email}`);
 		}
-		await db
-			.prepare(
-				`INSERT INTO teachers (id, name, email, password_hash, county, municipality, school_name, how_found, email_verified)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-			)
-			.bind(
-				crypto.randomUUID(), name, email, await hashPassword(password),
-				String(input.county || ''), String(input.municipality || ''), String(input.schoolName || ''), String(input.howFound || ''),
-			)
-			.run();
-		log('teacher', `registrert: ${email}`);
-		return json({ ok: true, message: 'Kontoen er klar. Du kan logge inn.' });
-	}
-
-	if (method === 'GET' && pathname === '/teacher/verify-email') {
-		const token = url.searchParams.get('token') || '';
-		const row = await db
-			.prepare("DELETE FROM teacher_tokens WHERE token = ? AND kind = 'verify' RETURNING teacher_id")
-			.bind(token)
-			.first();
-		const teacher = row && (await db.prepare('UPDATE teachers SET email_verified = 1 WHERE id = ? RETURNING name').bind(row.teacher_id).first());
-		if (!teacher) return fail(400, 'Ugyldig eller allerede brukt lenke.');
-		return json({ ok: true, name: teacher.name });
-	}
-
-	if (method === 'POST' && pathname === '/teacher/login') {
-		const input = await body(request);
-		const email = String(input.email || '').trim().toLowerCase();
-		const teacher = await db.prepare('SELECT id, password_hash, email_verified FROM teachers WHERE email = ?').bind(email).first();
-		if (!teacher || !(await checkPassword(String(input.password || ''), String(teacher.password_hash)))) {
-			return fail(401, 'Feil e-post eller passord.');
-		}
-		if (!teacher.email_verified) return fail(403, 'Du må bekrefte e-posten din først.');
 		const token = randomHex(24);
+		const exp = Date.now() + SESSION_LIFETIME;
 		await db.batch([
 			db.prepare('DELETE FROM teacher_sessions WHERE exp < ?').bind(Date.now()),
-			db.prepare('INSERT INTO teacher_sessions (token, teacher_id, exp) VALUES (?, ?, ?)').bind(token, teacher.id, Date.now() + SESSION_LIFETIME),
+			db.prepare('INSERT INTO teacher_sessions (token, teacher_id, exp) VALUES (?, ?, ?)').bind(token, teacher.id, exp),
 		]);
-		return json({ ok: true, teacherSession: token });
+		return json({ ok: true, teacherSession: token, teacher: { name: teacher.name, email: teacher.email, exp } });
 	}
 
-	if (method === 'POST' && pathname === '/teacher/forgot-password') {
-		const email = String((await body(request)).email || '').trim().toLowerCase();
-		const teacher = await db.prepare('SELECT id FROM teachers WHERE email = ?').bind(email).first();
-		if (teacher) {
-			const token = randomHex(24);
-			await db
-				.prepare("INSERT INTO teacher_tokens (token, kind, teacher_id, exp) VALUES (?, 'reset', ?, ?)")
-				.bind(token, teacher.id, Date.now() + RESET_LIFETIME)
-				.run();
-			log('email', `Nytt passord for ${email}: ${url.origin}/lærer/reset-password.html?token=${token}`);
-		}
-		return json({ ok: true, message: 'Forespørsel registrert. Du vil snart motta en e-post.' });
-	}
-
-	if (method === 'POST' && pathname === '/teacher/reset-password') {
-		const input = await body(request);
-		const token = String(input.token || '');
-		const password = String(input.password || '');
-		const reset = await db
-			.prepare("SELECT teacher_id FROM teacher_tokens WHERE token = ? AND kind = 'reset' AND exp > ?")
-			.bind(token, Date.now())
-			.first();
-		// The page only shows its "invalid link" panel when the message contains "ugyldig".
-		if (!reset) return fail(400, 'Lenken er ugyldig eller utløpt.');
-		if (password.length < 8) return fail(422, 'Passordet må være minst 8 tegn.');
-		await db.batch([
-			db.prepare('DELETE FROM teacher_tokens WHERE token = ?').bind(token),
-			db.prepare('UPDATE teachers SET password_hash = ? WHERE id = ?').bind(await hashPassword(password), reset.teacher_id),
-		]);
-		return json({ ok: true, message: 'Passordet er oppdatert. Du kan nå logge inn.' });
-	}
-
-	// The rest needs a logged-in teacher.
-	if (!['/teacher/session', '/teacher/account', '/teacher/codes'].includes(pathname)) return null;
-	const teacher = await sessionTeacher(db, bearer(request));
+	// The rest needs a session.
+	if (!['/teacher/session', '/teacher/codes'].includes(pathname)) return null;
+	const teacher = await sessionTeacher(env, bearer(request));
 	if (!teacher) return fail(401, 'Du er ikke logget inn.');
 
 	if (method === 'GET' && pathname === '/teacher/session') {
-		const { name, email, code_tokens, exp } = teacher;
-		return json({ ok: true, teacher: { name, email, code_tokens, exp } });
-	}
-
-	if (method === 'DELETE' && pathname === '/teacher/account') {
-		await db.batch([
-			db.prepare('DELETE FROM teacher_sessions WHERE teacher_id = ?').bind(teacher.id),
-			db.prepare('DELETE FROM teacher_tokens WHERE teacher_id = ?').bind(teacher.id),
-			db.prepare('DELETE FROM teachers WHERE id = ?').bind(teacher.id),
-		]);
-		log('teacher', `konto slettet: ${teacher.email}`);
-		return json({ ok: true });
+		const { name, email, exp } = teacher;
+		return json({ ok: true, teacher: { name, email, exp } });
 	}
 
 	if (method === 'GET' && pathname === '/teacher/codes') {

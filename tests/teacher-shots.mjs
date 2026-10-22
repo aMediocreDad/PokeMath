@@ -8,7 +8,7 @@ const BASE = "http://localhost:3123";
 const OUT = new URL(`./design/teacher/`, import.meta.url).pathname;
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const login = async () => (await (await fetch(BASE + "/teacher/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "laerer@test.no", password: "passord123" }) })).json()).teacherSession;
+const login = async () => (await (await fetch(BASE + "/teacher/access-login", { method: "POST" })).json()).teacherSession;
 
 const browser = await webkit.launch();
 for (const [vp, device] of [["ipad", devices["iPad (gen 7) landscape"]], ["iphone", devices["iPhone 13"]], ["desktop", { viewport: { width: 1440, height: 900 } }]]) {
@@ -26,10 +26,6 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7) landscape"]], ["iphon
   };
   await page.goto(BASE + encodeURI("/lærer/"));
   await shot("login", true);
-  await page.goto(BASE + "/verify-email.html?token=nope");
-  await shot("verify-bad");
-  await page.goto(BASE + encodeURI("/lærer/reset-password.html?token=abc"));
-  await shot("reset");
   const token = await login();
   await page.evaluate((t) => { localStorage.setItem("teacherSession", t); localStorage.removeItem("teacherBingoCode"); }, token);
   await page.goto(BASE + encodeURI("/lærer/index.html"));

@@ -242,7 +242,7 @@ export class BingoHub extends DurableObject {
 
 	/** The lobby a host message names, once its teacher session checks out. */
 	async hostRoom(ws, msg) {
-		if (!(await sessionTeacher(this.env.DB, msg.teacherSession))) {
+		if (!(await sessionTeacher(this.env, msg.teacherSession))) {
 			send(ws, BAD_SESSION);
 			return null;
 		}
@@ -253,7 +253,7 @@ export class BingoHub extends DurableObject {
 /** @type {Record<string, (this: BingoHub, ws: WebSocket, msg: any) => Promise<void>>} */
 const HANDLERS = {
 	async hostCreateLobby(ws, msg) {
-		if (!(await sessionTeacher(this.env.DB, msg.teacherSession))) return send(ws, BAD_SESSION);
+		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
 		const settings = msg.settings || {};
 		const room = {
 			code: await this.makeCode(), settings, players: {},
@@ -266,7 +266,7 @@ const HANDLERS = {
 	},
 
 	async hostJoinLobby(ws, msg) {
-		if (!(await sessionTeacher(this.env.DB, msg.teacherSession))) return send(ws, BAD_SESSION);
+		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
 		const room = await this.room(msg.code);
 		if (!room) return send(ws, { type: 'lobbyNotFound', code: msg.code });
 		ws.serializeAttachment({ role: 'host', code: room.code });
