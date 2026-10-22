@@ -18,7 +18,7 @@
 		{
 			"binding": "DB",
 			"database_name": "pokemath",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "f9ffa71f-5e12-40e8-af9f-1ebb5ed8b97b",
 			"migrations_dir": "migrations"
 		}
 	],
