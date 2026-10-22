@@ -28,6 +28,18 @@ export default {
 		const file = await env.ASSETS.fetch(request);
 		if (file.status !== 404) return file;
 
+		// A few images are missing on the live site too: shiny forms without shiny art show the
+		// normal art, and a player icon without a file shows the default trainer.
+		const fallback = url.pathname.startsWith('/images/pokemon/shiny/')
+			? url.pathname.replace('/shiny/', '/normal/')
+			: url.pathname.startsWith('/images/playericons/')
+				? '/images/player.png'
+				: null;
+		if (fallback) {
+			const image = await env.ASSETS.fetch(new URL(fallback, url));
+			if (image.ok) return image;
+		}
+
 		// html_handling is "none", so links keep their .html names and no redirect rewrites them;
 		// a folder still serves its index.html.
 		if (url.pathname.endsWith('/')) {
