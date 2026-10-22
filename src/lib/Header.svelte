@@ -218,12 +218,10 @@
 			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i bingo</a>
 			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærer: bingo og koder</a>{/if}
 			<hr />
-			<a href="/index.html">Hovedmeny</a>
 			<a href="/saveandload.html">Lagre / Last inn</a>
 			<a href="/faq.html">Spørsmål og svar</a>
-			<a href="/about.html#news">Nylige oppdateringer</a>
+			<!-- Om siden opens with links to its news, contact and privacy sections. -->
 			<a href="/about.html">Om siden</a>
-			<a href="/about.html#contact">Kontakt oss</a>
 			<hr />
 			<button id="logoutBtn" onclick={logOut}>Logg ut{me.name ? ` (${me.name})` : ''}</button>
 			<button class="danger" onclick={resetPrompt}>Tilbakestill (slett alt)</button>
@@ -443,6 +441,7 @@
 
 	.pm-panel {
 		display: none;
+		box-sizing: border-box;
 		position: absolute;
 		top: calc(100% + 10px);
 		right: 0;
@@ -452,8 +451,9 @@
 		background: var(--pm-paper);
 		color: var(--pm-ink);
 		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
-		max-height: calc(100vh - var(--pm-bar-height) - 60px);
-		max-height: calc(100dvh - var(--pm-bar-height) - 60px);
+		/* Below the bar, with a little room at the bottom; it scrolls only on the smallest phones. */
+		max-height: calc(100vh - var(--pm-bar-height) - 24px);
+		max-height: calc(100dvh - var(--pm-bar-height) - 24px);
 		overflow-y: auto;
 	}
 	.trainer.open .pm-panel,
@@ -471,8 +471,9 @@
 	.menu-panel button {
 		display: flex;
 		align-items: center;
+		box-sizing: border-box;
 		width: 100%;
-		min-height: 46px;
+		min-height: 44px;
 		padding: 0 14px;
 		border: none;
 		border-radius: 12px;
