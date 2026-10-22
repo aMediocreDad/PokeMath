@@ -14,6 +14,8 @@
 	/** Why this tab cannot see the player's save (live bingo_join.html, 2026-10). */
 	let warning = $state(/** @type {{ title: string, body: string, canOpen: boolean } | null} */ (null));
 	let copied = $state(false);
+	/** The lobby this device is already in, when the page opened without a new code. */
+	let joined = $state('');
 
 	/**
 	 * A QR code scanned with the camera can open the page in private mode, on another address, or
@@ -97,7 +99,10 @@
 		}
 		uuid = joinUUID();
 		student = (localStorage.getItem('username') || localStorage.getItem('playerName') || localStorage.getItem('name') || '').trim() || 'Ash';
-		code = codeFromUrl() || code6(localStorage.getItem('bingoJoinedCode') || localStorage.getItem('bingoCode') || '');
+		const stored = code6(localStorage.getItem('bingoJoinedCode') || localStorage.getItem('bingoCode') || '');
+		const fromUrl = codeFromUrl();
+		code = fromUrl || stored;
+		if (stored.length === 6 && (!fromUrl || fromUrl === stored)) joined = stored;
 	});
 
 	function join() {
@@ -115,9 +120,10 @@
 
 	function clear() {
 		code = '';
+		joined = '';
 		localStorage.removeItem('bingoJoinedCode');
 		localStorage.removeItem('bingoCode');
-		status = { msg: '', kind: 'info' };
+		status = { msg: 'Du er ikke lenger med i bingoen.', kind: 'info' };
 	}
 </script>
 
@@ -128,41 +134,46 @@
 <div class="main pm-page join">
 	<section class="join-card pm-surface">
 		<p class="kicker">🎲 PokeMath Bingo</p>
-		<h1 class="pm-title">Bli med i bingo</h1>
-		<p class="lead">Skriv inn koden du får av læreren. Du kan bytte kode når som helst.</p>
-
-		<form
-			class="code-row"
-			onsubmit={(e) => {
-				e.preventDefault();
-				join();
-			}}
-		>
-			<input
-				id="code"
-				type="text"
-				maxlength="6"
-				autocapitalize="characters"
-				autocomplete="off"
-				spellcheck="false"
-				placeholder="ABC123"
-				aria-label="Kode"
-				value={code}
-				oninput={(e) => (code = e.currentTarget.value = code6(e.currentTarget.value))}
-			/>
-			<button id="joinBtn" class="pm-button" type="submit" disabled={joining}>Koble til</button>
-		</form>
-		<p class="hint">6 tegn, bokstaver og tall.</p>
-
+		{#if joined}
+			<h1 class="pm-title">Du er med!</h1>
+			<p class="lead">Du er med i bingo <b id="joinedCode">{joined}</b>. Alt du fanger, teller på brettet.</p>
+			<div class="joined-actions">
+				<a class="pm-button" id="playBtn" href="/">Fortsett å spille</a>
+				<button id="clearBtn" class="pm-button secondary" type="button" onclick={clear}>Forlat bingoen</button>
+			</div>
+			<p class="hint">Fått en ny kode? Forlat bingoen først, og skriv inn den nye.</p>
+		{:else}
+			<h1 class="pm-title">Bli med i bingo</h1>
+			<p class="lead">Skriv inn koden du får av den voksne som styrer bingoen.</p>
+			<form
+				class="code-row"
+				onsubmit={(e) => {
+					e.preventDefault();
+					join();
+				}}
+			>
+				<input
+					id="code"
+					type="text"
+					maxlength="6"
+					autocapitalize="characters"
+					autocomplete="off"
+					spellcheck="false"
+					placeholder="ABC123"
+					aria-label="Kode"
+					value={code}
+					oninput={(e) => (code = e.currentTarget.value = code6(e.currentTarget.value))}
+				/>
+				<button id="joinBtn" class="pm-button" type="submit" disabled={joining}>Bli med</button>
+			</form>
+			<p class="hint">6 tegn, bokstaver og tall.</p>
+		{/if}
 		<p id="status" class="status {status.kind}" role="status">{status.msg}</p>
-
 		<div class="meta">
 			<p>Du spiller som <b id="studentOut">{student}</b>.</p>
 			{#if student === 'Ash'}<p class="small">Navnet hentes fra PokeMath. Sett et brukernavn på <a href="/player_profile.html">profilen din</a>.</p>{/if}
-			<button id="clearBtn" class="pm-button small secondary" type="button" onclick={clear}>Tøm koden</button>
 		</div>
 	</section>
-
 	<section class="how pm-surface">
 		<h2>Hva skjer når jeg kobler til?</h2>
 		<ul>
@@ -170,7 +181,10 @@
 			<li>Når du fanger Pokémon i PokeMath, sendes fangsten automatisk til bingobrettet.</li>
 			<li>Hvis fangsten passer en rute, krysses den av og ruten teller treff.</li>
 		</ul>
-		<p class="small uuid">Spiller-ID: <span id="uuidOut">{uuid}</span></p>
+		<details class="small uuid">
+			<summary>Teknisk informasjon</summary>
+			Spiller-ID: <span id="uuidOut">{uuid}</span>
+		</details>
 	</section>
 </div>
 
@@ -283,6 +297,15 @@
 	.uuid {
 		margin: 0;
 		overflow-wrap: anywhere;
+	}
+	.uuid summary {
+		cursor: pointer;
+	}
+	.joined-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 10px;
 	}
 	.backdrop {
 		position: fixed;
