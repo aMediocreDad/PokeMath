@@ -19,7 +19,7 @@ import { forgetMe, loadMe, me } from '#lib/me.svelte.js';
 const META = 'pm-cloud';
 const UPLOAD_EVERY = 60_000;
 /** Keys that belong to this device, not to the player. */
-const DEVICE_KEYS = new Set([META, 'teacherSession', 'teacherBingoCode', 'bingoJoinedCode', 'bingoCode', '__pm_bw__', 'storageNoticeSeen']);
+const DEVICE_KEYS = new Set([META, 'teacherSession', 'teacherBingoCode', 'bingoJoinedCode', 'bingoCode', '__pm_bw__', 'storageNoticeSeen', 'pm-round']);
 
 /**
  * @typedef {{ data: Record<string, string>, pokemon: number, updatedAt: number }} CloudCopy

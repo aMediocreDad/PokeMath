@@ -96,6 +96,60 @@
 
 	const progress = $derived(score / winScore);
 
+	// The round in progress (score, mistakes, the problem on screen, a ball not thrown yet) is kept
+	// on this device, so a reload, a closed tab or a crash does not cost it. It belongs to one level
+	// (the page's query string) and is dropped after a day. It is not part of the cloud save.
+	const ROUND_KEY = 'pm-round';
+	const ROUND_MAX_AGE = 24 * 60 * 60 * 1000;
+	let roundRestored = $state(false);
+	$effect(() => {
+		const round = { search: location.search, score, wrongAnswers, problem, ball: showBall, at: Date.now() };
+		if (!roundRestored) return;
+		try {
+			localStorage.setItem(ROUND_KEY, JSON.stringify(round));
+		} catch {
+			// Storage full or blocked: the round just is not kept.
+		}
+	});
+
+	/** Pick up a round left on this level, or start a new one. */
+	function restoreRound() {
+		/** @type {{ search?: string, score?: number, wrongAnswers?: number, problem?: typeof problem, ball?: boolean, at?: number } | null} */
+		let saved = null;
+		try {
+			saved = JSON.parse(localStorage.getItem(ROUND_KEY) || 'null');
+		} catch {
+			// A broken value starts a new round.
+		}
+		roundRestored = true;
+		const usable =
+			saved?.search === location.search &&
+			Date.now() - (saved.at ?? 0) < ROUND_MAX_AGE &&
+			Number.isInteger(saved.score) &&
+			Number.isInteger(saved.wrongAnswers) &&
+			/** @type {number} */ (saved.wrongAnswers) < LIVES &&
+			typeof saved.problem?.operator === 'string' &&
+			Number.isFinite(saved.problem?.numberOne) &&
+			Number.isFinite(saved.problem?.numberTwo);
+		if (!saved || !usable) return newProblem();
+		const s = /** @type {number} */ (saved.score);
+		if (saved.ball && s === winScore) {
+			// Won, but the ball was not thrown: show it again.
+			score = s;
+			wrongAnswers = /** @type {number} */ (saved.wrongAnswers);
+			endMessage = GOOD_MESSAGES[Math.floor(Math.random() * GOOD_MESSAGES.length)];
+			openOverlay();
+			showBall = true;
+			return;
+		}
+		if (s >= winScore) return newProblem();
+		score = s;
+		wrongAnswers = /** @type {number} */ (saved.wrongAnswers);
+		problem = { .../** @type {NonNullable<typeof problem>} */ (saved.problem), startedAt: Date.now() };
+		answer = '';
+		field?.focus();
+	}
+
 	/** @param {string} entry */
 	const countOf = (entry) => player.pkmnList.filter((e) => e === entry).length;
 
@@ -413,7 +467,7 @@
 				layout.cheater = false;
 			}, 10000);
 		}
-		tick().then(newProblem);
+		tick().then(restoreRound);
 
 		const sendMathPing = () => {
 			const uuid = localStorage.getItem('UUID');
