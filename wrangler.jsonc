@@ -18,7 +18,7 @@
 	// pokemath.amediocre.dad/login/email; see worker/auth.js.
 	// BINGO_JURISDICTION keeps the bingo Durable Object in the EU; D1 is created with --jurisdiction=eu.
 	// TEACHER_EMAILS: the email logins that may use the teacher pages, comma-separated.
-	"vars": { "TEACHER_EMAILS": "contact@pokemath.online", "TEAM_DOMAIN": "https://mediocrity.cloudflareaccess.com", "POLICY_AUD": "363a4d01481dafce69911af0c69e8e959323db6b6711d39da3c724a24f845160", "BINGO_JURISDICTION": "eu" },
+	"vars": { "TEACHER_EMAILS": "contact@pokemath.online", "TEAM_DOMAIN": "https://mediocrity.cloudflareaccess.com", "POLICY_AUD": "6148ab65fc83a271d80d572a9617756a1468756b4905ce5b5f6cc6d089a73d77", "BINGO_JURISDICTION": "eu" },
 	"d1_databases": [
 		{
 			"binding": "DB",
