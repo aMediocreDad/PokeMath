@@ -62,17 +62,14 @@
 	<section id="contact" class="panel pm-surface">
 		<h2>Kontakt</h2>
 		<p>
-			Mail: <a href="mailto:contact@pokemath.online">contact@pokemath.online</a><br />
-			Hvis du har et problem du trenger hjelp til å løse, så er mailen det beste alternativet. Vi sjekker mailboxen
-			daglig, men det kan ta litt tid å svare. (PokeMath er en hobby, ikke en jobb!)
+			Dette er en privat kopi av PokéMath. Har du spørsmål eller har funnet en feil, så spør den som inviterte deg.
 		</p>
 		<p>
-			Du kan også legge igjen en feilmelding på <a href="https://forms.gle/Vi1VZ37R3UwfSpbu9">denne lenken</a> (Google
-			Forms), eller en generell tilbakemelding på <a href="https://forms.gle/KJo37sLgL9St4m2D6">denne lenken</a> (Google
-			Forms).
+			PokéMath er laget av Tirco, og originalen finnes på <a href="https://pokemath.online">pokemath.online</a>. Spørsmål om
+			den sendes til <a href="mailto:contact@pokemath.online">contact@pokemath.online</a>.
 		</p>
 		<div id="donate-button-container" class="donate">
-			<p>Hvis du ønsker å sponse meg en godbit eller tilsvarende for arbeidet lagt inn i siden, så kan du legge inn en donasjon her:</p>
+			<p>Vil du gi Tirco en godbit for arbeidet med PokéMath, kan du donere her:</p>
 			<a class="pm-button secondary" href="https://www.paypal.com/donate/?hosted_button_id=XAMQNRWKEJWX4" target="_blank" rel="noopener">Doner med PayPal</a>
 		</div>
 	</section>
