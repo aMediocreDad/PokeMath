@@ -13,7 +13,7 @@
 	},
 	// TEAM_DOMAIN and POLICY_AUD come from the Access application; see worker/access.js.
 	// BINGO_JURISDICTION keeps the bingo Durable Object in the EU; D1 is created with --jurisdiction=eu.
-	"vars": { "TEAM_DOMAIN": "", "POLICY_AUD": "", "BINGO_JURISDICTION": "eu" },
+	"vars": { "TEAM_DOMAIN": "https://mediocrity.cloudflareaccess.com", "POLICY_AUD": "363a4d01481dafce69911af0c69e8e959323db6b6711d39da3c724a24f845160", "BINGO_JURISDICTION": "eu" },
 	"d1_databases": [
 		{
 			"binding": "DB",
