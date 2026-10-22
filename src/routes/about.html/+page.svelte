@@ -106,7 +106,7 @@
 		<ul>
 			<li>Spillet lagres i nettleseren din, og en kopi lagres i skyen sammen med innloggingen din.</li>
 			<li>Det er ingen reklame, ingen sporing og ingen analyseverktøy.</li>
-			<li>Alt lagres hos Cloudflare i EU, og ingenting deles med andre.</li>
+			<li>Siden drives av Cloudflare. Databasen og bingo-spillene ligger i EU, og ingenting deles med andre.</li>
 		</ul>
 
 		<h3>Innlogging</h3>
@@ -161,7 +161,7 @@
 					<tr><td>Skylagring</td><td>En kopi av spillet fra localStorage, koblet til innloggingen. Oppdateres omtrent hvert minutt mens du spiller.</td><td>Når den voksne fjerner barnet og velger å slette lagringen, eller på forespørsel</td></tr>
 					<tr><td>Innlogginger</td><td>Hvem som er logget inn (e-post eller barnets navn) og når innloggingen går ut.</td><td>Når du logger ut, eller når innloggingen går ut</td></tr>
 					<tr><td>Barn</td><td>Navnet den voksne skrev inn, fingeravtrykket av koden og hvem som laget den.</td><td>Når den voksne fjerner barnet</td></tr>
-					<tr><td>Feil koder</td><td>IP-adresse og antall feil.</td><td>Etter et kvarter</td></tr>
+					<tr><td>Feil koder</td><td>IP-adresse og antall feil.</td><td>Ved neste innlogging med kode etter et kvarter</td></tr>
 					<tr><td>Lærere</td><td>E-postadressen og de hemmelige kodene læreren lager.</td><td>På forespørsel</td></tr>
 					<tr><td>Spiller-ID</td><td>Den anonyme IDen. Jule- og påskesidene sender også brukernavn, poeng og antall fangster.</td><td>På forespørsel</td></tr>
 					<tr><td>Bingo</td><td>Spiller-ID, brukernavn, figur og fangster i spillet.</td><td>Når bingoen avsluttes, eller etter et døgn uten aktivitet. Premier som ikke er hentet, etter en måned</td></tr>
@@ -169,7 +169,7 @@
 				</tbody>
 			</table>
 		</div>
-		<p>Hemmelige koder sjekkes mot serveren, men det lagres ikke hvem som har brukt dem.</p>
+		<p>Hvilke hemmelige koder du har brukt, lagres i spillet, og dermed også i skylagringen.</p>
 		<p>
 			Cloudflare fører i tillegg tekniske logger over forespørsler en kort periode, til feilsøking. Loggene kan
 			inneholde brukernavn og e-postadresse.
@@ -178,7 +178,7 @@
 		<h3>Tredjeparter</h3>
 		<ul>
 			<li>
-				<strong>Cloudflare</strong> driver siden, databasen og innloggingen, som databehandler. Dataene lagres i EU. Se
+				<strong>Cloudflare</strong> driver siden, databasen og innloggingen, som databehandler. Databasen og bingo-spillene ligger i EU. Se
 				<a href="/dpa.html">databehandling</a> og Cloudflares <a href="https://www.cloudflare.com/privacypolicy/">personvernregler</a>.
 			</li>
 			<li><strong>QR-koder</strong> lages i nettleseren din. Lenken i dem sendes ikke til noen.</li>

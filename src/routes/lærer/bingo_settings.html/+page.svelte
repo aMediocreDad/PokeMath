@@ -38,6 +38,8 @@
 	});
 
 	function start() {
+		const running = (localStorage.getItem('teacherBingoCode') || '').trim().toUpperCase();
+		if (running && !confirm(`Bingo ${running} er i gang. Avslutte den og starte en ny?\n\nElevene må koble til med den nye koden.`)) return;
 		const { difficulty, minLevel, allowAdaptive, prizeType, prizeSecret } = settings;
 		const gridSize = parseInt(settings.gridSize) || 5;
 		sessionStorage.setItem(

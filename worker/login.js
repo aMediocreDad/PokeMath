@@ -43,6 +43,8 @@ export async function route(url, request, env) {
 	if (pathname === '/login/code' && request.method === 'POST') {
 		const ip = request.headers.get('CF-Connecting-IP') || 'local';
 		const now = Date.now();
+		// Failures older than the window count for nothing, so they are not kept either.
+		await env.DB.prepare('DELETE FROM login_failures WHERE window_start < ?').bind(now - FAIL_WINDOW).run();
 		const fails = await env.DB.prepare('SELECT count, window_start FROM login_failures WHERE ip = ?').bind(ip).first();
 		const recent = fails && now - Number(fails.window_start) < FAIL_WINDOW ? Number(fails.count) : 0;
 		if (recent >= MAX_FAILS) return json({ ok: false, message: 'For mange feil forsøk. Vent et kvarter og prøv igjen.' }, 429);
