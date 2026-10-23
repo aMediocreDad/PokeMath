@@ -24,7 +24,8 @@ const PRIZES = { ok: true, prizes: [
   { id: "aura-2", type: "pokemon", pokedexId: 151, entry: "N151", source: "bingo" },
 ] };
 // Pin every animation to one moment, so the shots do not depend on timing.
-const pin = () => document.getAnimations().forEach((a) => { a.pause(); a.currentTime = 1300; });
+// Animations that follow scrolling have no clock to pin, so they are left as they are.
+const pin = () => document.getAnimations().forEach((a) => { try { a.pause(); a.currentTime = 1300; } catch {} });
 let failures = 0;
 const check = (ok, what) => { console.log(`${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) failures++; };
 

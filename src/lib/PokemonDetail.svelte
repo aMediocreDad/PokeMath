@@ -227,8 +227,9 @@
 		margin: 10px 0 0;
 		padding: 3px 12px;
 		border-radius: 999px;
-		background: var(--pm-gold);
-		color: var(--pm-ink);
+		/* As the Legendarisk badge on the cards; plain gold is Shiny's. */
+		background: linear-gradient(135deg, oklch(0.58 0.12 68), oklch(0.47 0.1 62));
+		color: oklch(0.97 0.04 90);
 		font-weight: 700;
 	}
 	.rarity.mythic {
