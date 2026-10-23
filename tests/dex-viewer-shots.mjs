@@ -42,6 +42,8 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     check(await page.locator("#dexModeMine[aria-pressed=true]").count() === 1, `${tag}: a save with catches opens in Mine`);
     check(await page.locator('[id="N150"] .aura.legendary').count() === 1, `${tag}: legendary card has an aura`);
     check(await page.locator('[id="N151"] .aura.mythic').count() === 1, `${tag}: mythic card has an aura`);
+    check(await page.locator('[id="S150"] .types .badge').allTextContents().then((t) => t.join(",")) === "Shiny,Legendarisk", `${tag}: shiny legendary has Shiny and Legendarisk badges with the types`);
+    check(!(await page.locator("#pokedex").textContent()).includes("✨"), `${tag}: no sparkle emoji on the cards`);
     check(await page.locator('[id="S150"] .foil').count() === 1 && await page.locator('[id="S150"] .aura').count() === 1, `${tag}: shiny legendary has foil and aura`);
     await page.waitForTimeout(800);
     await page.evaluate(pin);

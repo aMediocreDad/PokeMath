@@ -1,6 +1,7 @@
 <script>
 	// One Pokémon card, used under the game and in the Pokédex. Shiny, legendary and mythic cards
-	// get a coloured edge and a small label, so the rarity does not depend on colour alone. Shiny
+	// get a coloured edge and a badge beside the types, so the rarity does not depend on colour
+	// alone. Shiny
 	// cards are foiled like trading cards: a rainbow foil behind the Pokémon, a glare sweeping over
 	// it, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
 	// does not flash in unison. Legendaries and mythics stand in an Aura. A `locked` card is one the
@@ -41,13 +42,12 @@
 		</Foil>
 		<span class="number">#{card.cardId}</span>
 		{#if !locked}<span class="count card-counter">x{count}</span>{/if}
-		{#if !locked && (card.shiny || card.rarity)}
-			<span class="tag">{card.shiny ? '✨ Shiny' : ''}{card.shiny && card.rarity ? ' · ' : ''}{card.rarity ? RARITY_LABEL[card.rarity] : ''}</span>
-		{/if}
 	</div>
 	<div class="name">{locked ? '???' : card.name}</div>
 	<div class="types">
 		{#each card.types as type, i (i)}<span class="type t-{type.toLowerCase()}">{type}</span>{/each}
+		{#if !locked && card.shiny}<span class="type badge shiny-badge">Shiny</span>{/if}
+		{#if !locked && card.rarity}<span class="type badge {card.rarity}-badge">{RARITY_LABEL[card.rarity]}</span>{/if}
 	</div>
 </a>
 
@@ -71,29 +71,57 @@
 	.pm-card:active {
 		transform: scale(0.97);
 	}
-	.pm-card.legendary {
-		box-shadow: var(--pm-shadow), 0 0 0 3px oklch(0.72 0.12 75);
-	}
+	/* Shiny, legendary and mythic cards get an edge drawn as a gradient: rainbow foil for a shiny,
+	   polished gold for a legendary (bands of light and dark gold, like metal catching the light),
+	   pearl for a mythic. The foil edge wins; the badges under the name still say all of it. */
+	.pm-card.shiny,
+	.pm-card.legendary,
 	.pm-card.mythic {
-		box-shadow: var(--pm-shadow), 0 0 0 3px oklch(0.66 0.16 330);
-	}
-	/* The foil edge wins over the legendary and mythic rings; the tag still names both. */
-	.pm-card.shiny {
 		position: relative;
 		isolation: isolate;
 		box-shadow: var(--pm-shadow);
 	}
-	.pm-card.shiny::before {
+	.pm-card.shiny::before,
+	.pm-card.legendary::before,
+	.pm-card.mythic::before {
 		content: '';
 		position: absolute;
 		inset: -3px;
 		z-index: -1;
 		border: 3px solid transparent;
 		border-radius: 19px;
-		/* Paper inside, rainbow only in the border: this layer sits above the card's own background. */
+		/* Paper inside, the gradient only in the border: this layer sits above the card's own background. */
 		background:
 			linear-gradient(var(--pm-paper), var(--pm-paper)) padding-box,
-			var(--pm-foil-edge) border-box;
+			var(--edge) border-box;
+	}
+	.pm-card.legendary {
+		--edge: linear-gradient(
+			135deg,
+			oklch(0.9 0.1 92),
+			oklch(0.66 0.13 68) 22%,
+			oklch(0.95 0.07 95) 42%,
+			oklch(0.6 0.12 62) 62%,
+			oklch(0.88 0.12 88) 82%,
+			oklch(0.68 0.13 70)
+		);
+		box-shadow: var(--pm-shadow), 0 0 14px -2px oklch(0.8 0.14 80 / 0.55);
+	}
+	.pm-card.legendary::before {
+		inset: -4px;
+		border-width: 4px;
+		border-radius: 20px;
+	}
+	.pm-card.mythic {
+		--edge: linear-gradient(135deg, oklch(0.75 0.15 330), oklch(0.82 0.09 280) 35%, oklch(0.8 0.1 220) 65%, oklch(0.72 0.16 320));
+	}
+	.pm-card.shiny {
+		--edge: var(--pm-foil-edge);
+	}
+	.pm-card.shiny::before {
+		inset: -3px;
+		border-width: 3px;
+		border-radius: 19px;
 	}
 	.art {
 		position: relative;
@@ -137,22 +165,6 @@
 		background: var(--pm-paper);
 		color: var(--pm-ink);
 	}
-	.tag {
-		position: absolute;
-		left: 6px;
-		right: 6px;
-		bottom: 6px;
-		padding: 2px 6px;
-		border-radius: 999px;
-		background: var(--pm-ink);
-		color: var(--pm-paper);
-		font-size: 11px;
-		font-weight: 700;
-		text-align: center;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
 	.name {
 		margin: 8px 2px 6px;
 		font-family: var(--pm-display);
@@ -176,6 +188,19 @@
 		font-size: 12px;
 		font-weight: 700;
 		text-transform: capitalize;
+	}
+	/* Shiny, legendary and mythic sit with the types, each in its own colour. */
+	.shiny-badge {
+		background: var(--pm-gold);
+		color: var(--pm-ink);
+	}
+	.legendary-badge {
+		background: linear-gradient(135deg, oklch(0.58 0.12 68), oklch(0.47 0.1 62));
+		color: oklch(0.97 0.04 90);
+	}
+	.mythic-badge {
+		background: oklch(0.52 0.17 330);
+		color: var(--pm-paper);
 	}
 
 	@media (max-width: 480px) {

@@ -670,9 +670,9 @@
 			</div>
 			{#if caughtCard}
 				<div class="caught-types">
-					{#if caughtCard.shiny}<span class="caught-tag">✨ Shiny</span>{/if}
-					{#if caughtCard.rarity === 'legendary'}<span class="caught-tag">Legendarisk</span>{/if}
-					{#if caughtCard.rarity === 'mythic'}<span class="caught-tag">Mytisk</span>{/if}
+					{#if caughtCard.shiny}<span class="caught-tag">Shiny</span>{/if}
+					{#if caughtCard.rarity === 'legendary'}<span class="caught-tag legendary">Legendarisk</span>{/if}
+					{#if caughtCard.rarity === 'mythic'}<span class="caught-tag mythic">Mytisk</span>{/if}
 					{#each caughtCard.types as type, i (i)}<span class="caught-type">{type}</span>{/each}
 				</div>
 			{/if}
@@ -1073,6 +1073,15 @@
 	.caught-tag {
 		background: var(--pm-gold);
 		color: var(--pm-ink);
+	}
+	/* The same colours as the badges on the cards. */
+	.caught-tag.legendary {
+		background: linear-gradient(135deg, oklch(0.58 0.12 68), oklch(0.47 0.1 62));
+		color: oklch(0.97 0.04 90);
+	}
+	.caught-tag.mythic {
+		background: oklch(0.52 0.17 330);
+		color: var(--pm-paper);
 	}
 	.reset-button {
 		position: relative;
