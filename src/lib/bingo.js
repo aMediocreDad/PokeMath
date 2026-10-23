@@ -103,11 +103,18 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 		return send({ type: 'joinLobby', code: code6(code), uuid: id, name: playerName(), icon });
 	}
 
+	/** @type {Promise<void>} */
+	let claiming = Promise.resolve();
+	function claimPrizes() {
+		// One claim at a time: a second one waits, then asks for whatever is left.
+		return (claiming = claiming.then(claimOnce).catch((e) => console.error('[BINGO] claimBingoPrizes failed', e)));
+	}
+
 	/**
 	 * Give the prizes waiting on the server, then confirm them so the server drops them. The ids
 	 * given are kept in the save too, so a confirm lost on bad wifi never pays a prize twice.
 	 */
-	async function claimPrizes() {
+	async function claimOnce() {
 		const id = await uuid();
 		const url = '/bingo/claim-prizes?uuid=' + encodeURIComponent(id);
 		try {
@@ -181,6 +188,15 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 				ws?.close();
 			} else if (msg.type === 'raidUpdate') {
 				onGame?.('raid', msg.raid);
+			} else if (msg.type === 'finished') {
+				// The bingo locked or the boss fell: take the prizes, then leave, so the page stops
+				// showing a game that is over. The teacher's screen keeps it until they end it.
+				setTimeout(async () => {
+					await claimPrizes();
+					// Forget first, or the socket's close would reconnect to the old code.
+					forgetCode();
+					ws?.close();
+				}, 300);
 			} else if (msg.type === 'bingoReward') {
 				// Give the server a moment to store the prize before claiming it.
 				setTimeout(claimPrizes, 300);

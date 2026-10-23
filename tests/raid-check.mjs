@@ -31,10 +31,16 @@ await host.locator('#createRaidBtn').click();
 const code = (await host.locator('#raidCode').textContent()).trim();
 check('the teacher gets a code', /^[0-9A-Z]{6}$/.test(code), code);
 
-/** A child on an iPad who joins with the code and opens level 1. */
-async function child(name) {
-	const ctx = await browser.newContext({ ...devices['iPad (gen 7)'], extraHTTPHeaders: { 'x-dev-email': `${name.toLowerCase()}-${Date.now()}@test.no` } });
+/** A child who joins with the code and opens level 1. */
+async function child(name, device) {
+	const ctx = await browser.newContext({ ...devices[device], extraHTTPHeaders: { 'x-dev-email': `${name.toLowerCase()}-${Date.now()}@test.no` } });
 	await ctx.addCookies([{ name: 'cookies', value: 'true', url: BASE }]);
+	// Note whether the prize reveal ever shows on top of the win screen.
+	await ctx.addInitScript(() =>
+		setInterval(() => {
+			if (document.querySelector('#bingo-lootbox-overlay') && document.querySelector('.catch.open')) window.__stacked = true;
+		}, 50)
+	);
 	const page = await ctx.newPage();
 	page.on('pageerror', (e) => console.log(name, 'pageerror', e.message));
 	await page.goto(BASE + '/');
@@ -49,7 +55,8 @@ async function child(name) {
 	await page.locator('#raidIndicator').waitFor();
 	return page;
 }
-const kids = [await child('Kari'), await child('Ola')];
+// Ola plays on a phone, where the raid banner used to stick out past the screen.
+const kids = [await child('Kari', 'iPad (gen 7)'), await child('Ola', 'iPhone 13')];
 check('children see they are waiting', (await kids[0].locator('#raidIndicator').textContent()).includes('Venter'));
 await host.locator('#raidPlayers li').nth(1).waitFor();
 check('the teacher sees both children', (await host.locator('#raidPlayers li').count()) === 2);
@@ -82,7 +89,10 @@ const mid = (await host.locator('#raidHp').textContent()).trim();
 check('correct answers hit the boss', mid === '12 / 20 liv', mid);
 await shot(host, 'raid-fight');
 check('children see the boss lose health', (await kids[1].locator('#raidIndicator').textContent()).includes('12 / 20'));
+const overflow = await kids[1].evaluate(() => document.documentElement.scrollWidth - innerWidth);
+check('the raid banner fits on a phone', overflow <= 0, `${overflow}px too wide`);
 await shot(kids[0], 'raid-child');
+await shot(kids[1], 'raid-child-phone');
 
 await Promise.all([play(kids[0], 6), play(kids[1], 6)]);
 await host.locator('#raidVictory').waitFor({ timeout: 10_000 });
@@ -91,12 +101,22 @@ await host.waitForTimeout(600);
 await shot(host, 'raid-won');
 await kids[0].waitForTimeout(2500);
 for (const [i, page] of kids.entries()) {
+	const name = i ? 'Ola' : 'Kari';
 	const list = await page.evaluate(() => localStorage.getItem('pokemonlist') || '');
-	check(`${i ? 'Ola' : 'Kari'} caught Mewtwo`, /(^|\|)[NS]150($|\|)/.test(list), list.slice(-20));
+	check(`${name} caught Mewtwo`, /(^|\|)[NS]150($|\|)/.test(list), list.slice(-20));
+	// The winning hit was each child's tenth answer, which also won a round: the prize waits.
+	check(`${name}'s prize waits for the win screen`, (await page.locator('.catch.open').isVisible()) && !(await page.locator('#bingo-lootbox-overlay').isVisible()));
+	await page.locator('#pokeball').click();
+	await page.locator('.reset-button:not(.is-hidden)').click();
+	await page.locator('#bingo-lootbox-overlay').waitFor({ timeout: 5000 });
+	check(`${name} sees the prize after the win screen`, !(await page.evaluate(() => window.__stacked)));
+	check(`${name} leaves the won raid by themselves`, (await page.locator('#raidIndicator').count()) === 0 && (await page.evaluate(() => localStorage.getItem('bingoJoinedCode'))) === null);
 }
+await shot(kids[1], 'raid-prize-phone');
 
-// "Nytt raid" ends the room; the page forgets it only when the server says so.
-await host.locator('#newRaidBtn').click();
+// "Avslutt raidet" ends the room; the page forgets it only when the server says so.
+check('the teacher ends a won raid with "Avslutt raidet"', (await host.locator('#endRaidBtn').textContent()).trim() === 'Avslutt raidet');
+await host.locator('#endRaidBtn').click();
 await host.locator('#raidSetup').waitFor({ timeout: 5000 }).catch(() => {});
 check('ending the raid goes back to the setup', await host.locator('#raidSetup').isVisible());
 check('…and forgets the code', (await host.evaluate(() => localStorage.getItem('teacherRaidCode'))) === null);

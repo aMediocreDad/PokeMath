@@ -247,10 +247,9 @@
 					{#if raid.phase === 'lobby'}
 						<button class="pm-button" id="startRaidBtn" disabled={!players.length} onclick={startFight}>Start raidet</button>
 						<button class="pm-button secondary" onclick={end}>Avbryt</button>
-					{:else if raid.phase === 'fight'}
-						<button class="pm-button secondary" id="endRaidBtn" onclick={end}>Avslutt raidet</button>
 					{:else}
-						<button class="pm-button" id="newRaidBtn" onclick={end}>Nytt raid</button>
+						<!-- The children leave a won raid by themselves; this clears it here too. -->
+						<button class="pm-button" class:secondary={raid.phase === 'fight'} id="endRaidBtn" onclick={end}>Avslutt raidet</button>
 					{/if}
 				</div>
 			</div>

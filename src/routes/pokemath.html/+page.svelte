@@ -98,6 +98,18 @@
 	let bingo;
 	/** @type {import('#lib/bingo.js').Prize[]} Prizes waiting to be revealed. */
 	let prizeQueue = $state([]);
+	/**
+	 * The prize reveal waits for the win screen to close: the winning hit in a raid often finishes
+	 * a round too. Once open it stays until the last prize, so a new win cannot restart it.
+	 */
+	let lootboxOpen = $state(false);
+	$effect(() => {
+		if (prizeQueue.length && !overlayOpen && !lootboxOpen) {
+			lootboxOpen = true;
+			// The reveal covers the page; typing behind it would answer problems unseen.
+			field?.blur();
+		}
+	});
 	/** @type {{ message: string, position: string } | null} */
 	let adminPopup = $state(null);
 
@@ -190,7 +202,7 @@
 	/** @param {SubmitEvent | KeyboardEvent} event */
 	function handleSubmit(event) {
 		event.preventDefault();
-		if (!values || !problem) return;
+		if (!values || !problem || lootboxOpen) return;
 		if (isBlank(answer)) return field?.focus();
 		if (score === winScore) return;
 
@@ -702,8 +714,16 @@
 	</div>
 {/if}
 
-{#if prizeQueue.length}
-	<BingoLootbox prizes={prizeQueue} onDone={() => (prizeQueue = [])} />
+{#if lootboxOpen}
+	<BingoLootbox
+		prizes={prizeQueue}
+		onDone={() => {
+			prizeQueue = [];
+			lootboxOpen = false;
+			// Inside the closing tap, so iOS brings the keyboard back.
+			field?.focus();
+		}}
+	/>
 {/if}
 
 {#if adminPopup}
@@ -753,6 +773,7 @@
 	.raid-chip {
 		display: grid;
 		gap: 4px;
+		box-sizing: border-box;
 		width: min(360px, 100%);
 		margin: 0 auto 10px;
 		padding: 8px 16px 10px;
@@ -763,6 +784,8 @@
 		text-decoration: none;
 	}
 	.raid-title {
+		min-width: 0;
+		overflow-wrap: anywhere;
 		font-family: var(--pm-display);
 		font-size: 18px;
 	}

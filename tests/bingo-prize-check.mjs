@@ -108,6 +108,7 @@ check('the child gets the main prize', /10\s?000/.test(mainPrize), mainPrize.tri
 await child.locator('#bingo-lootbox-overlay').click();
 const after = await child.evaluate(() => Number(localStorage.getItem('money') || 0));
 check('the coins are added', after - before === 10000, `${before} -> ${after}`);
+check('the child leaves the finished bingo by themselves', (await child.locator('#bingoIndicator').count()) === 0 && (await child.evaluate(() => localStorage.getItem('bingoJoinedCode'))) === null);
 
 await browser.close();
 console.log(results.every(Boolean) ? 'ALL PASS' : 'SOME FAILED');

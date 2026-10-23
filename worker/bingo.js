@@ -330,6 +330,7 @@ export class BingoHub extends DurableObject {
 		await this.saveRoom(room);
 		log('bingo', `rom ${room.code} låst, ${eligible.length} vinnere`);
 		this.toHosts(room.code, { type: 'lobbyPrize', prize, eligibleCount: eligible.length });
+		this.toPlayers(room.code, { type: 'finished' });
 	}
 
 	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
@@ -557,6 +558,7 @@ const HANDLERS = {
 		if (won) {
 			log('raid', `raid ${room.code} vunnet av ${winners.length}`);
 			this.toHosts(room.code, { type: 'raidWon', raid: raidState(room), winners });
+			this.toPlayers(room.code, { type: 'finished' });
 		}
 	},
 };
