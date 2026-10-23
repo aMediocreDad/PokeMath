@@ -1,4 +1,5 @@
-// The Pokédex's two modes and the viewer: legendary and mythic auras on cards, in the viewer and in
+// The Pokédex's modes (Mine, Mangler, Alle) and the viewer. The list's cards are quiet: edge, badges
+// and a still tint, no foil or aura; the trading card in the pane and the viewer has those. Also
 // a bingo prize; the shiny foil in the viewer; "Alle arter" with shadows; a card opening the viewer
 // and "‹ Pokédex" bringing back the filters and scroll; and an empty save landing in "Alle arter".
 // On the iPad (760 px and wider) the Pokédex is split: a tap shows the Pokémon in a pane beside the
@@ -26,6 +27,13 @@ const PRIZES = { ok: true, prizes: [
 // Pin every animation to one moment, so the shots do not depend on timing.
 // Animations that follow scrolling have no clock to pin, so they are left as they are.
 const pin = () => document.getAnimations().forEach((a) => { try { a.pause(); a.currentTime = 1300; } catch {} });
+// Filters live in a panel behind the Filter button: open it, tap, close it again.
+const filter = async (page, key) => {
+  await page.click("#filterBtn");
+  await page.click(`#filterContent [data-filter="${key}"]`);
+  await page.click("#filterBtn");
+  await page.waitForTimeout(300);
+};
 let failures = 0;
 const check = (ok, what) => { console.log(`${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) failures++; };
 
@@ -41,11 +49,15 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     await page.goto(BASE + "/dex.html");
     await page.waitForSelector(".pm-card.legendary");
     check(await page.locator("#dexModeMine[aria-pressed=true]").count() === 1, `${tag}: a save with catches opens in Mine`);
-    check(await page.locator('[id="N150"] .aura.legendary').count() === 1, `${tag}: legendary card has an aura`);
-    check(await page.locator('[id="N151"] .aura.mythic').count() === 1, `${tag}: mythic card has an aura`);
+    check(await page.locator('[id="N150"].legendary.quiet').count() === 1 && await page.locator('#pokedex .aura, #pokedex .foil').count() === 0, `${tag}: list cards are quiet, without foil or aura`);
+    check(await page.locator(".pm-dexbar").count() === 0 && await page.locator(".dex-progress .meter").count() === 5, `${tag}: progress sits above the list, no bottom bar`);
     check(await page.locator('[id="S150"] .types .badge').allTextContents().then((t) => t.join(",")) === "Shiny,Legendarisk", `${tag}: shiny legendary has Shiny and Legendarisk badges with the types`);
     check(!(await page.locator("#pokedex").textContent()).includes("✨"), `${tag}: no sparkle emoji on the cards`);
-    check(await page.locator('[id="S150"] .foil').count() === 1 && await page.locator('[id="S150"] .aura').count() === 1, `${tag}: shiny legendary has foil and aura`);
+    if (vp === "ipad") {
+      await page.locator('[id="S150"]').click();
+      await page.waitForTimeout(300);
+      check(await page.locator(".dex-pane .holo-card.holo .glitter").count() === 1 && await page.locator(".dex-pane .holo-card .aura.legendary").count() === 1, `${tag}: the picked shiny legendary's card has glitter and aura`);
+    }
     await page.waitForTimeout(800);
     await page.evaluate(pin);
     await page.screenshot({ path: `${OUT}dex-mine-${tag}.png` });
@@ -61,15 +73,15 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     check(await page.locator("#speciesCaught").textContent() === "13 / 1026", `${tag}: 13 of 1026 species caught`);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${OUT}dex-all-${tag}.png` });
-    await page.click("#caughtBtn"); await page.click("#caughtBtn");
-    await page.click('[data-filter="Legendarisk"]');
+    await page.click("#dexModeMissing");
+    await filter(page, "Legendarisk");
     await page.waitForTimeout(300);
     const missing = await page.locator("#pokedex .pm-card").count();
     check(missing > 0 && await page.locator("#pokedex .pm-card:not(.locked)").count() === 0, `${tag}: missing legendaries are all shadows (${missing})`);
     await page.screenshot({ path: `${OUT}dex-all-missing-legendary-${tag}.png` });
 
     // A card opens the viewer in the same tab; ‹ Pokédex comes back to the same filters and scroll.
-    await page.click("#caughtBtn");
+    await page.click("#dexModeAll");
     await page.waitForTimeout(300);
     await page.evaluate(() => window.scrollTo(0, 400));
     await page.waitForTimeout(300);
@@ -84,24 +96,26 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
       const id = (await card.getAttribute("href")).match(/pokemonId=(\d+)/)[1];
       await card.click();
       await page.waitForTimeout(400);
-      check(page.url().includes("dex.html") && await page.locator(`.dex-pane .number`).textContent() === `#${id}`, `${tag}: a tap shows #${id} in the pane`);
+      check(page.url().includes("dex.html") && await page.locator(".dex-pane .holo-card").getAttribute("data-id") === id, `${tag}: a tap shows #${id} in the pane`);
       check(await card.getAttribute("aria-current") === "true", `${tag}: the picked card is marked`);
       check(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore) < 40, `${tag}: picking does not scroll the list`);
       await page.locator('[id="dexModeMine"]').click();
-      await page.click('[data-filter="all"]');
+      await page.click("#filterBtn");
+      await page.click('#filterContent [data-filter="all"]');
+      await page.click("#filterBtn");
       await page.locator('[id="N1"]').click();
       await page.locator('.dex-pane #next-evolution-wrapper a').first().click();
       await page.waitForTimeout(300);
-      check(await page.locator(".dex-pane .number").textContent() === "#2", `${tag}: an evolution in the pane shows #2`);
+      check(await page.locator(".dex-pane .holo-card").getAttribute("data-id") === "2", `${tag}: an evolution in the pane shows #2`);
       await page.waitForTimeout(800);
       await page.evaluate(pin);
       await page.screenshot({ path: `${OUT}dex-split-${tag}.png` });
       await page.evaluate(() => document.getAnimations().forEach((a) => a.play()));
       await page.locator('[id="S150"]').click();
       await page.waitForTimeout(300);
-      check(await page.locator(".dex-pane .hero-art .foil").count() === 1, `${tag}: a shiny in the pane is foiled`);
+      check(await page.locator(".dex-pane .hero-art .holo-card.holo").count() === 1, `${tag}: a shiny in the pane is a holo card`);
       await page.click("#dexModeAll");
-      await page.click('[data-filter="Legendarisk"]');
+      await filter(page, "Legendarisk");
       await page.waitForTimeout(300);
       await page.evaluate((y) => window.scrollTo(0, y), scrollBefore);
       await page.waitForTimeout(300);
@@ -116,14 +130,15 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     await page.waitForSelector("#pokedex .pm-card");
     await page.waitForTimeout(600);
     check(await page.locator("#dexModeAll[aria-pressed=true]").count() === 1, `${tag}: back in Alle arter`);
-    check(await page.locator('[data-filter="Legendarisk"].filter-include').count() === 1, `${tag}: Legendarisk filter kept`);
+    check(await page.locator('#filterContent [data-filter="Legendarisk"].filter-include').count() === 1, `${tag}: Legendarisk filter kept`);
+    check(await page.locator("#filterBtn .filter-count").textContent() === "1", `${tag}: the Filter button counts one filter`);
     check(await page.locator("#pokedex .pm-card").count() === shown, `${tag}: same cards shown (${shown})`);
-    if (vp === "ipad") check(await page.locator(".dex-pane .number").textContent() === "#150", `${tag}: the pane keeps the picked Pokémon`);
+    if (vp === "ipad") check(await page.locator(".dex-pane .holo-card").getAttribute("data-id") === "150", `${tag}: the pane keeps the picked Pokémon`);
     const scrollAfter = await page.evaluate(() => window.scrollY);
     check(Math.abs(scrollAfter - scrollBefore) < 40, `${tag}: scroll kept (${scrollBefore} → ${scrollAfter})`);
 
     // Viewer: shiny foil and aura on the big picture, a mythic, and a shadow.
-    for (const [query, name, sel] of [["150&shiny=1", "shiny-legendary", ".hero-art .foil"], ["151", "mythic", ".hero-art .aura.mythic"], ["249", "legendary", ".hero-art .aura.legendary"], ["243", "locked", ".hero-art.locked"]]) {
+    for (const [query, name, sel] of [["150&shiny=1", "shiny-legendary", ".hero-art .holo-card.holo"], ["151", "mythic", ".hero-art .aura.mythic"], ["249", "legendary", ".hero-art .aura.legendary"], ["243", "locked", ".hero-art.locked"]]) {
       await page.goto(`${BASE}/pokeviewer.html?pokemonId=${query}`);
       await page.waitForSelector(".hero .name");
       check(await page.locator(sel).count() === 1, `${tag}: viewer ${name} has ${sel}`);
@@ -190,7 +205,7 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
   await context.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.getItem(k) === null && localStorage.setItem(k, v)), SAVE);
   const page = await context.newPage();
   await page.goto(BASE + "/dex.html");
-  await page.waitForSelector(".dex-pane .number");
+  await page.waitForSelector(".dex-pane .holo-card");
   await page.locator('[id="N151"]').click();
   await page.waitForTimeout(800);
   await page.evaluate(pin);
@@ -221,6 +236,15 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
   await page.waitForTimeout(600);
   await page.evaluate(pin);
   await page.screenshot({ path: `${OUT}viewer-shiny-legendary-desktop.png` });
+  // The mouse near the card's top-right corner turns the card that way; the sheen moves with it.
+  await page.evaluate(() => document.getAnimations().forEach((a) => a.play()));
+  const box = await page.locator(".holo-card").boundingBox();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.mouse.move(box.x + box.width * 0.9, box.y + box.height * 0.1, { steps: 8 });
+  await page.waitForTimeout(900);
+  const turned = await page.locator(".holo-card").evaluate((el) => el.style.getPropertyValue("--px"));
+  check(Number(turned) > 0.5, `desktop: the card turns towards the mouse (--px ${turned})`);
+  await page.locator(".hero-art").screenshot({ path: `${OUT}card-shiny-turned-desktop.png` });
 
   await page.goto(BASE + "/pokemath.html?stage=2");
   await page.waitForSelector(".problem");

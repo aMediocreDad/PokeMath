@@ -7,11 +7,13 @@
 	// does not flash in unison. Legendaries and mythics stand in an Aura. A `locked` card is one the
 	// all-species Pokédex has not seen caught: a shadow with no name, like the dex in the games.
 	// With `onselect` a tap picks the card instead of opening the viewer (the Pokédex's split view).
+	// A `quiet` card keeps its edge and badges but trades the moving foil and aura for a still tint:
+	// the Pokédex list saves the show for the card picked out of it.
 	import Foil from '#lib/Foil.svelte';
 	import Aura from '#lib/Aura.svelte';
 
-	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, locked?: boolean, selected?: boolean, onselect?: () => void }} */
-	let { card, count, locked = false, selected = false, onselect } = $props();
+	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, locked?: boolean, quiet?: boolean, selected?: boolean, onselect?: () => void }} */
+	let { card, count, locked = false, quiet = false, selected = false, onselect } = $props();
 
 	const phase = $derived(`${-((card.id * 0.37) % 6)}s`);
 
@@ -25,6 +27,7 @@
 	class:legendary={!locked && card.rarity === 'legendary'}
 	class:mythic={!locked && card.rarity === 'mythic'}
 	class:locked
+	class:quiet
 	class:selected
 	aria-current={selected ? 'true' : undefined}
 	href="./pokeviewer.html?pokemonId={card.id}{card.shiny ? '&shiny=1' : ''}"
@@ -35,8 +38,8 @@
 	}}
 >
 	<div class="art">
-		<Foil on={card.shiny && !locked} {phase}>
-			<Aura kind={locked ? '' : card.rarity} {phase}>
+		<Foil on={card.shiny && !locked && !quiet} {phase}>
+			<Aura kind={locked || quiet ? '' : card.rarity} {phase}>
 				<span class="sprite" style="background-image: url('{card.image}');"></span>
 			</Aura>
 		</Foil>
@@ -139,6 +142,22 @@
 	}
 	.shiny .art {
 		background-color: oklch(0.94 0.05 90);
+	}
+	/* Quiet cards: a still wash in the art, in the colours of what the full card shows. */
+	.quiet.shiny .art {
+		background: linear-gradient(
+			115deg,
+			oklch(0.93 0.06 85),
+			oklch(0.91 0.06 350),
+			oklch(0.92 0.05 250),
+			oklch(0.93 0.06 160)
+		);
+	}
+	.quiet.legendary:not(.shiny) .art {
+		background: radial-gradient(circle at 50% 55%, oklch(0.94 0.09 90), oklch(0.93 0.04 80) 70%);
+	}
+	.quiet.mythic:not(.shiny) .art {
+		background: radial-gradient(circle at 50% 55%, oklch(0.94 0.05 320), oklch(0.93 0.04 260) 70%);
 	}
 	.locked .sprite {
 		filter: brightness(0);

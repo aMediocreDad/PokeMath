@@ -1,12 +1,11 @@
 <script>
-	// One Pokémon in detail: the big picture, facts, stats, names in other languages, evolutions
-	// and alternate forms. Pokémon you have not caught are shown as a shadow. Used by the
+	// One Pokémon in detail: its trading card (HoloCard) with its stats, the title, names in other
+	// languages, evolutions and alternate forms. Pokémon you have not caught are shown as a shadow. Used by the
 	// Pokéviewer page and, on iPad, beside the Pokédex list, where `compact` stacks it for the
 	// narrower pane. A tap on an evolution calls `onpick` with its number instead of following the
 	// link.
 	import { player } from '#lib/player.svelte.js';
-	import Foil from '#lib/Foil.svelte';
-	import Aura from '#lib/Aura.svelte';
+	import HoloCard from '#lib/HoloCard.svelte';
 
 	/** @type {{ info: import('#lib/game/pokemon.js').PokemonInfo, id: number, shiny?: boolean, compact?: boolean, onpick?: (id: number) => void }} */
 	let { info, id, shiny = false, compact = false, onpick } = $props();
@@ -24,14 +23,14 @@
 	const rarity = $derived(pokemon?.is_legendary ? 'legendary' : pokemon?.is_mythical ? 'mythic' : '');
 
 	const evoFromId = $derived(pokemon?.evo_from ?? null);
+	/** How many steps it has evolved from a basic Pokémon: 0, 1 or 2, for the card's stage. */
+	const stage = $derived.by(() => {
+		let steps = 0;
+		for (let from = pokemon?.evo_from; from && steps < 3; from = info?.[from]?.['0']?.evo_from) steps++;
+		return steps;
+	});
 	/** @type {any} */
 	const evoFrom = $derived(evoFromId ? info?.[evoFromId]?.['0'] : null);
-	const STAT_MAX = 255;
-	const stats = $derived(
-		pokemon
-			? [['HP', pokemon.base_hp], ['Angrep', pokemon.base_atk], ['Forsvar', pokemon.base_def], ['Sp. angrep', pokemon.base_satk], ['Sp. forsvar', pokemon.base_sdef], ['Fart', pokemon.base_spd]]
-			: []
-	);
 	const evolvesTo = $derived(
 		info ? Object.keys(info).filter((key) => info?.[key]?.['0']?.evo_from === id).map(Number) : []
 	);
@@ -70,45 +69,16 @@
 		<div id="main-pokemon-wrapper" class="hero pm-surface" class:shiny>
 			{#if pokemon}
 				<div class="hero-art" class:locked={!unlocked}>
-					<Foil on={shiny && unlocked}>
-						<Aura kind={unlocked ? rarity : ''}>
-							<img
-								src="images/pokemon/{folder}/{id}.webp"
-								alt={unlocked ? pokemon.name : 'Ukjent Pokémon'}
-								class="poke-image"
-								style="filter: {unlocked ? 'brightness(100%)' : 'brightness(0%)'}; pointer-events: none;"
-							/>
-						</Aura>
-					</Foil>
-				</div>
+				<HoloCard {pokemon} {id} image="images/pokemon/{folder}/{id}.webp" {shiny} {rarity} {stage} locked={!unlocked} />
+			</div>
 				<div class="hero-info">
 					<p class="number">#{id}</p>
 					<svelte:element this={compact ? 'h2' : 'h1'} class="name">{unlocked ? pokemon.name : '???'}</svelte:element>
 					{@render types(pokemon.types)}
 					{#if unlocked && rarity}<p class="rarity {rarity}">{rarity === 'legendary' ? 'Legendarisk' : 'Mytisk'}</p>{/if}
 					{#if !unlocked}<p class="locked-note">Fang denne Pokémonen for å se mer om den.</p>{/if}
-					<dl class="facts">
-						<div><dt>Generasjon</dt><dd>{unlocked ? (pokemon.generation ? pokemon.generation[0].toUpperCase() + pokemon.generation.slice(1) : 'Ukjent') : '???'}</dd></div>
-						<div><dt>Høyde</dt><dd>{unlocked ? (pokemon.height ? (pokemon.height / 10).toFixed(1) + ' m' : 'Ukjent') : '???'}</dd></div>
-						<div><dt>Vekt</dt><dd>{unlocked ? (pokemon.weight ? (pokemon.weight / 10).toFixed(1) + ' kg' : 'Ukjent') : '???'}</dd></div>
-					</dl>
-					<blockquote class="dexentry" lang="en">{unlocked ? pokemon.description : '???'}</blockquote>
 				</div>
 				<div class="hero-extra">
-					<section class="stats-container">
-						<h2 class="evotitle">Stats</h2>
-						{#if unlocked}
-							{#each stats as [label, value] (label)}
-								<div class="stat-item">
-									<span class="stat-label">{label}</span>
-									<span class="stat-bar" aria-hidden="true"><span style:width="{Math.min(100, (Number(value) / STAT_MAX) * 100)}%"></span></span>
-									<span class="stat-value">{value}</span>
-								</div>
-							{/each}
-						{:else}
-							<p class="unknown">???</p>
-						{/if}
-					</section>
 					<section class="languages-container">
 						<h2 class="evotitle">På andre språk</h2>
 						{#if unlocked}
@@ -123,23 +93,20 @@
 			{/if}
 		</div>
 
-		<div class="evolutions">
-			<div id="prev-evolution-wrapper" class="evolution-wrapper">
-				<h2 class="evotitle">Utvikles fra</h2>
-				{#if pokemon}
-					{#if evoFrom}
+		{#if pokemon && (evoFrom || evolvesTo.length > 0)}
+			<!-- Only the directions it evolves in; a Pokémon that does not evolve shows none. -->
+			<div class="evolutions">
+				{#if evoFrom}
+					<div id="prev-evolution-wrapper" class="evolution-wrapper">
+						<h2 class="evotitle">Utvikles fra</h2>
 						<a href="./pokeviewer.html?pokemonId={evoFromId}" onclick={(e) => pick(e, evoFromId)}>
 							{@render smallPokemon(evoFromId, evoFrom, owned(evoFromId), evoFromId)}
 						</a>
-					{:else}
-						<p class="unknown">Ingen</p>
-					{/if}
+					</div>
 				{/if}
-			</div>
-			<div id="next-evolution-wrapper" class="evolution-wrapper">
-				<h2 class="evotitle">Utvikles til{evolvesTo.length > 1 ? ` (${evolvesTo.length})` : ''}</h2>
-				{#if pokemon}
-					{#if evolvesTo.length > 0}
+				{#if evolvesTo.length > 0}
+					<div id="next-evolution-wrapper" class="evolution-wrapper">
+						<h2 class="evotitle">Utvikles til{evolvesTo.length > 1 ? ` (${evolvesTo.length})` : ''}</h2>
 						<div class="evo-list">
 							{#each evolvesTo as evoId (evoId)}
 								{@const form = info?.[evoId]?.['0']}
@@ -150,12 +117,10 @@
 								{/if}
 							{/each}
 						</div>
-					{:else}
-						<p class="unknown">Ingen</p>
-					{/if}
+					</div>
 				{/if}
 			</div>
-		</div>
+		{/if}
 	</div>
 
 	<section id="alternate-forms-wrapper" class="alternate-forms-wrapper" style:display={pokemon ? (altForms.length > 0 ? '' : 'none') : null}>
@@ -176,27 +141,11 @@
 		gap: 20px 28px;
 		padding: 22px;
 	}
-	.hero.shiny {
-		box-shadow: var(--pm-shadow), 0 0 0 3px var(--pm-gold);
-	}
+	/* The Pokémon's card; it carries the facts and the Pokédex entry, so the info beside it is
+	   only the title. */
 	.hero-art {
 		grid-area: art;
-		position: relative;
-		overflow: hidden;
-		display: grid;
-		place-items: center;
-		aspect-ratio: 1;
-		border-radius: 50%;
-		background: var(--pm-cream);
-	}
-	.shiny .hero-art {
-		background: oklch(0.95 0.06 90);
-	}
-	.hero-art img {
-		position: relative;
-		width: 86%;
-		height: 86%;
-		object-fit: contain;
+		align-self: start;
 	}
 	.hero-info {
 		grid-area: info;
@@ -240,39 +189,10 @@
 		margin: 12px 0 0;
 		color: var(--pm-ink-soft);
 	}
-	.facts {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 8px;
-		margin: 16px 0;
-	}
-	.facts div {
-		padding: 8px 10px;
-		border-radius: 12px;
-		background: var(--pm-cream);
-	}
-	.facts dt {
-		color: var(--pm-ink-soft);
-		font-size: 13px;
-	}
-	.facts dd {
-		margin: 0;
-		font-family: var(--pm-display);
-		font-size: 18px;
-	}
-	.dexentry {
-		margin: 0;
-		padding: 12px 14px;
-		border-left: 4px solid var(--pm-red);
-		border-radius: 0 12px 12px 0;
-		background: var(--pm-red-soft);
-		font-style: italic;
-		line-height: 1.45;
-	}
 	.hero-extra {
 		grid-area: extra;
 		display: grid;
-		grid-template-columns: 3fr 2fr;
+		grid-template-columns: minmax(0, 420px);
 		gap: 20px;
 	}
 	.evotitle {
@@ -280,35 +200,6 @@
 		font-family: var(--pm-display);
 		font-weight: 400;
 		font-size: 20px;
-	}
-	.stat-item {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		margin: 6px 0;
-	}
-	.stat-label {
-		width: 92px;
-		font-size: 14px;
-		font-weight: 700;
-	}
-	.stat-bar {
-		flex: 1;
-		height: 10px;
-		overflow: hidden;
-		border-radius: 999px;
-		background: var(--pm-cream);
-	}
-	.stat-bar span {
-		display: block;
-		height: 100%;
-		border-radius: 999px;
-		background: var(--pm-red);
-	}
-	.stat-value {
-		width: 36px;
-		font-family: var(--pm-display);
-		text-align: right;
 	}
 	.language-item {
 		display: flex;
@@ -334,6 +225,9 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 14px;
 		margin-top: 16px;
+	}
+	.evolutions > :only-child {
+		grid-column: 1 / -1;
 	}
 	.evolution-wrapper a {
 		color: inherit;
@@ -381,7 +275,7 @@
 			padding: 16px;
 		}
 		.hero-art {
-			width: min(240px, 70vw);
+			width: min(300px, 82vw);
 			justify-self: center;
 		}
 		.hero-info {
@@ -389,9 +283,6 @@
 		}
 		.types {
 			justify-content: center;
-		}
-		.dexentry {
-			text-align: left;
 		}
 		.hero-extra {
 			grid-template-columns: 1fr;
@@ -403,17 +294,15 @@
 		padding: 16px;
 	}
 	.compact .hero-art {
-		width: min(220px, 70%);
+		width: min(320px, 92%);
 		justify-self: center;
 	}
+	/* In the pane the card carries the name and types, so the title beside it is left out. */
 	.compact .hero-info {
-		text-align: center;
+		display: none;
 	}
 	.compact .types {
 		justify-content: center;
-	}
-	.compact .dexentry {
-		text-align: left;
 	}
 	.compact .hero-extra {
 		grid-template-columns: 1fr;

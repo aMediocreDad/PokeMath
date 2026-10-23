@@ -1,9 +1,9 @@
 <script>
 	// The Pokédex, ported from static/dex.html and dex.js: every caught Pokémon once, with
-	// filters, search, sorting and progress bars. Filtering and search match against the same
-	// card HTML the legacy page built, so results are identical. "Alle arter" shows every species
-	// instead, like the Pokédex in the games: the ones not caught yet as shadows, and each opens the
-	// viewer.
+	// filters, search, sorting and progress. Filtering and search match against the same card HTML
+	// the legacy page built, so results are identical. "Alle" shows every species instead, like the
+	// Pokédex in the games, with the ones not caught yet as shadows; "Mangler" shows only those.
+	// The list stays quiet: foil and auras show on the picked Pokémon, in the pane or the viewer.
 	import { onMount, tick } from 'svelte';
 	import { player } from '#lib/player.svelte.js';
 	import { describe, legacyCardHtml, loadPokemonInfo, alternateFormCount, pokemonInfo } from '#lib/game/pokemon.js';
@@ -28,15 +28,16 @@
 
 	/** @type {DexItem[] | null} null while loading */
 	let all = $state(null);
-	/** @type {DexItem[]} Every species once, for "Alle". */
+	/** @type {DexItem[]} Every species once, for "Alle" and "Mangler". */
 	let species = $state.raw([]);
 	let altTotal = $state(0);
-	/** 'mine' = the Pokémon caught, 'all' = every species. */
-	let mode = $state(/** @type {'mine' | 'all'} */ ('mine'));
-	/** The filter chips that mean something with every species; the rest are hidden in "Alle arter". */
+	/** @typedef {'mine' | 'missing' | 'all'} DexMode */
+	/** 'mine' = the Pokémon caught, 'missing' = species not caught yet, 'all' = every species. */
+	let mode = $state(/** @type {DexMode} */ ('mine'));
+	/** @type {[DexMode, string, string][]} */
+	const MODES = [['mine', 'Mine', 'dexModeMine'], ['missing', 'Mangler', 'dexModeMissing'], ['all', 'Alle', 'dexModeAll']];
+	/** The filter chips that mean something with every species; the rest are hidden there. */
 	const ALL_MODE_FILTERS = new Set(['Legendarisk', 'Mytisk']);
-	/** In "Alle arter": 0 = every species, 1 = only caught, 2 = only missing. */
-	let caughtFilter = $state(0);
 
 	let genFilter = $state([...ALL_GENS]);
 	/** @type {string[]} */
@@ -48,16 +49,14 @@
 	let sort = $state('id-asc');
 	let search = $state('');
 
-	/** @type {'type' | 'gen' | 'sort' | null} */
+	/** @type {'filter' | 'sort' | null} */
 	let openPanel = $state(null);
-	let panelPosition = $state({ top: 0, left: 0 });
 	let visibleCount = $state(PAGE_SIZE);
-	let barsCollapsed = $state(false);
 
 	/** @param {string} entry */
 	const countOf = (entry) => player.pkmnList.filter((e) => e === entry).length;
 
-	/** @param {'mine' | 'all'} next */
+	/** @param {DexMode} next */
 	function setMode(next) {
 		mode = next;
 		localStorage.setItem('dexMode', next);
@@ -71,7 +70,7 @@
 	let picked = $state(null);
 	/** pokemon_info.json, there once the list is built. */
 	const info = $derived(all ? pokemonInfo() : null);
-	/** The filter bar's and the stats bar's heights, so the pane fits between them. */
+	/** The filter bar's height, so the pane sits under it. */
 	let filterHeight = $state(0);
 	/** @type {HTMLElement | undefined} */
 	let pane = $state();
@@ -81,12 +80,8 @@
 		void shown?.shiny;
 		if (pane) pane.scrollTop = 0;
 	});
-	let barHeight = $state(0);
 
 	onMount(() => {
-		const stored = localStorage.getItem('dexBarsCollapsed');
-		// On phones the progress bars start folded away unless the player opened them before.
-		barsCollapsed = stored === null ? matchMedia('(max-width: 720px)').matches : stored === '1';
 		const wide = matchMedia(SPLIT_QUERY);
 		split = wide.matches;
 		const change = () => (split = wide.matches);
@@ -122,15 +117,16 @@
 					return { entry: `dex-${id}`, id, card, html: legacyCardHtml(card, count), locked: count === 0, count };
 				});
 			const storedMode = localStorage.getItem('dexMode');
-			mode = storedMode === 'all' || storedMode === 'mine' ? storedMode : mine.length ? 'mine' : 'all';
+			mode = storedMode === 'all' || storedMode === 'mine' || storedMode === 'missing' ? storedMode : mine.length ? 'mine' : 'all';
 			all = mine;
 		});
 	});
 
 	const filtered = $derived.by(() => {
 		if (!all) return [];
-		const everySpecies = mode === 'all';
-		let items = (everySpecies ? species : all).filter(({ html }) => {
+		const everySpecies = mode !== 'mine';
+		let items = (everySpecies ? species : all).filter(({ html, locked }) => {
+			if (mode === 'missing' && !locked) return false;
 			if (genFilter.length > 0 && !genFilter.some((k) => html.includes(k))) return false;
 			if (typeFilter.length > 0 && !typeFilter.every((k) => html.includes(k))) return false;
 			for (const [key, state] of Object.entries(specialFilter)) {
@@ -140,9 +136,7 @@
 			}
 			return true;
 		});
-		if (everySpecies) {
-			if (caughtFilter) items = items.filter(({ locked }) => (caughtFilter === 1 ? !locked : locked));
-		} else if (duplicates) {
+		if (!everySpecies && duplicates) {
 			items = items.filter(({ entry }) => (duplicates === 1 ? countOf(entry) > 1 : countOf(entry) <= 1));
 		}
 		const q = search.trim().toUpperCase();
@@ -192,7 +186,13 @@
 		].map((bar) => ({ ...bar, percent: bar.total > 0 ? Math.min(100, (bar.caught / bar.total) * 100) : 0 }));
 	});
 
-	const allClean = $derived(typeFilter.length === 0 && Object.keys(specialFilter).length === 0 && duplicates === 0 && caughtFilter === 0);
+	/** How many filters are on, for the Filter button. Only those that apply in this mode count. */
+	const activeFilters = $derived(
+		typeFilter.length +
+			Object.keys(specialFilter).filter((key) => mode === 'mine' || ALL_MODE_FILTERS.has(key)).length +
+			(mode === 'mine' && duplicates ? 1 : 0) +
+			(genFilter.length < ALL_GENS.length ? 1 : 0)
+	);
 	const caughtSpecies = $derived(species.filter((s) => !s.locked).length);
 
 	function showAll() {
@@ -200,15 +200,14 @@
 		typeFilter = [];
 		specialFilter = {};
 		duplicates = 0;
-		caughtFilter = 0;
 	}
 
 	// Coming back from the viewer brings back the filters and where the list was scrolled to.
 	/** @type {import('./$types').Snapshot<any>} */
 	export const snapshot = {
-		capture: () => ({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, picked, visibleCount, scrollY: window.scrollY }),
+		capture: () => ({ mode, genFilter, typeFilter, specialFilter, duplicates, sort, search, picked, visibleCount, scrollY: window.scrollY }),
 		restore: (saved) => {
-			({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, picked } = saved);
+			({ mode, genFilter, typeFilter, specialFilter, duplicates, sort, search, picked } = saved);
 			restoreScroll = saved;
 		}
 	};
@@ -244,30 +243,20 @@
 		if (genFilter.filter((g) => g !== 'gen-0').length === 0) genFilter = [...ALL_GENS];
 	}
 
-	/**
-	 * @param {'type' | 'gen' | 'sort'} panel
-	 * @param {MouseEvent & { currentTarget: HTMLElement }} event
-	 */
-	function togglePanel(panel, event) {
+	/** @param {'filter' | 'sort'} panel */
+	function togglePanel(panel) {
 		if (openPanel === panel) {
 			openPanel = null;
 			return;
 		}
-		const rect = event.currentTarget.getBoundingClientRect();
-		panelPosition = { top: rect.bottom + 6, left: Math.min(rect.left, window.innerWidth - 300) };
 		openPanel = panel;
 	}
 
 	/** @param {MouseEvent} event */
 	function closePanels(event) {
 		const target = /** @type {HTMLElement} */ (event.target);
-		if (target.closest('#typeDropdownBtn, #generationDropdown, #sortDropdownBtn, #generationContent')) return;
+		if (target.closest('#filterBtn, #sortDropdownBtn, .dex-dropdown-panel')) return;
 		openPanel = null;
-	}
-
-	function toggleBars() {
-		barsCollapsed = !barsCollapsed;
-		localStorage.setItem('dexBarsCollapsed', barsCollapsed ? '1' : '0');
 	}
 
 	/** Load the next 60 cards when the end of the list scrolls into view. @param {HTMLElement} node */
@@ -291,62 +280,125 @@
 
 <svelte:document onclick={closePanels} />
 
-<div class="main dex" class:dex-bars-hidden={barsCollapsed}>
+<div class="main dex">
+	<!-- One row: which Pokémon, search, Filter and Sorter. Everything else lives in the panels. On
+	     phones the search takes its own row. -->
 	<div id="filterButtons" bind:offsetHeight={filterHeight}>
 		<div class="mode" role="group" aria-label="Vis">
-			<button id="dexModeMine" aria-pressed={mode === 'mine'} onclick={() => setMode('mine')}>Mine</button>
-			<button id="dexModeAll" aria-pressed={mode === 'all'} onclick={() => setMode('all')}>Alle arter</button>
+			{#each MODES as [key, label, id] (key)}
+				<button {id} aria-pressed={mode === key} onclick={() => setMode(key)}>{label}</button>
+			{/each}
 		</div>
-		<input type="text" placeholder="Søk.." id="searchInput" bind:value={search} />
-		<!-- The dropdowns sit next to the search; the filter chips scroll sideways in one row. On
-		     phones dropdowns and chips share that scrolling row, dropdowns first. -->
-		<div class="filter-row">
-			<div class="dropdowns">
-				<button class="altbtn" id="typeDropdownBtn" class:active={openPanel === 'type'} onclick={(e) => togglePanel('type', e)}
-					>Typer <span class="caret">▾</span></button
-				>
-				<button class="altbtn" id="generationDropdown" class:active={openPanel === 'gen'} onclick={(e) => togglePanel('gen', e)}
-					>Generasjon <span class="caret">▾</span></button
-				>
-				<button class="altbtn" id="sortDropdownBtn" class:active={openPanel === 'sort'} onclick={(e) => togglePanel('sort', e)}
-					>Sorter <span class="caret">▾</span></button
-				>
-			</div>
-			<div class="filter-chips">
-				<button class="btn" class:active={allClean} data-filter="all" onclick={showAll}>Vis alle</button>
-				{#if mode === 'all'}
-					<button
-						class="btn"
-						id="caughtBtn"
-						class:filter-include={caughtFilter === 1}
-						class:filter-exclude={caughtFilter === 2}
-						onclick={() => (caughtFilter = (caughtFilter + 1) % 3)}>Fanget</button
-					>
-				{/if}
-				{#each SPECIAL_FILTERS.filter(([key]) => mode === 'mine' || ALL_MODE_FILTERS.has(key)) as [key, label] (key)}
-					<button
-						class="btn"
-						class:filter-include={specialFilter[key] === 1}
-						class:filter-exclude={specialFilter[key] === 2}
-						data-filter={key}
-						onclick={() => cycleSpecial(key)}>{label}</button
-					>
-				{/each}
-				{#if mode === 'mine'}
-					<button
-						class="btn"
-						id="duplicatesBtn"
-						class:filter-include={duplicates === 1}
-						class:filter-exclude={duplicates === 2}
-						onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
-					>
-				{/if}
-			</div>
+		<input type="search" placeholder="Søk etter navn, nummer eller type" aria-label="Søk" id="searchInput" bind:value={search} />
+		<div class="dropdowns">
+			<button class="altbtn" id="filterBtn" class:active={openPanel === 'filter'} class:on={activeFilters > 0} onclick={() => togglePanel('filter')}
+				>Filter{#if activeFilters > 0}<span class="filter-count">{activeFilters}</span>{/if} <span class="caret">▾</span></button
+			>
+			<button class="altbtn" id="sortDropdownBtn" class:active={openPanel === 'sort'} onclick={() => togglePanel('sort')}
+				>Sorter <span class="caret">▾</span></button
+			>
 		</div>
+		<!-- The panels open under the bar and move with it. -->
+	<div
+		class="dex-dropdown-panel"
+		id="filterContent"
+		style:display={openPanel === 'filter' ? 'block' : 'none'}
+	>
+		<div class="panel-head">
+			<h2>Filter</h2>
+			<span class="panel-actions">
+				<button class="btn" data-filter="all" disabled={activeFilters === 0} onclick={showAll}>Nullstill</button>
+				<button class="btn done" onclick={() => (openPanel = null)}>Ferdig</button>
+			</span>
+		</div>
+		<p class="panel-hint">Trykk én gang for bare disse, to ganger for å skjule dem.</p>
+		<div class="chips">
+			{#each SPECIAL_FILTERS.filter(([key]) => mode === 'mine' || ALL_MODE_FILTERS.has(key)) as [key, label] (key)}
+				<button
+					class="btn"
+					class:filter-include={specialFilter[key] === 1}
+					class:filter-exclude={specialFilter[key] === 2}
+					data-filter={key}
+					onclick={() => cycleSpecial(key)}>{label}</button
+				>
+			{/each}
+			{#if mode === 'mine'}
+				<button
+					class="btn"
+					id="duplicatesBtn"
+					class:filter-include={duplicates === 1}
+					class:filter-exclude={duplicates === 2}
+					onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
+				>
+			{/if}
+		</div>
+		<h3>Typer</h3>
+		<div id="typecontent">
+			{#each TYPES as type (type)}
+				<button
+					class="typecard2 type-{type} t-{type}"
+					class:active={typeFilter.includes(type)}
+					aria-pressed={typeFilter.includes(type)}
+					data-filter={type}
+					onclick={() => toggleType(type)}>{type[0].toUpperCase() + type.slice(1)}</button
+				>
+			{/each}
+		</div>
+		<h3>Generasjon</h3>
+		<div id="generationContent">
+			{#each GENERATIONS as roman, i (roman)}
+				<label
+					><input
+						type="checkbox"
+						class="genCheckbox"
+						value="gen-{i + 1}"
+						checked={genFilter.includes(`gen-${i + 1}`)}
+						onchange={(e) => toggleGen(`gen-${i + 1}`, e.currentTarget.checked)}
+					/> {roman}</label
+				>
+			{/each}
+		</div>
+	</div>
+
+	<div
+		class="dex-dropdown-panel"
+		id="sortContent"
+		style:display={openPanel === 'sort' ? 'block' : 'none'}
+	>
+		{#each SORTS as [key, label] (key)}
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
+			<a
+				data-sort={key}
+				class:active={sort === key}
+				onclick={() => {
+					sort = key;
+					openPanel = null;
+				}}>{label}</a
+			>
+		{/each}
+	</div>
 	</div>
 
 	<div class="dex-body" class:split>
 		<div class="dex-list">
+			{#if all}
+				<section class="dex-progress" aria-label="Fremgang">
+					<p class="dex-counts">
+						<span><b id="amountCaught">{player.caught}</b> fanget</span>
+						<span><b id="speciesCaught">{caughtSpecies} / {species.length}</b> arter</span>
+						<span class="showing"><b id="amountCaught3">{filtered.length}</b> vises</span>
+					</p>
+					<div class="meters">
+						{#each progress as bar (bar.label)}
+							<div class="meter">
+								<span class="meter-label">{bar.label}</span>
+								<span class="meter-track" aria-hidden="true"><span style:width="{bar.percent.toFixed(2)}%" style:background={bar.color}></span></span>
+								<span class="meter-text">{bar.caught.toLocaleString('no-NO')} / {bar.total.toLocaleString('no-NO')}</span>
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
 			<div id="pokedex">
 				{#if !all}
 					{#if player.loaded}
@@ -360,6 +412,7 @@
 							card={item.card}
 							count={item.count ?? countOf(item.entry)}
 							locked={item.locked}
+							quiet
 							selected={split && shown?.id === item.id && shown?.shiny === (item.card.shiny && !item.locked)}
 							onselect={split ? () => (picked = { id: item.id, shiny: item.card.shiny && !item.locked }) : undefined}
 						/>
@@ -379,7 +432,6 @@
 				class="dex-pane"
 				aria-label="Valgt Pokémon"
 				style:--pane-top="{filterHeight}px"
-				style:--pane-bottom="{barHeight}px"
 			>
 				{#if shown && info}
 					{#key shown.id}
@@ -402,123 +454,24 @@
 	</div>
 </div>
 
-<div class="pm-dexbar" id="dex-botbar" bind:offsetHeight={barHeight}>
-	<div class="dex-stats-row">
-		<button class="dex-progress-toggle" class:collapsed={barsCollapsed} id="progressToggleBtn" onclick={toggleBars} title="Vis/skjul fremdrift"
-			>&#x25B2;</button
-		>
-		<!-- svelte-ignore a11y_missing_attribute -->
-		<a id="amountCaught" class="statisticText" data-text=" fanget.">{all ? player.caught : '?'}</a>
-		{#if mode === 'all'}
-			<!-- svelte-ignore a11y_missing_attribute -->
-			<a id="speciesCaught" class="statisticText" data-text=" arter.">{caughtSpecies} / {species.length}</a>
-		{:else}
-			<!-- svelte-ignore a11y_missing_attribute -->
-			<a id="amountCaught2" class="statisticText" data-text=" unike.">{all ? all.length : '?'}</a>
-		{/if}
-		<!-- svelte-ignore a11y_missing_attribute -->
-		<a id="amountCaught3" class="statisticText" data-text=" i søk.">{all ? filtered.length : '?'}</a>
-	</div>
-	<div class="dex-progress-bars" class:collapsed={barsCollapsed} id="dexProgressBars">
-		{#if all}
-			{#each progress as bar (bar.label)}
-				<div class="dex-pbar">
-					<span class="dex-pbar-label">{bar.label}</span>
-					<div class="dex-pbar-track">
-						<div class="dex-pbar-fill" style:width="{bar.percent.toFixed(2)}%" style:background={bar.color}></div>
-					</div>
-					<span class="dex-pbar-text"
-						>{bar.caught.toLocaleString('no-NO')} / {bar.total.toLocaleString('no-NO')} &nbsp;({bar.percent.toFixed(1)}%)</span
-					>
-				</div>
-			{/each}
-		{/if}
-	</div>
-</div>
-
-<!-- Dropdown panels live outside the filter bar so they are never clipped by it. -->
-<div
-	class="dex-dropdown-panel"
-	id="typecontent"
-	style:display={openPanel === 'type' ? 'grid' : 'none'}
-	style:top="{panelPosition.top}px"
-	style:left="{panelPosition.left}px"
->
-	{#each TYPES as type (type)}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
-		<a class="typecard2 type-{type} t-{type}" class:active={typeFilter.includes(type)} data-filter={type} onclick={() => toggleType(type)}
-			>{type[0].toUpperCase() + type.slice(1)}</a
-		>
-	{/each}
-</div>
-
-<div
-	class="dex-dropdown-panel"
-	id="generationContent"
-	style:display={openPanel === 'gen' ? 'block' : 'none'}
-	style:top="{panelPosition.top}px"
-	style:left="{panelPosition.left}px"
->
-	{#each GENERATIONS as roman, i (roman)}
-		<label
-			><input
-				type="checkbox"
-				class="genCheckbox"
-				value="gen-{i + 1}"
-				checked={genFilter.includes(`gen-${i + 1}`)}
-				onchange={(e) => toggleGen(`gen-${i + 1}`, e.currentTarget.checked)}
-			/> Gen {roman}</label
-		>
-	{/each}
-</div>
-
-<div
-	class="dex-dropdown-panel"
-	id="sortContent"
-	style:display={openPanel === 'sort' ? 'block' : 'none'}
-	style:top="{panelPosition.top}px"
-	style:left="{panelPosition.left}px"
->
-	{#each SORTS as [key, label] (key)}
-		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
-		<a
-			data-sort={key}
-			class:active={sort === key}
-			onclick={() => {
-				sort = key;
-				openPanel = null;
-			}}>{label}</a
-		>
-	{/each}
-</div>
-
 <style>
 	.dex {
-		/* Room for the stats bar, which grows when the progress bars are open. */
-		margin-bottom: 190px;
-		transition: margin-bottom 0.3s ease;
-	}
-	.dex.dex-bars-hidden {
-		margin-bottom: 80px;
+		margin-bottom: 40px;
 	}
 
-	/* Filter bar: sticks under the header while the cards scroll. */
+	/* The bar under the header: Mine/Mangler/Alle, search, Filter and Sorter in one row. It sticks
+	   while the cards scroll. */
 	#filterButtons {
 		position: sticky;
 		top: var(--pm-bar-height);
 		z-index: 100;
 		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-		padding: 10px 16px;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 16px;
 		background: var(--pm-paper);
 		box-shadow: 0 1px 0 var(--pm-line), 0 6px 12px -10px oklch(0.3 0.03 265 / 0.4);
 	}
-	.filter-row,
-	.dropdowns {
-		display: contents;
-	}
-	/* Mine or Alle: two halves of one pill, next to the search. */
 	.mode {
 		display: flex;
 		flex: 0 0 auto;
@@ -527,7 +480,6 @@
 		background: var(--pm-cream);
 	}
 	.mode button {
-		min-width: 64px;
 		height: 34px;
 		padding: 0 14px;
 		border: none;
@@ -543,31 +495,9 @@
 		background: var(--pm-ink);
 		color: var(--pm-paper);
 	}
-	.dropdowns .altbtn {
-		order: 1;
-	}
-	.filter-chips {
-		order: 2;
-		display: flex;
-		gap: 6px;
-		flex: 1 1 100%;
-		min-width: 0;
-		overflow-x: auto;
-		-webkit-overflow-scrolling: touch;
-		scrollbar-width: none;
-		/* Fade the right edge so it is clear there are more chips to scroll to. */
-		mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-	}
-	.filter-chips::-webkit-scrollbar {
-		display: none;
-	}
-	.filter-chips > :last-child {
-		margin-right: 32px;
-	}
 	#searchInput {
-		flex: 1 1 180px;
-		min-width: 140px;
+		flex: 1 1 160px;
+		min-width: 0;
 		height: 40px;
 		padding: 0 14px 0 40px;
 		border: 2px solid var(--pm-line);
@@ -577,9 +507,16 @@
 		font: inherit;
 		font-size: 16px;
 		outline: none;
+		-webkit-appearance: none;
+		appearance: none;
 	}
 	#searchInput:focus {
 		border-color: var(--pm-ink);
+	}
+	.dropdowns {
+		display: flex;
+		flex: 0 0 auto;
+		gap: 8px;
 	}
 	.btn,
 	.altbtn {
@@ -600,11 +537,32 @@
 		border-color: var(--pm-line);
 		background: var(--pm-paper);
 	}
-	.btn.active,
 	.altbtn.active {
 		background: var(--pm-ink);
 		border-color: var(--pm-ink);
 		color: var(--pm-paper);
+	}
+	.altbtn.on:not(.active) {
+		border-color: var(--pm-ink);
+	}
+	.filter-count {
+		display: inline-grid;
+		place-items: center;
+		min-width: 20px;
+		height: 20px;
+		margin-left: 6px;
+		padding: 0 5px;
+		border-radius: 999px;
+		background: var(--pm-red);
+		color: var(--pm-paper);
+		font-size: 12px;
+	}
+	.caret {
+		margin-left: 2px;
+		color: var(--pm-ink-soft);
+	}
+	.active .caret {
+		color: inherit;
 	}
 	/* Tap once to show only these, twice to hide them. The ✓ and ✕ carry the meaning without colour. */
 	.btn.filter-include {
@@ -623,16 +581,70 @@
 	.btn.filter-exclude::before {
 		content: '✕ ';
 	}
-	.caret {
-		margin-left: 2px;
-		color: var(--pm-ink-soft);
-	}
-	.active .caret {
-		color: inherit;
+	.btn:disabled {
+		opacity: 0.45;
+		cursor: default;
 	}
 
-	/* iPad and wider: list and pane side by side. The pane stays put between the filter bar and
-	   the stats bar while the list scrolls. */
+	/* Progress opens the list and scrolls away with it. */
+	.dex-progress {
+		max-width: 1100px;
+		margin: 14px auto 0;
+		padding: 0 16px;
+	}
+	.dex-counts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 18px;
+		margin: 0 0 8px;
+		color: var(--pm-ink-soft);
+	}
+	.dex-counts b {
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 20px;
+		font-weight: 400;
+	}
+	.dex-counts .showing {
+		margin-left: auto;
+	}
+	.meters {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 6px 16px;
+	}
+	.meter {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		grid-template-areas: 'label text' 'track track';
+		gap: 3px 8px;
+		font-size: 13px;
+	}
+	.meter-label {
+		grid-area: label;
+		font-weight: 700;
+	}
+	.meter-text {
+		grid-area: text;
+		justify-self: end;
+		color: var(--pm-ink-soft);
+		font-variant-numeric: tabular-nums;
+	}
+	.meter-track {
+		grid-area: track;
+		height: 6px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: var(--pm-line);
+	}
+	.meter-track span {
+		display: block;
+		height: 100%;
+		border-radius: 999px;
+	}
+
+	/* iPad and wider: list and pane side by side. The pane stays put under the filter bar while the
+	   list scrolls. */
 	.dex-body.split {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) clamp(360px, 42vw, 520px);
@@ -641,6 +653,9 @@
 		margin: 0 auto;
 		padding-right: 16px;
 	}
+	.split .dex-progress {
+		padding-right: 0;
+	}
 	.split #pokedex {
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 		max-width: none;
@@ -648,18 +663,20 @@
 	}
 	.dex-pane {
 		position: sticky;
-		top: calc(var(--pm-bar-height) + var(--pane-top) + 18px);
-		max-height: calc(100vh - var(--pm-bar-height) - var(--pane-top) - var(--pane-bottom) - 36px);
-		margin-top: 18px;
+		top: calc(var(--pm-bar-height) + var(--pane-top) + 14px);
+		max-height: calc(100vh - var(--pm-bar-height) - var(--pane-top) - 28px);
+		margin-top: 14px;
 		overflow-y: auto;
 		overscroll-behavior: contain;
 		-webkit-overflow-scrolling: touch;
 		padding: 0 2px 4px;
 	}
 	.open-viewer {
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		margin-top: 14px;
-		text-align: center;
+		line-height: 1;
 	}
 	.pane-empty {
 		margin: 0;
@@ -674,7 +691,7 @@
 		gap: 16px;
 		max-width: 1100px;
 		margin: 0 auto;
-		padding: 18px 16px;
+		padding: 14px 16px;
 	}
 	.skeleton {
 		aspect-ratio: 3 / 4;
@@ -693,22 +710,66 @@
 		transition: opacity 0.4s;
 	}
 
-	/* Dropdown panels. Their display is set inline, so it is not set here. */
+	/* Filter and Sorter panels. Their display is set inline, so it is not set here. */
 	.dex-dropdown-panel {
-		position: fixed;
-		z-index: 9999;
-		min-width: 180px;
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 16px;
+		z-index: 1;
+		width: min(380px, calc(100vw - 24px));
 		max-height: 70vh;
 		overflow-y: auto;
-		padding: 10px;
+		overscroll-behavior: contain;
+		padding: 14px;
 		border-radius: var(--pm-radius);
 		background: var(--pm-paper);
-		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line), 0 18px 40px -16px oklch(0.3 0.03 265 / 0.45);
+	}
+	#sortContent {
+		width: auto;
+		min-width: 200px;
+		padding: 8px;
+	}
+	.panel-actions {
+		display: flex;
+		gap: 6px;
+	}
+	.btn.done {
+		background: var(--pm-ink);
+		color: var(--pm-paper);
+	}
+	.panel-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.panel-head h2,
+	#filterContent h3 {
+		margin: 0;
+		font-family: var(--pm-display);
+		font-weight: 400;
+	}
+	.panel-head h2 {
+		font-size: 22px;
+	}
+	#filterContent h3 {
+		margin: 14px 0 6px;
+		font-size: 17px;
+	}
+	.panel-hint {
+		margin: 4px 0 8px;
+		color: var(--pm-ink-soft);
+		font-size: 13px;
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
 	}
 	#typecontent {
+		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 6px;
-		min-width: 300px;
 	}
 	.typecard2 {
 		display: inline-flex;
@@ -720,6 +781,7 @@
 		border-radius: 999px;
 		background: var(--type, oklch(0.6 0.02 265));
 		color: var(--type-text, var(--pm-paper));
+		font: inherit;
 		font-size: 14px;
 		font-weight: 700;
 		cursor: pointer;
@@ -731,13 +793,18 @@
 	.typecard2.active::before {
 		content: '✓ ';
 	}
+	#generationContent {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 4px;
+	}
 	#generationContent label,
 	#sortContent a {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 8px;
 		min-height: 40px;
-		padding: 0 10px;
+		padding: 0 8px;
 		border-radius: 10px;
 		color: var(--pm-ink);
 		font-weight: 700;
@@ -760,142 +827,25 @@
 		}
 	}
 
-
-	/* Stats bar at the bottom: counts, and progress bars that fold away. */
-	.pm-dexbar {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 900;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		padding: 6px 16px calc(8px + env(safe-area-inset-bottom));
-		background: var(--pm-ink);
-		color: var(--pm-paper);
-	}
-	.dex-stats-row {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		width: 100%;
-		max-width: 1100px;
-		margin: 0 auto;
-	}
-	.dex-progress-toggle {
-		min-width: 44px;
-		min-height: 44px;
-		border: none;
-		border-radius: 50%;
-		background: none;
-		color: var(--pm-paper);
-		font-size: 14px;
-		cursor: pointer;
-		transition: transform 0.25s;
-	}
-	.dex-progress-toggle.collapsed {
-		transform: rotate(180deg);
-	}
-	.statisticText {
-		padding-left: 24px;
-		background: url('/pokeball.svg') no-repeat left center / 18px;
-		color: var(--pm-paper);
-		font-family: var(--pm-display);
-		font-size: 18px;
-		white-space: nowrap;
-	}
-	.statisticText::after {
-		content: attr(data-text);
-		font-family: var(--pm-body);
-		font-size: 15px;
-		opacity: 0.8;
-	}
-	.dex-progress-bars {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-		max-width: 1100px;
-		width: 100%;
-		margin: 0 auto;
-		max-height: 200px;
-		overflow: hidden;
-		transition: max-height 0.3s ease, opacity 0.3s ease;
-	}
-	.dex-progress-bars.collapsed {
-		max-height: 0;
-		opacity: 0;
-	}
-	.dex-pbar {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-	.dex-pbar-label {
-		flex-shrink: 0;
-		width: 72px;
-		font-size: 13px;
-		font-weight: 700;
-	}
-	.dex-pbar-track {
-		flex: 1;
-		min-width: 40px;
-		height: 8px;
-		overflow: hidden;
-		border-radius: 999px;
-		background: oklch(1 0 0 / 0.16);
-	}
-	.dex-pbar-fill {
-		height: 100%;
-		border-radius: 999px;
-		transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-	}
-	.dex-pbar-text {
-		flex-shrink: 0;
-		width: 140px;
-		font-size: 12px;
-		font-variant-numeric: tabular-nums;
-		text-align: right;
-		opacity: 0.75;
-	}
-
+	/* Phones: the search gets its own row under the mode and the two buttons. */
 	@media (max-width: 720px) {
 		#filterButtons {
+			flex-wrap: wrap;
 			padding: 8px 12px;
 		}
+		.mode {
+			order: 1;
+		}
+		.dropdowns {
+			order: 2;
+			margin-left: auto;
+		}
 		#searchInput {
+			order: 3;
 			flex: 1 1 100%;
 		}
-		.filter-row {
-			display: flex;
-			gap: 6px;
-			width: 100%;
-			overflow-x: auto;
-			-webkit-overflow-scrolling: touch;
-			scrollbar-width: none;
-			mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-			-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-		}
-		.filter-row::-webkit-scrollbar {
-			display: none;
-		}
-		.filter-chips {
-			display: contents;
-		}
-		.dropdowns .altbtn {
-			order: 0;
-		}
-		.dex-stats-row {
-			gap: 8px;
-		}
-		.statisticText {
-			font-size: 16px;
-		}
-		.statisticText::after {
-			font-size: 13px;
-		}
-		.dex-pbar-text {
-			width: 104px;
+		.dex-dropdown-panel {
+			right: 12px;
 		}
 	}
 	@media (max-width: 480px) {
@@ -904,10 +854,14 @@
 			gap: 10px;
 			padding: 12px;
 		}
-	}
-	@media (max-width: 360px) {
-		.statisticText {
-			font-size: 14px;
+		.dex-progress {
+			padding: 0 12px;
+		}
+		.mode button {
+			padding: 0 11px;
+		}
+		.altbtn {
+			padding: 0 11px;
 		}
 	}
 
@@ -916,6 +870,9 @@
 		.altbtn,
 		#searchInput {
 			height: 44px;
+		}
+		.mode button {
+			height: 38px;
 		}
 		.typecard2,
 		#generationContent label,
