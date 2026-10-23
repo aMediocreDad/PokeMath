@@ -43,6 +43,13 @@ const CATEGORIES = {
 
 const BAD_SESSION = { type: 'error', message: 'Lærerøkten er ugyldig. Logg inn på nytt.' };
 
+/**
+ * A bingo waits in "lobby" while the class joins; catches count from "play", once the teacher
+ * presses Start. Rooms made before the lobby existed have no phase and are already playing.
+ * @param {any} room
+ */
+const bingoPhase = (room) => room.phase || 'play';
+
 /** @template T @param {T[]} list @param {number} count */
 const pick = (list, count) => [...list].sort(() => Math.random() - 0.5).slice(0, count);
 
@@ -275,7 +282,7 @@ export class BingoHub extends DurableObject {
 
 	snapshot(room) {
 		if (room.kind === 'raid') return { kind: 'raid', code: room.code, className: room.settings.className || '', players: this.playerList(room), raid: raidState(room), recent: room.recent };
-		return { kind: 'bingo', code: room.code, board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches, locked: Boolean(room.locked) };
+		return { kind: 'bingo', code: room.code, phase: bingoPhase(room), board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches, locked: Boolean(room.locked) };
 	}
 
 	/** @param {string} code @param {unknown} msg */
@@ -372,7 +379,7 @@ const HANDLERS = {
 		const settings = msg.settings || {};
 		const room = {
 			code: await this.makeCode(), settings, players: {},
-			board: buildBoard(settings.difficulty || 'easy', settings.gridSize), totalCatches: 0, events: [], locked: false,
+			board: buildBoard(settings.difficulty || 'easy', settings.gridSize), totalCatches: 0, events: [], locked: false, phase: 'lobby',
 		};
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'host', code: room.code });
@@ -388,8 +395,19 @@ const HANDLERS = {
 		send(ws, { type: room.kind === 'raid' ? 'raidState' : 'lobbyState', ...this.snapshot(room), events: room.events });
 	},
 
+	async hostStartBingo(ws, msg) {
+		const room = await this.hostRoom(ws, msg, 'bingo');
+		if (!room || bingoPhase(room) !== 'lobby') return;
+		room.phase = 'play';
+		await this.saveRoom(room);
+		log('bingo', `rom ${room.code} startet, ${Object.keys(room.players).length} spillere`);
+		this.toHosts(room.code, { type: 'bingoStarted' });
+		this.toPlayers(room.code, { type: 'bingoUpdate', bingo: { phase: 'play' } });
+	},
+
 	async hostMarkCell(ws, msg) {
 		const room = await this.hostRoom(ws, msg, 'bingo');
+		if (room && bingoPhase(room) !== 'play') return;
 		const cell = room?.board.cells.find((c) => c.cellId === msg.cellId);
 		if (!cell || cell.free) return;
 		cell.marked = Boolean(msg.mark);
@@ -473,7 +491,11 @@ const HANDLERS = {
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'player', code: room.code, uuid: msg.uuid });
 		if (!existing) log('bingo', `${name} ble med i ${room.code}`);
-		send(ws, { type: 'joinResult', ok: true, kind: room.kind || 'bingo', raid: room.kind === 'raid' ? raidState(room) : undefined });
+		send(ws, {
+			type: 'joinResult', ok: true, kind: room.kind || 'bingo',
+			raid: room.kind === 'raid' ? raidState(room) : undefined,
+			bingo: room.kind === 'raid' ? undefined : { phase: bingoPhase(room) },
+		});
 		if (existing?.renamedByHost && existing.name !== name) send(ws, { type: 'nameChanged', name: existing.name });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
@@ -483,6 +505,8 @@ const HANDLERS = {
 		const player = room?.players[msg.uuid];
 		// Children in a raid catch Pokémon too; only their correct answers count there (raidHit).
 		if (!room || !player || room.locked || room.kind === 'raid') return;
+		// Before the start, catches count for nobody: the class is still joining.
+		if (bingoPhase(room) !== 'play') return;
 
 		const minLevel = room.settings.minLevel || 'alle';
 		// "tilpasset" is the adaptive level. The settings page offers "only adaptive" and, for a

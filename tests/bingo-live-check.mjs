@@ -18,18 +18,15 @@ await teacherCtx.addCookies([{ name: "cookies", value: "true", url: BASE }]);
 await teacherCtx.addInitScript((t) => localStorage.setItem("teacherSession", t), login.teacherSession);
 const teacher = await teacherCtx.newPage();
 teacher.on("pageerror", (e) => console.log("teacher pageerror", e.message));
-await teacher.goto(BASE + "/l%C3%A6rer/bingo_settings.html");
-await teacher.selectOption("#minLevel", "stage3").catch(() => {});
+await teacher.goto(BASE + "/l%C3%A6rer/bingo_host.html");
+await teacher.locator("#bingoSetup").waitFor({ timeout: 10000 });
+await teacher.click('#minLevel [data-value="stage3"]');
 check("adaptive checkbox shows for a stage minimum", await teacher.locator("#allowAdaptive").isVisible());
-await teacher.selectOption("#gridSize", "7");
+await teacher.click('#gridSize [data-value="7"]');
 await teacher.screenshot({ path: `${OUT}/settings-desktop.png`, fullPage: true });
 await teacher.click("#startBtn");
-await teacher.waitForURL(/bingo_host/);
-await teacher.waitForFunction(() => /^[A-Z0-9]{6}$/.test(document.getElementById("code")?.textContent.trim() ?? ""), null, { timeout: 15000 });
-const code = (await teacher.textContent("#code")).trim();
-await sleep(500);
-const cellCount = await teacher.locator("#bingoCard td[data-cell-id]").count();
-check("7×7 board has 49 cells", cellCount === 49, `got ${cellCount}`);
+await teacher.locator("#lobbyCode").waitFor({ timeout: 15000 });
+const code = (await teacher.textContent("#lobbyCode")).trim();
 
 async function student(name) {
 	// Each student is their own Access login, so they do not share a cloud save.
@@ -48,6 +45,13 @@ async function student(name) {
 }
 const ola = await student("Ola");
 const kari = await student("Kari");
+await teacher.locator("#lobbyPlayers li").nth(1).waitFor({ timeout: 15000 }).catch(() => {});
+await teacher.screenshot({ path: `${OUT}/lobby-desktop.png`, fullPage: true });
+await teacher.click("#startGameBtn");
+await teacher.locator("#bingoCard").waitFor({ timeout: 5000 });
+await sleep(500);
+const cellCount = await teacher.locator("#bingoCard td[data-cell-id]").count();
+check("7×7 board has 49 cells", cellCount === 49, `got ${cellCount}`);
 await teacher.waitForFunction(() => document.querySelectorAll("#players .player-row").length >= 2, null, { timeout: 15000 }).catch(() => {});
 check("host lists both students", (await teacher.locator("#players .player-row").count()) === 2);
 await teacher.screenshot({ path: `${OUT}/host-desktop.png`, fullPage: true });
@@ -55,7 +59,7 @@ await teacher.screenshot({ path: `${OUT}/host-desktop.png`, fullPage: true });
 // Rename Kari directly.
 teacher.once("dialog", (d) => d.accept("Kari Nordmann"));
 await teacher.locator("#players .player-name", { hasText: "Kari" }).click();
-await teacher.locator("#bingo-player-menu button", { hasText: "Sett" }).click();
+await teacher.locator("#bingo-player-menu button", { hasText: "nytt navn" }).click();
 await sleep(1500);
 check("student sees the new name", (await kari.page.evaluate(() => localStorage.getItem("username"))) === "Kari Nordmann");
 
@@ -70,8 +74,8 @@ check("kicked student forgot the code", (await ola.page.evaluate(() => localStor
 
 // The teacher front page offers to continue the running lobby.
 await teacher.goto(BASE + "/l%C3%A6rer/index.html");
-await teacher.waitForSelector("#continueBingoBtn", { timeout: 10000 }).catch(() => {});
-const cont = await teacher.locator("#continueBingoBtn").textContent().catch(() => "");
+await teacher.waitForSelector("#continue-bingo", { timeout: 10000 }).catch(() => {});
+const cont = await teacher.locator("#continue-bingo").textContent().catch(() => "");
 check("continue button names the lobby", cont.includes(code), cont);
 
 // Phone-size host and join screenshots.

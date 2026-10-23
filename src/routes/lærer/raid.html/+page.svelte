@@ -7,8 +7,12 @@
 	import TeacherPage from '#lib/TeacherPage.svelte';
 	import Fireworks from '#lib/Fireworks.svelte';
 	import { ensureTeacher, getTeacherSession } from '#lib/teacher.js';
-	import { qrDataUrl } from '#lib/qr.js';
-	import { joinUrl, localSprite } from '#lib/bingoHost.js';
+	import { localSprite } from '#lib/bingoHost.js';
+	import Lobby from '#lib/classgame/Lobby.svelte';
+	import CodeChip from '#lib/classgame/CodeChip.svelte';
+	import ChoiceGroup from '#lib/classgame/ChoiceGroup.svelte';
+	import GameControls from '#lib/classgame/GameControls.svelte';
+	import PlayerMenu from '#lib/classgame/PlayerMenu.svelte';
 	import { LENGTHS, RAID_BOSSES } from '#lib/raidConfig.js';
 
 	/** @typedef {{ uuid: string, name: string, icon: string, catchCount: number, connected: boolean }} Player */
@@ -34,6 +38,13 @@
 	/** @type {string[]} */
 	let winners = $state([]);
 	let shake = $state(false);
+	/** The child whose menu is open (kick, rename), and where. */
+	let playerMenu = $state(/** @type {{ player: { uuid?: string, name?: string }, x: number, y: number } | null} */ (null));
+	/** @param {{ uuid?: string, name?: string }} player @param {MouseEvent} e */
+	function openPlayerMenu(player, e) {
+		e.stopPropagation();
+		playerMenu = { player, x: e.clientX, y: e.clientY };
+	}
 
 	/** @type {Record<string, any>} pokemon_info.json, for the bosses' names */
 	let info = $state({});
@@ -192,12 +203,25 @@
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
-<TeacherPage subtitle="Raid for klassen" back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
+{#snippet bossStage(/** @type {RaidState} */ r)}
+	<div class="boss-stage">
+		<img class="boss" class:shake src={localSprite(r.bossId)} alt={bossName(r.bossId)} onanimationend={() => (shake = false)} />
+		<h2 class="boss-name">{bossName(r.bossId)}</h2>
+		{#if r.phase !== 'lobby'}
+			<div class="hp" role="meter" aria-label="Liv igjen" aria-valuemin="0" aria-valuemax={r.maxHp} aria-valuenow={r.hp}>
+				<span class="hp-fill" class:low={percent < 25} style:width="{percent}%"></span>
+			</div>
+			<p class="hp-text" id="raidHp">{r.hp} / {r.maxHp} liv</p>
+		{/if}
+	</div>
+{/snippet}
+
+<TeacherPage subtitle="Raid" wide back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
 	{#if !ready}
 		<p class="muted">Kobler til…</p>
 	{:else if !raid}
 		<section class="panel" id="raidSetup">
-			<h2>⚔️ Nytt raid</h2>
+			<h2>Nytt raid</h2>
 			<p class="muted">
 				Klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff. Når livet er borte, fanger alle som var med
 				Pokémonen.
@@ -217,47 +241,32 @@
 				{/each}
 			</div>
 
-			<h3>Hvor lenge?</h3>
-			<div class="lengths" role="radiogroup" aria-label="Lengde">
-				{#each LENGTHS as [value, label, about] (value)}
-					<button class="length-pick" class:picked={choice.length === value} role="radio" aria-checked={choice.length === value} onclick={() => (choice.length = value)}>
-						<strong>{label}</strong>
-						<span>{about}</span>
-					</button>
-				{/each}
-			</div>
+			<ChoiceGroup id="raidLength" label="Hvor lenge?" bind:value={choice.length} options={LENGTHS.map(([value, title, sub]) => ({ value, title, sub }))} />
 
-			<label class="field">
-				<span>Klasse (valgfritt)</span>
-				<input id="raidClass" type="text" maxlength="40" placeholder="f.eks. 3B" bind:value={choice.className} />
+			<label class="field class-name">
+				<span>Klassenavn (valgfritt)</span>
+				<input id="raidClass" type="text" maxlength="40" placeholder="F.eks. 3B" bind:value={choice.className} />
 			</label>
 			<div class="actions">
 				<button class="pm-button" id="createRaidBtn" onclick={create}>Lag raid</button>
 			</div>
 		</section>
+	{:else if raid.phase === 'lobby'}
+		<Lobby {code} {players} startLabel="Start raidet" onStart={startFight} onCancel={newSettings} onPlayer={openPlayerMenu}>
+			{#snippet stage()}{#if raid}{@render bossStage(raid)}{/if}{/snippet}
+		</Lobby>
 	{:else}
+		<header class="game-top">
+			<GameControls newLabel="Nytt raid" endLabel="Avslutt raidet" onNew={newRaid} onSettings={newSettings} onEnd={endRaid} />
+			<CodeChip {code} />
+		</header>
 		<section class="arena" class:won={raid.phase === 'won'}>
-			<div class="boss-stage">
-				<img class="boss" class:shake src={localSprite(raid.bossId)} alt={bossName(raid.bossId)} onanimationend={() => (shake = false)} />
-				<h2 class="boss-name">{bossName(raid.bossId)}</h2>
-				{#if raid.phase !== 'lobby'}
-					<div class="hp" role="meter" aria-label="Liv igjen" aria-valuemin="0" aria-valuemax={raid.maxHp} aria-valuenow={raid.hp}>
-						<span class="hp-fill" class:low={percent < 25} style:width="{percent}%"></span>
-					</div>
-					<p class="hp-text" id="raidHp">{raid.hp} / {raid.maxHp} liv</p>
-				{/if}
-			</div>
+			{@render bossStage(raid)}
 
 			<div class="side">
-				{#if raid.phase === 'lobby'}
-					<div class="join panel">
-						<p class="muted">Gå til <strong>Bli med i klassespill</strong> og skann QR-koden, eller skriv</p>
-						<p class="code" id="raidCode">{code}</p>
-						{#await qrDataUrl(joinUrl(code), 360) then src}<img class="qr" {src} alt="QR-kode for å bli med" width="180" height="180" />{/await}
-					</div>
-				{:else if raid.phase === 'won'}
+				{#if raid.phase === 'won'}
 					<div class="panel victory" id="raidVictory">
-						<h2>🎉 Dere klarte det!</h2>
+						<h2>Dere klarte det!</h2>
 						<p>Alle som var med, fanger {bossName(raid.bossId)} og får mynter for treffene sine.</p>
 						{#if winners.length}<p class="muted">{winners.join(', ')}</p>{/if}
 					</div>
@@ -269,36 +278,24 @@
 
 				<div class="panel players">
 					<h3>{players.length} {players.length === 1 ? 'spiller' : 'spillere'}</h3>
-					{#if players.length}
-						<ul id="raidPlayers">
-							{#each ranked as p (p.uuid)}
-								<li class:offline={!p.connected}>
-									<span>{p.name}</span>
-									{#if raid.phase !== 'lobby'}<span class="count">{p.catchCount}</span>{/if}
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="muted small">Ingen har blitt med ennå.</p>
-					{/if}
-				</div>
-
-				<div class="actions">
-					{#if raid.phase === 'lobby'}
-						<button class="pm-button" id="startRaidBtn" disabled={!players.length} onclick={startFight}>Start raidet</button>
-						<button class="pm-button secondary" onclick={newSettings}>Avbryt</button>
-					{:else}
-						<!-- As bingo's controls. The children leave a won raid by themselves. -->
-						<button class="pm-button" class:secondary={raid.phase === 'fight'} id="newRaidBtn" onclick={newRaid}>Nytt raid</button>
-						<button class="pm-button secondary" id="raidSettingsBtn" onclick={newSettings}>Nye innstillinger</button>
-						<button class="pm-button secondary danger" id="endRaidBtn" onclick={endRaid}>Avslutt raidet</button>
-					{/if}
+					<ul id="raidPlayers">
+						{#each ranked as p (p.uuid)}
+							<li class:offline={!p.connected}>
+								<button class="name" title="Trykk for alternativer" onclick={(e) => openPlayerMenu(p, e)}>{p.name}</button>
+								<span class="count">{p.catchCount}</span>
+							</li>
+						{/each}
+					</ul>
 				</div>
 			</div>
 		</section>
 		{#if raid.phase === 'won'}<Fireworks />{/if}
 	{/if}
 </TeacherPage>
+
+{#if playerMenu}
+	<PlayerMenu menu={playerMenu} {code} {send} onClose={() => (playerMenu = null)} />
+{/if}
 
 <style>
 	h3 {
@@ -310,8 +307,7 @@
 		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
 		gap: 8px;
 	}
-	.boss-pick,
-	.length-pick {
+	.boss-pick {
 		display: grid;
 		justify-items: center;
 		gap: 2px;
@@ -340,19 +336,17 @@
 		border-color: var(--pm-red);
 		background: var(--pm-red-soft);
 	}
-	.lengths {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 8px;
+	.class-name {
+		max-width: 320px;
+	}
+	.game-top {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		justify-content: space-between;
+		gap: 12px;
 		margin-bottom: 16px;
 	}
-	.length-pick strong {
-		font: 400 19px/1.1 var(--pm-display);
-	}
-	.length-pick span {
-		color: var(--pm-ink-soft);
-	}
-
 	/* The projector view: the boss on the left, everything else beside it; stacked on narrow screens. */
 	.arena {
 		display: grid;
@@ -432,19 +426,6 @@
 	.side .panel {
 		margin: 0;
 	}
-	.join {
-		display: grid;
-		justify-items: center;
-		text-align: center;
-	}
-	.join p {
-		margin: 0;
-	}
-	.join .code {
-		margin: 6px 0 10px;
-		font: 800 clamp(40px, 6vw, 64px)/1 ui-monospace, Menlo, monospace;
-		letter-spacing: 6px;
-	}
 	.feed {
 		min-height: 200px;
 		margin: 0;
@@ -480,6 +461,14 @@
 	.players li.offline {
 		color: var(--pm-ink-soft);
 		font-weight: 400;
+	}
+	.players .name {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
 	}
 	.count {
 		font-variant-numeric: tabular-nums;

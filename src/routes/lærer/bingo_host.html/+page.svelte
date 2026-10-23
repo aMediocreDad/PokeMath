@@ -1,18 +1,23 @@
 <script>
-	// The bingo board for the classroom screen, ported from static/lærer/bingo_host.html and
-	// bingo_host_tasks.js. The teacher hosts a lobby over the /ws WebSocket; students join with the
-	// code, and their catches mark cells. A reload rejoins the same lobby (teacherBingoCode).
+	// The bingo for the classroom screen, ported from static/lærer/bingo_host.html and
+	// bingo_host_tasks.js. Like the raid it goes setup, waiting room, play: the teacher picks the
+	// settings, the class joins with the code over the /ws WebSocket, and after Start their catches
+	// mark cells. A reload rejoins the same lobby (teacherBingoCode).
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { ensureTeacher, getTeacherSession } from '#lib/teacher.js';
-	import { qrDataUrl } from '#lib/qr.js';
+	import TeacherPage from '#lib/TeacherPage.svelte';
+	import BingoSetup from '#lib/classgame/BingoSetup.svelte';
+	import Lobby from '#lib/classgame/Lobby.svelte';
+	import CodeChip from '#lib/classgame/CodeChip.svelte';
+	import GameControls from '#lib/classgame/GameControls.svelte';
+	import PlayerMenu from '#lib/classgame/PlayerMenu.svelte';
 	import {
 		DIFF_NO,
 		catchPrefix,
 		checkNewMilestones,
 		fmtTime,
 		freeSpacePrize,
-		joinUrl,
 		launchConfetti,
 		localSprite,
 		logHover,
@@ -32,6 +37,10 @@
 	);
 
 	let currentCode = $state('');
+	/** False until the stored lobby has been asked for, so the setup does not flash first. */
+	let ready = $state(false);
+	/** @type {'lobby' | 'play'} The lobby's phase (worker/bingo.js); the setup shows while there is no code. */
+	let phase = $state('lobby');
 	let difficulty = $state('');
 	let className = $state('');
 	/** @type {Cell[]} */
@@ -71,7 +80,6 @@
 	let prize = $state(null);
 	/** The prize has been handed out; the board takes no more catches. */
 	let locked = $state(false);
-	let qrOpen = $state(false);
 	/** @type {{ message: string, position: string } | null} */
 	let adminPopup = $state(null);
 	let potPop = $state(false);
@@ -136,6 +144,8 @@
 	/** @param {any} msg */
 	function loadLobby(msg) {
 		currentCode = msg.code;
+		ready = true;
+		phase = msg.phase === 'lobby' ? 'lobby' : 'play';
 		localStorage.setItem('teacherBingoCode', msg.code);
 		difficulty = msg.board?.difficulty || '';
 		locked = Boolean(msg.locked);
@@ -175,23 +185,7 @@
 	/** @param {Player} p @param {MouseEvent} e */
 	function openPlayerMenu(p, e) {
 		e.stopPropagation();
-		playerMenu = { player: p, x: Math.min(e.clientX, innerWidth - 250), y: Math.min(e.clientY, innerHeight - 170) };
-	}
-
-	/** The teacher's tools for one student (showPlayerMenu()). @param {'kick' | 'rename' | 'setName'} action */
-	function playerAction(action) {
-		const p = playerMenu?.player;
-		playerMenu = null;
-		if (!p?.uuid) return;
-		const name = p.name || 'Ash';
-		if (action === 'kick') {
-			if (confirm(`Kaste ut ${name}?`)) send({ type: 'hostKickPlayer', code: currentCode, uuid: p.uuid });
-		} else if (action === 'rename') {
-			send({ type: 'hostForceRename', code: currentCode, uuid: p.uuid });
-		} else {
-			const newName = prompt(`Nytt navn for ${name}:`, name);
-			if (newName && newName.trim()) send({ type: 'hostSetName', code: currentCode, uuid: p.uuid, name: newName.trim() });
-		}
+		playerMenu = { player: p, x: e.clientX, y: e.clientY };
 	}
 
 	/** @param {string} icon  Icon names are stored lower case; the files start with a capital. */
@@ -230,7 +224,9 @@
 		if (pressShown) setTimeout(() => (tooltipCell = null), 2500);
 	}
 
-	function createLobby() {
+	/** @param {typeof settings} chosen */
+	function createLobby(chosen = settings) {
+		settings = chosen;
 		status('Oppretter ny lobby…');
 		knownPlayers = new Set();
 		events = [];
@@ -266,6 +262,9 @@
 	function endLobby() {
 		const code = currentCode;
 		currentCode = '';
+		locked = false;
+		prize = null;
+		players = [];
 		localStorage.removeItem('teacherBingoCode');
 		celebrated.clear();
 		try {
@@ -287,10 +286,15 @@
 		goto('/lærer/index.html');
 	}
 
+	/** Back to the setup. In the waiting room this is "Avbryt". */
 	function backToSettings() {
-		if (!confirm('Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.')) return;
+		const question = phase === 'lobby' ? (players.length ? 'Avbryte bingoen? Elevene kobles fra.' : '') : 'Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.';
+		if (question && !confirm(question)) return;
 		if (currentCode) endLobby();
-		goto('/lærer/bingo_settings.html');
+	}
+
+	function startBingo() {
+		send({ type: 'hostStartBingo', code: currentCode });
 	}
 
 	/** @param {Cell} cell */
@@ -347,6 +351,9 @@
 					[{ t: msg.lines.join(' og ') + ' full!', b: true }],
 					[{ t: msg.eligibleCount ? `+${nok(msg.amount)} mynter til ${msg.eligibleCount} ${msg.eligibleCount === 1 ? 'elev' : 'elever'}` : 'Ingen har fanget noe ennå' }]
 				]);
+				return;
+			case 'bingoStarted':
+				phase = 'play';
 				return;
 			case 'lobbyCreated':
 				status('Lobby opprettet: ' + msg.code);
@@ -414,13 +421,11 @@
 				playSound(msg.file);
 				return;
 			case 'lobbyNotFound':
+				// The game has ended or timed out: back to the setup.
 				status('Lobby ikke funnet.');
 				localStorage.removeItem('teacherBingoCode');
-				banner = {
-					message: [{ t: 'Lobbyen ' }, { t: msg.code || '', b: true }, { t: ' ble ikke funnet - serveren ble sannsynligvis restartet.' }],
-					button: 'Start ny lobby',
-					action: createLobby
-				};
+				currentCode = '';
+				ready = true;
 				return;
 			case 'error':
 				status('SERVER ERROR: ' + (msg.message || 'Feil'));
@@ -447,7 +452,12 @@
 			}
 			if (gone()) return;
 			teacherSession = getTeacherSession();
-			settings = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
+			try {
+				// The running game's settings, for its free space and "Nytt brett".
+				settings = JSON.parse(localStorage.getItem('teacherBingoSettings') || sessionStorage.getItem('bingoSettings') || '{}');
+			} catch {
+				settings = {};
+			}
 			muted = localStorage.getItem('bingoMuted') === '1';
 		}
 
@@ -461,17 +471,11 @@
 				status('Koblet til igjen.');
 				return;
 			}
-			// Started from the settings page: end the teacher's running lobby and make a new one.
-			const forceNew = sessionStorage.getItem('bingoForceNew') === '1';
-			sessionStorage.removeItem('bingoForceNew');
-			if (!forceNew && stored.length === 6) {
+			if (stored.length === 6) {
 				status('Gjenoppretter lobby ' + stored + ' …');
 				send({ type: 'hostJoinLobby', code: stored });
 			} else {
-				if (stored.length === 6) send({ type: 'hostEndLobby', code: stored });
-				localStorage.removeItem('teacherBingoCode');
-				currentCode = '';
-				createLobby();
+				ready = true;
 			}
 		});
 		ws.addEventListener('error', (e) => {
@@ -499,11 +503,8 @@
 		let gone = false;
 		start(() => gone);
 		const cycler = setInterval(() => tick++, 1500);
-		const closeMenu = () => (playerMenu = null);
-		addEventListener('click', closeMenu);
 		addEventListener('resize', fitBoard);
 		return () => {
-			removeEventListener('click', closeMenu);
 			removeEventListener('resize', fitBoard);
 			clearTimeout(pressTimer);
 			clearInterval(cycler);
@@ -516,15 +517,6 @@
 	function toggleMute() {
 		muted = !muted;
 		localStorage.setItem('bingoMuted', muted ? '1' : '0');
-	}
-
-	function copyLink() {
-		if (!currentCode) return;
-		const url = joinUrl(currentCode);
-		navigator.clipboard
-			.writeText(url)
-			.then(() => showToast('info', [[{ t: 'Lenke kopiert!' }]]))
-			.catch(() => prompt('Kopier lenken:', url));
 	}
 
 	/** The Pokémon a range cell shows now: it steps through up to 60 of the range. @param {Cell} cell */
@@ -545,12 +537,28 @@
 	{#each line as s, i (i)}{#if s.b}<b>{s.t}</b>{:else if s.dim}<span class="dim">{s.t}</span>{:else}{s.t}{/if}{/each}
 {/snippet}
 
-<div class="pm-bare host">
-	<!-- Leaving keeps the game running: "Fortsett Bingo" on the teacher page comes back to it. -->
-	<nav class="host-nav" aria-label="Lærersidene">
-		<a id="toTeacherHome" href="/lærer/index.html">← Lærersiden</a>
-		<a href="/index.html">Til spillet</a>
-	</nav>
+<TeacherPage subtitle="PokéBingo" wide back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
+	{#if !ready}
+		<p class="muted">Kobler til…</p>
+	{:else if !currentCode}
+		<BingoSetup onCreate={createLobby} />
+	{:else if phase === 'lobby'}
+		<Lobby code={currentCode} {players} startLabel="Start bingoen" onStart={startBingo} onCancel={backToSettings} onPlayer={openPlayerMenu}>
+			{#snippet stage()}
+				<div class="lobby-stage">
+					<h1>PokéBingo</h1>
+					<dl>
+						<dt>Brett</dt>
+						<dd>{boardN}×{boardN} · {DIFF_NO[difficulty] || difficulty}</dd>
+						<dt>Premie</dt>
+						<dd>{freePrize.text}</dd>
+						{#if className}<dt>Klasse</dt><dd>{className}</dd>{/if}
+					</dl>
+					<p class="muted">Fangster teller fra du trykker Start. Hver hele rad eller kolonne gir 500 mynter.</p>
+				</div>
+			{/snippet}
+		</Lobby>
+	{:else}
 	<header class="host-top">
 		<div class="title-block">
 			<h1>PokéBingo</h1>
@@ -559,23 +567,18 @@
 				{#if className}· <span id="classNameLabel">Klasse: {className}</span>{/if}
 			</p>
 		</div>
-		<div class="code-box">
-			<span class="code-label">Klassekode</span>
-			<span id="code" class="code-value">{currentCode || '------'}</span>
-			<span class="code-actions">
-				<button id="copyLinkBtn" class="pm-button small secondary" onclick={copyLink}>Kopier lenke</button>
-				<button id="showQrBtn" class="pm-button small secondary" onclick={() => currentCode && (qrOpen = true)}>Vis QR</button>
-			</span>
-		</div>
+		<CodeChip code={currentCode} />
 	</header>
 
 	<div class="controls">
-		<div class="group" role="group" aria-label="Spillet">
-			<button id="giveNowBtn" class="pm-button small" disabled={locked} onclick={giveNow}>{locked ? 'Premien er delt ut' : '🎁 Del ut premien nå'}</button>
-			<button id="newGameBtn" class="pm-button small secondary" onclick={newGame}>Nytt brett</button>
-			<button id="backToSettings" class="pm-button small secondary" onclick={backToSettings}>Nye innstillinger</button>
-			<button id="endGameBtn" class="pm-button small secondary danger" onclick={endGame}>Avslutt bingo</button>
-		</div>
+		<GameControls
+			primary={{ id: 'giveNowBtn', label: locked ? 'Premien er delt ut' : '🎁 Del ut premien nå', onclick: giveNow, disabled: locked }}
+			newLabel="Nytt brett"
+			endLabel="Avslutt bingo"
+			onNew={newGame}
+			onSettings={backToSettings}
+			onEnd={endGame}
+		/>
 		<div class="group" role="group" aria-label="Visning">
 			<button id="toggleLog" class="pm-button small secondary" onclick={() => (logVisible = !logVisible)}>{logVisible ? 'Skjul logg' : 'Vis logg'}</button>
 			<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
@@ -599,7 +602,7 @@
 	</div>
 
 	<div class="grid">
-		<section class="panel players-panel" aria-label="Tilkoblede elever">
+		<section class="side-panel players-panel" aria-label="Tilkoblede elever">
 			<div class="panel-header">
 				<span>Elever</span>
 				<span id="playerCount" class="badge">{connectedCount}/{players.length}</span>
@@ -692,7 +695,7 @@
 			</tbody>
 		</table>
 
-		<section class="panel log-panel" aria-label="Logg">
+		<section class="side-panel log-panel" aria-label="Logg">
 			<div class="panel-header">
 				<span>Logg</span>
 				<span id="logCount" class="badge">{events.length}</span>
@@ -712,7 +715,8 @@
 			{/if}
 		</section>
 	</div>
-</div>
+	{/if}
+</TeacherPage>
 
 {#if toast}
 	<div id="toast" class="bingo-toast {toast.kind}" role="status">
@@ -731,13 +735,7 @@
 {/if}
 
 {#if playerMenu}
-	{@const name = playerMenu.player.name || 'Ash'}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div id="bingo-player-menu" role="menu" tabindex="-1" style:left="{playerMenu.x}px" style:top="{playerMenu.y}px" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && (playerMenu = null)}>
-		<button role="menuitem" class="danger" onclick={() => playerAction('kick')}>🚫 Kast ut {name}</button>
-		<button role="menuitem" onclick={() => playerAction('rename')}>✏️ Tving {name} til å endre navn</button>
-		<button role="menuitem" onclick={() => playerAction('setName')}>📝 Sett {name}s navn til…</button>
-	</div>
+	<PlayerMenu menu={playerMenu} code={currentCode} {send} onClose={() => (playerMenu = null)} />
 {/if}
 
 {#if banner}
@@ -755,19 +753,6 @@
 			>
 		{/if}
 		<button id="host-banner-close" class="close" aria-label="Lukk" onclick={() => (banner = null)}>×</button>
-	</div>
-{/if}
-
-{#if qrOpen}
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div id="qrModal" class="overlay" onclick={(e) => e.target === e.currentTarget && (qrOpen = false)}>
-		<div class="qr-box" role="dialog" aria-modal="true" aria-label="QR-kode">
-			<button id="qrClose" class="close" aria-label="Lukk" onclick={() => (qrOpen = false)}>×</button>
-			<p class="qr-title">Skann i Pokémath for å bli med</p>
-			<p class="qr-sub">Bli med i klassespill → Skann QR-kode</p>
-			{#await qrDataUrl(joinUrl(currentCode), 440) then src}<img id="qrImage" {src} alt="QR-kode" width="220" height="220" />{/await}
-			<p id="qrUrl" class="qr-url">{joinUrl(currentCode)}</p>
-		</div>
 	</div>
 {/if}
 
@@ -795,10 +780,25 @@
 <canvas id="confetti-canvas" bind:this={confettiCanvas}></canvas>
 
 <style>
-	.host {
-		max-width: 1500px;
-		margin: 0 auto;
-		padding: 16px;
+	.lobby-stage {
+		padding: 24px;
+		border-radius: var(--pm-radius);
+		background: var(--pm-paper);
+		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
+	}
+	.lobby-stage dl {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 6px 16px;
+		margin: 12px 0 16px;
+		font-size: 20px;
+	}
+	.lobby-stage dt {
+		color: var(--pm-ink-soft);
+		font-weight: 700;
+	}
+	.lobby-stage dd {
+		margin: 0;
 	}
 	.host-top {
 		display: flex;
@@ -807,7 +807,8 @@
 		gap: 16px;
 		flex-wrap: wrap;
 	}
-	h1 {
+	.title-block h1,
+	.lobby-stage h1 {
 		margin: 0;
 		font-family: var(--pm-display);
 		font-weight: 400;
@@ -818,29 +819,6 @@
 		margin: 0;
 		color: var(--pm-ink-soft);
 		font-weight: 700;
-	}
-	.code-box {
-		display: grid;
-		justify-items: end;
-		gap: 4px;
-	}
-	.code-label {
-		color: var(--pm-ink-soft);
-		font-size: 13px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-	}
-	/* Big enough to read from the back of the classroom. */
-	.code-value {
-		font-family: var(--pm-display);
-		font-size: clamp(40px, 5vw, 64px);
-		letter-spacing: 0.12em;
-		line-height: 1;
-	}
-	.code-actions {
-		display: flex;
-		gap: 6px;
 	}
 	.controls {
 		display: flex;
@@ -855,35 +833,18 @@
 		align-items: center;
 		gap: 8px;
 	}
-	.host-nav {
-		display: flex;
-		justify-content: space-between;
-		gap: 12px;
-		margin-bottom: 8px;
-	}
-	.host-nav a {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		color: var(--pm-ink-soft);
-		font-weight: 700;
-	}
 	.total {
 		margin-left: auto;
 		font-family: var(--pm-display);
 		font-size: 20px;
 	}
-	.pm-button.danger {
-		color: var(--pm-red-deep);
-	}
-
 	.grid {
 		display: grid;
 		grid-template-columns: 220px minmax(0, 1fr) 280px;
 		gap: 14px;
 		align-items: start;
 	}
-	.panel {
+	.side-panel {
 		overflow: hidden;
 		border-radius: var(--pm-radius);
 		background: var(--pm-paper);
@@ -979,34 +940,6 @@
 			color: var(--pm-red-deep);
 			text-decoration: underline;
 		}
-	}
-	#bingo-player-menu {
-		position: fixed;
-		z-index: 2500;
-		display: grid;
-		min-width: 230px;
-		padding: 6px 0;
-		border-radius: 12px;
-		background: var(--pm-paper);
-		box-shadow: var(--pm-shadow), 0 0 0 1px var(--pm-line);
-	}
-	#bingo-player-menu button {
-		min-height: 44px;
-		padding: 0 16px;
-		border: 0;
-		background: none;
-		color: var(--pm-ink);
-		font: inherit;
-		font-size: 15px;
-		text-align: left;
-		cursor: pointer;
-	}
-	#bingo-player-menu button.danger {
-		color: var(--pm-red-deep);
-	}
-	#bingo-player-menu button:hover,
-	#bingo-player-menu button:focus-visible {
-		background: var(--pm-cream);
 	}
 	.size-control {
 		display: flex;
@@ -1350,39 +1283,12 @@
 	.overlay.dark {
 		background: oklch(0.15 0.03 265 / 0.8);
 	}
-	.qr-box,
 	.prize-box {
 		position: relative;
 		padding: 28px 32px;
 		border-radius: 20px;
 		background: var(--pm-paper);
 		text-align: center;
-	}
-	.qr-box .close {
-		position: absolute;
-		top: 8px;
-		right: 8px;
-	}
-	.qr-title {
-		margin: 0 0 4px;
-		font-family: var(--pm-display);
-		font-size: 22px;
-		color: var(--pm-red);
-	}
-	#qrImage {
-		border-radius: 8px;
-	}
-	.qr-sub {
-		margin: 0 0 12px;
-		color: var(--pm-ink-soft);
-		font-size: 14px;
-	}
-	.qr-url {
-		max-width: 260px;
-		margin: 10px 0 0;
-		color: var(--pm-ink-soft);
-		font-size: 13px;
-		overflow-wrap: anywhere;
 	}
 	.prize-box {
 		width: min(520px, 100%);
@@ -1476,9 +1382,6 @@
 		}
 		.task-description {
 			display: none;
-		}
-		.code-box {
-			justify-items: start;
 		}
 		.bingo-toast {
 			padding: 10px 14px;

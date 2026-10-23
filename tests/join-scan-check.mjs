@@ -21,7 +21,7 @@ const host = await (await browser.newContext({ viewport: { width: 1280, height: 
 host.on('dialog', (d) => d.accept());
 await host.goto(BASE + '/lærer/raid.html');
 await host.locator('#createRaidBtn').click();
-const code = (await host.locator('#raidCode').textContent()).trim();
+const code = (await host.locator('#lobbyCode').textContent()).trim();
 check('the teacher gets a code', /^[0-9A-Z]{6}$/.test(code), code);
 
 /**
@@ -37,7 +37,9 @@ async function child(name, device, text) {
 			localStorage.getItem('username') || localStorage.setItem('username', name);
 			if (!navigator.mediaDevices) Object.defineProperty(navigator, 'mediaDevices', { value: {} });
 			window.__tracks = [];
-			navigator.mediaDevices.getUserMedia = async () => {
+			// On the prototype: WebKit does not always keep a function set on the instance.
+			const target = typeof MediaDevices === 'function' ? MediaDevices.prototype : navigator.mediaDevices;
+			Object.defineProperty(target, 'getUserMedia', { configurable: true, writable: true, value: async () => {
 				if (!img) throw new DOMException('Permission denied', 'NotAllowedError');
 				const canvas = document.createElement('canvas');
 				canvas.width = 640;
@@ -56,7 +58,7 @@ async function child(name, device, text) {
 				const stream = canvas.captureStream(10);
 				window.__tracks.push(...stream.getTracks());
 				return stream;
-			};
+			} });
 		},
 		{ img, name }
 	);
@@ -76,8 +78,8 @@ await kari.waitForURL(BASE + '/', { timeout: 10_000 }).catch(() => {});
 check('scanning the QR code joins the game', (await kari.evaluate(() => localStorage.getItem('bingoJoinedCode'))) === code);
 check('…and lets go of the camera', await kari.evaluate(() => window.__tracks.length > 0 && window.__tracks.every((t) => t.readyState === 'ended')));
 await kari.goto(BASE + '/pokemath.html?stage=1');
-await host.locator('#raidPlayers li', { hasText: 'Kari' }).waitFor({ timeout: 10_000 }).catch(() => {});
-check('the teacher sees the child who scanned', (await host.locator('#raidPlayers li', { hasText: 'Kari' }).count()) === 1);
+await host.locator('#lobbyPlayers li', { hasText: 'Kari' }).waitFor({ timeout: 10_000 }).catch(() => {});
+check('the teacher sees the child who scanned', (await host.locator('#lobbyPlayers li', { hasText: 'Kari' }).count()) === 1);
 
 // A QR code that is not a Pokémath code is not followed.
 const ola = await child('Ola', 'iPad (gen 7)', 'https://example.com/');

@@ -37,7 +37,7 @@
 			icon: '🎲',
 			name: 'PokéBingo',
 			about: 'Barna fanger Pokémon som passer på bingobrettet ditt. Første rad vinner.',
-			start: '/lærer/bingo_settings.html',
+			start: '/lærer/bingo_host.html',
 			resume: savedBingoCode.length === 6 ? { href: '/lærer/bingo_host.html', label: `Fortsett bingo ${savedBingoCode}` } : undefined
 		},
 		{
@@ -288,11 +288,11 @@
 					<h3><span aria-hidden="true">{game.icon}</span> {game.name}</h3>
 					<p class="muted">{game.about}</p>
 					<div class="actions">
+						<!-- A new game with other settings starts from the running one ("Nye innstillinger"). -->
 						{#if game.resume}
-							<a class="pm-button" id={game.id === 'bingo' ? 'continueBingoBtn' : `continue-${game.id}`} href={game.resume.href}>{game.resume.label}</a>
-							{#if game.id === 'bingo'}<a class="pm-button secondary" id="startBingoBtn" href={game.start}>Start ny</a>{/if}
+							<a class="pm-button" id="continue-{game.id}" href={game.resume.href}>{game.resume.label}</a>
 						{:else}
-							<a class="pm-button" id={game.id === 'bingo' ? 'startBingoBtn' : `start-${game.id}`} href={game.start}>Start {game.name}</a>
+							<a class="pm-button" id="start-{game.id}" href={game.start}>Start {game.name}</a>
 						{/if}
 					</div>
 				</section>

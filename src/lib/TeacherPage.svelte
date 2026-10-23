@@ -1,12 +1,12 @@
 <script>
-	// The frame of every teacher page: a slim header with the logo, a way back and a way to the game,
+	// The frame of every teacher page, the game screens too: a slim header with the logo, a way back and a way to the game,
 	// then the panels.
 	// The shared form, button and status styles for those pages live here too.
-	/** @type {{ subtitle: string, back?: { href: string, label: string }, narrow?: boolean, children: import('svelte').Snippet }} */
-	let { subtitle, back, narrow = false, children } = $props();
+	/** @type {{ subtitle: string, back?: { href: string, label: string }, narrow?: boolean, wide?: boolean, children: import('svelte').Snippet }} */
+	let { subtitle, back, narrow = false, wide = false, children } = $props();
 </script>
 
-<main class="pm-bare teacher" class:narrow>
+<main class="pm-bare teacher" class:narrow class:wide>
 	<header class="teacher-header">
 		<a class="brand" href="/lærer/index.html">
 			<img src="/images/logo.png" alt="" />
@@ -32,6 +32,10 @@
 	}
 	.teacher.narrow {
 		max-width: 540px;
+	}
+	/* The bingo board and the raid fill the projector. */
+	.teacher.wide {
+		max-width: 1500px;
 	}
 	.teacher-header {
 		display: flex;

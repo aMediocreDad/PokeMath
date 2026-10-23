@@ -77,13 +77,15 @@ const PRIZES_GIVEN = 'bingoPrizesGiven';
  */
 
 /** @typedef {{ phase: 'lobby' | 'fight' | 'won', hp: number, maxHp: number, bossId: number }} RaidState */
+/** @typedef {{ phase: 'lobby' | 'play' }} BingoState */
 
 /**
  * @param {object} handlers
  * @param {(prizes: Prize[]) => void} handlers.onPrizes  Prizes from a finished game, to give the player.
  * @param {(code: string) => void} handlers.onCodeChange  The lobby code changed ('' when it ended).
  * @param {(message: string, duration: number, position: string) => void} handlers.onAdminPopup
- * @param {(kind: 'bingo' | 'raid', raid: RaidState | null) => void} [handlers.onGame]  The lobby was joined, or a raid moved on.
+ * @param {(game: { kind: 'bingo', state: BingoState } | { kind: 'raid', state: RaidState }) => void} [handlers.onGame]
+ *   The lobby was joined, or the game moved on (started, hit, won).
  */
 export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 	const url = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
@@ -206,7 +208,7 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 			if (msg.type === 'joinResult') {
 				if (msg.ok) {
 					joinedOk = true;
-					onGame?.(msg.kind === 'raid' ? 'raid' : 'bingo', msg.raid ?? null);
+					onGame?.(msg.kind === 'raid' ? { kind: 'raid', state: msg.raid } : { kind: 'bingo', state: msg.bingo ?? { phase: 'play' } });
 				} else {
 					forgetCode();
 					ws?.close();
@@ -215,7 +217,9 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 				forgetCode();
 				ws?.close();
 			} else if (msg.type === 'raidUpdate') {
-				onGame?.('raid', msg.raid);
+				onGame?.({ kind: 'raid', state: msg.raid });
+			} else if (msg.type === 'bingoUpdate') {
+				onGame?.({ kind: 'bingo', state: msg.bingo });
 			} else if (msg.type === 'finished') {
 				// The bingo locked or the boss fell: take the prizes, then leave, so the page stops
 				// showing a game that is over. The teacher's screen keeps it until they end it.

@@ -109,16 +109,23 @@ async function assertSilent(c, type, label) {
   const created = await host.next("lobbyCreated");
   const cells = created.board.cells;
   assert(/^[0-9A-Z]{6}$/.test(created.code) && cells.length === 25 && cells[12].free, "lobby created with 25-cell board");
+  assert(created.phase === "lobby", "a new bingo waits for the class");
   assert(cells.filter((c) => !c.free).every((c) => c.task.rule), "every task has a rule");
 
   const player = client();
   await player.open();
   player.send({ type: "joinLobby", code: created.code, uuid, name: "Ash", icon: "" });
-  assert((await player.next("joinResult")).ok === true, "player joined");
+  const joinedBingo = await player.next("joinResult");
+  assert(joinedBingo.ok === true && joinedBingo.bingo.phase === "lobby", "player joined the waiting bingo");
   assert((await host.next("playersUpdate")).players[0].connected, "host sees player");
 
   const target = cells.find((c) => c.task?.rule.kind === "pokedexExact").task.rule.id;
   const catchMsg = { type: "catchPokemon", code: created.code, uuid, name: "Ash", pokemonCode: `N${target}`, pokedexId: target, pokemonName: "X", types: [], flags: {} };
+  player.send({ ...catchMsg, difficulty: "stage3" });
+  await assertSilent(host, "toastCatch", "a catch before the start does not count");
+  host.send({ type: "hostStartBingo", teacherSession: token, code: created.code });
+  await host.next("bingoStarted");
+  assert((await player.next("bingoUpdate")).bingo.phase === "play", "children hear the bingo started");
   player.send({ ...catchMsg, difficulty: "stage1" });
   assert((await host.next("toastCatch")).belowLevel === true, "below-level catch only toasts");
   player.send({ ...catchMsg, difficulty: "stage3" });
@@ -266,6 +273,8 @@ async function assertSilent(c, type, label) {
   // A full board ends the game with the prize by itself, even with no host page left to do it.
   khost.send({ type: "hostCreateLobby", teacherSession: token, settings: { difficulty: "easy", minLevel: "stage1", prizeType: "coins" } });
   const full = await khost.next("lobbyCreated");
+  khost.send({ type: "hostStartBingo", teacherSession: token, code: full.code });
+  await khost.next("bingoStarted");
   const fullCells = full.board.cells.filter((c) => !c.free);
   for (const cell of fullCells) {
     khost.send({ type: "hostMarkCell", teacherSession: token, code: full.code, cellId: cell.cellId, mark: true });

@@ -30,11 +30,15 @@ await teacherCtx.addInitScript(() => {
 const teacher = await teacherCtx.newPage();
 teacher.on('pageerror', (e) => console.log('teacher pageerror', e.message));
 teacher.on('dialog', (d) => d.accept());
+// The old settings address forwards to the setup on the bingo screen.
 await teacher.goto(BASE + '/lærer/bingo_settings.html');
-await teacher.selectOption('#prizeType', 'coins');
+await teacher.locator('#bingoSetup').waitFor({ timeout: 10000 });
+check('the old settings page leads to the bingo setup', decodeURI(teacher.url()).endsWith('/lærer/bingo_host.html'), decodeURI(teacher.url()));
+await teacher.click('#prizeType [data-value="coins"]');
 await teacher.click('#startBtn');
-await teacher.waitForFunction(() => /^[A-Z0-9]{6}$/.test(document.getElementById('code')?.textContent.trim() ?? ''), null, { timeout: 15000 });
-const code = (await teacher.textContent('#code')).trim();
+await teacher.locator('#lobbyCode').waitFor({ timeout: 15000 });
+const code = (await teacher.textContent('#lobbyCode')).trim();
+await shot(teacher, 'bingo-lobby');
 
 const ctx = await browser.newContext({ ...devices['iPad (gen 7)'], extraHTTPHeaders: { 'x-dev-email': `premie-${Date.now()}@test.no` } });
 await ctx.addCookies([{ name: 'cookies', value: 'true', url: BASE }]);
@@ -48,7 +52,15 @@ await child.locator('#studentOut', { hasText: 'Kari' }).waitFor();
 await child.click('#joinBtn');
 await child.waitForURL(BASE + '/');
 await child.goto(BASE + '/pokemath.html?stage=1');
-await child.locator('#bingoIndicator').waitFor();
+await child.locator('#bingoIndicator', { hasText: 'Venter' }).waitFor();
+check('the child waits for the start', true);
+
+// The board appears, and catches count, once the teacher presses Start.
+await teacher.locator('#lobbyPlayers li', { hasText: 'Kari' }).waitFor({ timeout: 10000 });
+await teacher.click('#startGameBtn');
+await teacher.locator('#bingoCard').waitFor({ timeout: 5000 });
+await child.locator('#bingoIndicator', { hasText: 'teller' }).waitFor({ timeout: 5000 }).catch(() => {});
+check('starting tells the child', (await child.locator('#bingoIndicator').textContent()).includes('teller'));
 
 // One catch, so the child has a share in the prizes.
 const solve = async () => {

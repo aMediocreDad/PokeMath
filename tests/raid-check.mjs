@@ -26,9 +26,9 @@ await host.locator('#raidSetup').waitFor();
 await host.waitForTimeout(800);
 await shot(host, 'raid-setup');
 await host.locator('.boss-pick', { hasText: 'Mewtwo' }).click();
-await host.locator('.length-pick', { hasText: 'Kort' }).click();
+await host.locator('#raidLength [data-value="short"]').click();
 await host.locator('#createRaidBtn').click();
-const code = (await host.locator('#raidCode').textContent()).trim();
+const code = (await host.locator('#lobbyCode').textContent()).trim();
 check('the teacher gets a code', /^[0-9A-Z]{6}$/.test(code), code);
 
 /** A child who joins with the code and opens level 1. */
@@ -58,11 +58,11 @@ async function child(name, device) {
 // Ola plays on a phone, where the raid banner used to stick out past the screen.
 const kids = [await child('Kari', 'iPad (gen 7)'), await child('Ola', 'iPhone 13')];
 check('children see they are waiting', (await kids[0].locator('#raidIndicator').textContent()).includes('Venter'));
-await host.locator('#raidPlayers li').nth(1).waitFor();
-check('the teacher sees both children', (await host.locator('#raidPlayers li').count()) === 2);
+await host.locator('#lobbyPlayers li').nth(1).waitFor();
+check('the teacher sees both children', (await host.locator('#lobbyPlayers li').count()) === 2);
 await shot(host, 'raid-lobby');
 
-await host.locator('#startRaidBtn').click();
+await host.locator('#startGameBtn').click();
 await host.locator('#raidHp').waitFor();
 check('start gives 10 health per child', (await host.locator('#raidHp').textContent()).trim() === '20 / 20 liv');
 
@@ -116,9 +116,9 @@ await shot(kids[1], 'raid-prize-phone');
 
 // "Nytt raid" repeats the setup with a new code, as bingo's "Nytt brett".
 await shot(host, 'raid-won-controls');
-await host.locator('#newRaidBtn').click();
-await host.locator('#raidCode').waitFor({ timeout: 5000 }).catch(() => {});
-const code2 = (await host.locator('#raidCode').textContent().catch(() => '')).trim();
+await host.locator('#newGameBtn').click();
+await host.locator('#lobbyCode').waitFor({ timeout: 5000 }).catch(() => {});
+const code2 = (await host.locator('#lobbyCode').textContent().catch(() => '')).trim();
 check('"Nytt raid" makes a new raid with a new code', /^[0-9A-Z]{6}$/.test(code2) && code2 !== code, `${code} -> ${code2}`);
 check('…with the same boss', (await host.locator('.boss-name').textContent()).trim() === 'Mewtwo');
 
@@ -130,10 +130,10 @@ await kari.locator('#joinBtn').click();
 await kari.waitForURL(BASE + '/');
 await kari.goto(BASE + '/pokemath.html?stage=1');
 await kari.locator('#raidIndicator').waitFor();
-await host.locator('#startRaidBtn:not([disabled])').click();
+await host.locator('#startGameBtn:not([disabled])').click();
 await host.locator('#raidHp').waitFor();
 await shot(host, 'raid-fight-controls');
-await host.locator('#endRaidBtn').click();
+await host.locator('#endGameBtn').click();
 await host.waitForURL(/\/l%C3%A6rer\/index\.html|\/lærer\/index\.html/, { timeout: 5000 }).catch(() => {});
 check('"Avslutt raidet" goes back to the teacher page', decodeURI(host.url()).endsWith('/lærer/index.html'), decodeURI(host.url()));
 await kari.locator('#raidIndicator').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
