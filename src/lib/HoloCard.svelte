@@ -278,7 +278,6 @@
 		height: 100%;
 		object-fit: contain;
 		padding: 4%;
-		filter: drop-shadow(0 0.3em 0.35em oklch(0 0 0 / 0.3));
 		pointer-events: none;
 	}
 	.art.shadow {
@@ -367,7 +366,7 @@
 		background: oklch(0.9 0.01 265);
 	}
 
-	/* A shiny's picture, like a Shiny Vault card: a white-gold ground engraved with a faint zig-zag,
+	/* A shiny's picture, like a Shiny Vault card: a white ground engraved with a faint zig-zag,
 	   gold four-point sparkles and soft coloured streaks behind the Pokémon, and over everything
 	   a fine etching of rings in gold and pearl that shift as the card turns. A soft band of light
 	   crosses with the turn. Everything takes its place from the turn (--ax, --ay), so it moves
@@ -376,7 +375,7 @@
 		background:
 			repeating-linear-gradient(60deg, oklch(0.75 0.04 85 / 0.09) 0 1px, transparent 1px 5px) padding-box,
 			repeating-linear-gradient(-60deg, oklch(0.75 0.04 85 / 0.09) 0 1px, transparent 1px 5px) padding-box,
-			radial-gradient(circle at 50% 55%, oklch(1 0.01 95), oklch(0.96 0.04 92) 55%, oklch(0.88 0.07 85)) padding-box,
+			radial-gradient(circle at 50% 55%, oklch(1 0 0), oklch(0.98 0.01 95) 60%, oklch(0.93 0.025 90)) padding-box,
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 	}
 	.vault,
