@@ -23,10 +23,11 @@ export const LENGTHS = /** @type {const} */ ([
 ]);
 
 /**
- * A hit is the answer times this, by level: 42 on level 3 hits for 42, 420 on level 4 too. Level 1's
- * answers are small (about 7 on average), so they count half again, to keep its raids on time.
+ * A hit is the answer times this, by level: 42 on level 3 hits for 42, 420 on level 4 too. Levels 1
+ * and 2 are scaled so their hits average about 10 as well (their answers average 7 and 17), which
+ * keeps the time hints true.
  */
-const SCALE = /** @type {Record<number, number>} */ ({ 1: 1.5, 2: 1, 3: 1, 4: 0.1, 5: 0.001 });
+const SCALE = /** @type {Record<number, number>} */ ({ 1: 1.5, 2: 0.6, 3: 1, 4: 0.1, 5: 0.001 });
 /** Every correct answer hits for at least this, so 0·7 counts too. */
 export const MIN_HIT = 1;
 /** Big products cannot end a raid alone. */

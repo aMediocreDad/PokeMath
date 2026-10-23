@@ -15,6 +15,7 @@ const wrong = RAID_BOSSES.filter((id) => BOSS_HP[id] !== info[String(id)]['0'].b
 check('every boss has its base HP from pokemon_info.json', !wrong.length, wrong.join(', '));
 
 check('level 1: the answer counts half again', damageFor(8, 1) === 12 && damageFor(20, 1) === 30);
+check('level 2: the answer counts 0.6', damageFor(20, 2) === 12 && damageFor(50, 2) === 30);
 check('level 3: the answer is the damage', damageFor(42, 3) === 42);
 check('level 4: the answer is divided by 10', damageFor(420, 4) === 42 && damageFor(740, 4) === 50);
 check('level 5: the answer is divided by 1000', damageFor(6098, 5) === 6);
