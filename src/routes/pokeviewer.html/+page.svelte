@@ -1,8 +1,11 @@
 <script>
 	// One Pokémon in detail, with its evolutions and alternate forms. Ported from
 	// static/pokeviewer.html and pokeviewer.js. Pokémon you have not caught are shown as a shadow.
+	import { afterNavigate } from '$app/navigation';
 	import { player } from '#lib/player.svelte.js';
 	import { loadPokemonInfo, pokemonInfo } from '#lib/game/pokemon.js';
+	import Foil from '#lib/Foil.svelte';
+	import Aura from '#lib/Aura.svelte';
 
 	// Stepping wraps at the highest number in the data (live pokeviewer.js, 2026-10; it was 1010).
 	let MAX_ID = $state(1025);
@@ -23,6 +26,15 @@
 	/** @type {any} The base form, with stats, description and names in other languages. */
 	const pokemon = $derived(info?.[currentId]?.['0']);
 	const unlocked = $derived(owned(currentId));
+	/** @type {'' | 'legendary' | 'mythic'} */
+	const rarity = $derived(pokemon?.is_legendary ? 'legendary' : pokemon?.is_mythical ? 'mythic' : '');
+
+	// Back to the Pokédex: through history when we came from it, so its filters and scroll come
+	// back too; otherwise a plain link.
+	let fromDex = $state(false);
+	afterNavigate(({ from }) => {
+		fromDex = from?.url.pathname === '/dex.html';
+	});
 	const prevId = $derived(currentId > MIN_ID ? currentId - 1 : MAX_ID);
 	const nextId = $derived(currentId < MAX_ID ? currentId + 1 : MIN_ID);
 
@@ -80,7 +92,9 @@
 				.map(Number)
 				.filter((n) => n > 0 && n <= 99999);
 			if (ids.length) MAX_ID = Math.max(...ids);
-			const id = new URLSearchParams(location.search).get('pokemonId');
+			const params = new URLSearchParams(location.search);
+			shiny = params.get('shiny') === '1';
+			const id = params.get('pokemonId');
 			if (id) {
 				searchText = id;
 				searchPokemon();
@@ -116,6 +130,15 @@
 {/snippet}
 
 <div class="main pm-page viewer">
+	<a
+		class="to-dex"
+		href="/dex.html"
+		onclick={(e) => {
+			if (!fromDex) return;
+			e.preventDefault();
+			history.back();
+		}}>‹ Pokédex</a
+	>
 	<div id="navbar">
 		<button id="prevButton" class="nav-step" onclick={() => step('prev')} aria-label="Forrige Pokémon">
 			<span class="arrow" aria-hidden="true">‹</span>
@@ -150,17 +173,22 @@
 			<div id="main-pokemon-wrapper" class="hero pm-surface" class:shiny>
 				{#if pokemon}
 					<div class="hero-art" class:locked={!unlocked}>
-						<img
-							src="images/pokemon/{folder}/{currentId}.webp"
-							alt={unlocked ? pokemon.name : 'Ukjent Pokémon'}
-							class="poke-image"
-							style="filter: {unlocked ? 'brightness(100%)' : 'brightness(0%)'}; pointer-events: none;"
-						/>
+						<Foil on={shiny && unlocked}>
+							<Aura kind={unlocked ? rarity : ''}>
+								<img
+									src="images/pokemon/{folder}/{currentId}.webp"
+									alt={unlocked ? pokemon.name : 'Ukjent Pokémon'}
+									class="poke-image"
+									style="filter: {unlocked ? 'brightness(100%)' : 'brightness(0%)'}; pointer-events: none;"
+								/>
+							</Aura>
+						</Foil>
 					</div>
 					<div class="hero-info">
 						<p class="number">#{currentId}</p>
 						<h1 class="name">{unlocked ? pokemon.name : '???'}</h1>
 						{@render types(pokemon.types)}
+						{#if unlocked && rarity}<p class="rarity {rarity}">{rarity === 'legendary' ? 'Legendarisk' : 'Mytisk'}</p>{/if}
 						{#if !unlocked}<p class="locked-note">Fang denne Pokémonen for å se mer om den.</p>{/if}
 						<dl class="facts">
 							<div><dt>Generasjon</dt><dd>{unlocked ? (pokemon.generation ? pokemon.generation[0].toUpperCase() + pokemon.generation.slice(1) : 'Ukjent') : '???'}</dd></div>
@@ -245,6 +273,16 @@
 </div>
 
 <style>
+	.to-dex {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		margin-bottom: 4px;
+		color: var(--pm-ink);
+		font-family: var(--pm-display);
+		font-size: 18px;
+		text-decoration: none;
+	}
 	#navbar {
 		display: flex;
 		flex-wrap: wrap;
@@ -350,6 +388,8 @@
 	}
 	.hero-art {
 		grid-area: art;
+		position: relative;
+		overflow: hidden;
 		display: grid;
 		place-items: center;
 		aspect-ratio: 1;
@@ -360,6 +400,7 @@
 		background: oklch(0.95 0.06 90);
 	}
 	.hero-art img {
+		position: relative;
 		width: 86%;
 		height: 86%;
 		object-fit: contain;
@@ -387,6 +428,19 @@
 		flex-wrap: wrap;
 		gap: 6px;
 		margin: 0;
+	}
+	.rarity {
+		display: inline-block;
+		margin: 10px 0 0;
+		padding: 3px 12px;
+		border-radius: 999px;
+		background: var(--pm-gold);
+		color: var(--pm-ink);
+		font-weight: 700;
+	}
+	.rarity.mythic {
+		background: oklch(0.52 0.17 330);
+		color: var(--pm-paper);
 	}
 	.locked-note {
 		margin: 12px 0 0;

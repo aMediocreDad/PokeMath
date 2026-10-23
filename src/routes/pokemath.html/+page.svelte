@@ -639,7 +639,7 @@
 		{/if}
 		<div class="cards" id="pokedex">
 			{#each recent as entry (entry)}
-				<PokemonCard card={describe(entry)} count={countOf(entry)} />
+				<PokemonCard card={describe(entry)} count={countOf(entry)} target="_blank" />
 			{/each}
 		</div>
 		<a class="pm-button secondary all-link" href="./dex.html">Se alle dine Pokémon</a>
@@ -652,7 +652,7 @@
 	<div class="catch" class:open={overlayOpen} role="dialog" aria-modal="true" aria-label="Fangst">
 		<div class="catch-stage">
 			{#if caughtCard}
-				<div class="burst" aria-hidden="true"></div>
+				<div class="burst {caughtCard.rarity}" aria-hidden="true"></div>
 			{/if}
 			<p class="end-message" class:headline={!caughtCard}>{endMessage}</p>
 			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions, a11y_missing_attribute -->
@@ -986,6 +986,26 @@
 		-webkit-mask-image: radial-gradient(circle, black 30%, transparent 70%);
 		animation: spin 18s linear infinite;
 		pointer-events: none;
+	}
+	/* A legendary's burst is denser, brighter gold with a glow in the middle; a mythic's is a violet
+	   swirl. Same rays and glow as Aura on the cards. */
+	.burst.legendary {
+		background:
+			radial-gradient(circle, oklch(0.9 0.15 90 / 0.7), transparent 45%),
+			repeating-conic-gradient(oklch(0.83 0.16 80 / 0.55) 0 9deg, transparent 9deg 22.5deg);
+		animation-duration: 12s;
+	}
+	.burst.mythic {
+		background:
+			radial-gradient(circle, oklch(0.9 0.08 320 / 0.7), transparent 45%),
+			conic-gradient(
+				oklch(0.72 0.17 330 / 0.6),
+				oklch(0.7 0.15 290 / 0.1),
+				oklch(0.75 0.12 220 / 0.55),
+				oklch(0.7 0.15 290 / 0.1),
+				oklch(0.72 0.17 330 / 0.6)
+			);
+		animation-duration: 10s;
 	}
 	@keyframes spin {
 		to { transform: rotate(1turn); }

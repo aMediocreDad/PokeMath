@@ -1,10 +1,12 @@
 <script>
 	// The Pokédex, ported from static/dex.html and dex.js: every caught Pokémon once, with
 	// filters, search, sorting and progress bars. Filtering and search match against the same
-	// card HTML the legacy page built, so results are identical.
-	import { onMount } from 'svelte';
+	// card HTML the legacy page built, so results are identical. "Alle arter" shows every species
+	// instead, like the Pokédex in the games: the ones not caught yet as shadows, and each opens the
+	// viewer.
+	import { onMount, tick } from 'svelte';
 	import { player } from '#lib/player.svelte.js';
-	import { describe, legacyCardHtml, loadPokemonInfo, alternateFormCount } from '#lib/game/pokemon.js';
+	import { describe, legacyCardHtml, loadPokemonInfo, alternateFormCount, pokemonInfo } from '#lib/game/pokemon.js';
 	import PokemonCard from '#lib/PokemonCard.svelte';
 
 	const PAGE_SIZE = 60;
@@ -21,11 +23,19 @@
 		['name-desc', 'Navn (Å til A)'], ['count-desc', 'Antall (flest først)']
 	];
 
-	/** @typedef {{ entry: string, id: number, html: string, card: import('#lib/game/pokemon.js').PokemonCard }} DexItem */
+	/** @typedef {{ entry: string, id: number, html: string, card: import('#lib/game/pokemon.js').PokemonCard, locked?: boolean, count?: number }} DexItem */
 
 	/** @type {DexItem[] | null} null while loading */
 	let all = $state(null);
+	/** @type {DexItem[]} Every species once, for "Alle". */
+	let species = $state.raw([]);
 	let altTotal = $state(0);
+	/** 'mine' = the Pokémon caught, 'all' = every species. */
+	let mode = $state(/** @type {'mine' | 'all'} */ ('mine'));
+	/** The filter chips that mean something with every species; the rest are hidden in "Alle arter". */
+	const ALL_MODE_FILTERS = new Set(['Legendarisk', 'Mytisk']);
+	/** In "Alle arter": 0 = every species, 1 = only caught, 2 = only missing. */
+	let caughtFilter = $state(0);
 
 	let genFilter = $state([...ALL_GENS]);
 	/** @type {string[]} */
@@ -46,6 +56,12 @@
 	/** @param {string} entry */
 	const countOf = (entry) => player.pkmnList.filter((e) => e === entry).length;
 
+	/** @param {'mine' | 'all'} next */
+	function setMode(next) {
+		mode = next;
+		localStorage.setItem('dexMode', next);
+	}
+
 	onMount(() => {
 		const stored = localStorage.getItem('dexBarsCollapsed');
 		// On phones the progress bars start folded away unless the player opened them before.
@@ -59,27 +75,48 @@
 		started = true;
 		loadPokemonInfo().then(() => {
 			altTotal = alternateFormCount();
-			all = [...new Set(player.pkmnList)]
+			const mine = [...new Set(player.pkmnList)]
 				.map((entry) => {
 					const card = describe(entry);
 					return { entry: card.entry, id: card.id, card, html: legacyCardHtml(card, countOf(card.entry)) };
 				})
 				.sort((a, b) => a.id - b.id);
+			/** @type {Map<number, number>} How many of each species, all forms and shinies counted. */
+			const perSpecies = new Map();
+			for (const item of mine) perSpecies.set(item.id, (perSpecies.get(item.id) ?? 0) + countOf(item.entry));
+			// A species caught only as a shiny shows the shiny.
+			const shinyOnly = (/** @type {number} */ id) => !player.pkmnList.includes(`N${id}`) && player.pkmnList.includes(`S${id}`);
+			species = Object.keys(pokemonInfo() ?? {})
+				.map(Number)
+				.filter((id) => id >= 0 && id <= 1025)
+				.sort((a, b) => a - b)
+				.map((id) => {
+					const card = describe(`${shinyOnly(id) ? 'S' : 'N'}${id}`);
+					const count = perSpecies.get(id) ?? 0;
+					return { entry: `dex-${id}`, id, card, html: legacyCardHtml(card, count), locked: count === 0, count };
+				});
+			const storedMode = localStorage.getItem('dexMode');
+			mode = storedMode === 'all' || storedMode === 'mine' ? storedMode : mine.length ? 'mine' : 'all';
+			all = mine;
 		});
 	});
 
 	const filtered = $derived.by(() => {
 		if (!all) return [];
-		let items = all.filter(({ html }) => {
+		const everySpecies = mode === 'all';
+		let items = (everySpecies ? species : all).filter(({ html }) => {
 			if (genFilter.length > 0 && !genFilter.some((k) => html.includes(k))) return false;
 			if (typeFilter.length > 0 && !typeFilter.every((k) => html.includes(k))) return false;
 			for (const [key, state] of Object.entries(specialFilter)) {
+				if (everySpecies && !ALL_MODE_FILTERS.has(key)) continue;
 				if (state === 1 && !html.includes(key)) return false;
 				if (state === 2 && html.includes(key)) return false;
 			}
 			return true;
 		});
-		if (duplicates) {
+		if (everySpecies) {
+			if (caughtFilter) items = items.filter(({ locked }) => (caughtFilter === 1 ? !locked : locked));
+		} else if (duplicates) {
 			items = items.filter(({ entry }) => (duplicates === 1 ? countOf(entry) > 1 : countOf(entry) <= 1));
 		}
 		const q = search.trim().toUpperCase();
@@ -89,7 +126,7 @@
 			items = [...items].sort((a, b) => direction * a.card.name.toLowerCase().localeCompare(b.card.name.toLowerCase(), 'no'));
 		}
 		if (sort === 'id-desc') items = [...items].sort((a, b) => b.id - a.id);
-		if (sort === 'count-desc') items = [...items].sort((a, b) => countOf(b.entry) - countOf(a.entry));
+		if (sort === 'count-desc') items = [...items].sort((a, b) => (b.count ?? countOf(b.entry)) - (a.count ?? countOf(a.entry)));
 		return items;
 	});
 
@@ -124,14 +161,35 @@
 		].map((bar) => ({ ...bar, percent: bar.total > 0 ? Math.min(100, (bar.caught / bar.total) * 100) : 0 }));
 	});
 
-	const allClean = $derived(typeFilter.length === 0 && Object.keys(specialFilter).length === 0 && duplicates === 0);
+	const allClean = $derived(typeFilter.length === 0 && Object.keys(specialFilter).length === 0 && duplicates === 0 && caughtFilter === 0);
+	const caughtSpecies = $derived(species.filter((s) => !s.locked).length);
 
 	function showAll() {
 		genFilter = [...ALL_GENS];
 		typeFilter = [];
 		specialFilter = {};
 		duplicates = 0;
+		caughtFilter = 0;
 	}
+
+	// Coming back from the viewer brings back the filters and where the list was scrolled to.
+	/** @type {import('./$types').Snapshot<any>} */
+	export const snapshot = {
+		capture: () => ({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, visibleCount, scrollY: window.scrollY }),
+		restore: (saved) => {
+			({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search } = saved);
+			restoreScroll = saved;
+		}
+	};
+	/** @type {{ visibleCount: number, scrollY: number } | null} Set by restore, which can come before or after the list is built. */
+	let restoreScroll = $state.raw(null);
+	$effect(() => {
+		if (!all || !restoreScroll) return;
+		const { visibleCount: count, scrollY } = restoreScroll;
+		restoreScroll = null;
+		visibleCount = count;
+		tick().then(() => window.scrollTo(0, scrollY));
+	});
 
 	/** @param {string} key */
 	function cycleSpecial(key) {
@@ -204,6 +262,10 @@
 
 <div class="main dex" class:dex-bars-hidden={barsCollapsed}>
 	<div id="filterButtons">
+		<div class="mode" role="group" aria-label="Vis">
+			<button id="dexModeMine" aria-pressed={mode === 'mine'} onclick={() => setMode('mine')}>Mine</button>
+			<button id="dexModeAll" aria-pressed={mode === 'all'} onclick={() => setMode('all')}>Alle arter</button>
+		</div>
 		<input type="text" placeholder="Søk.." id="searchInput" bind:value={search} />
 		<!-- The dropdowns sit next to the search; the filter chips scroll sideways in one row. On
 		     phones dropdowns and chips share that scrolling row, dropdowns first. -->
@@ -221,7 +283,16 @@
 			</div>
 			<div class="filter-chips">
 				<button class="btn" class:active={allClean} data-filter="all" onclick={showAll}>Vis alle</button>
-				{#each SPECIAL_FILTERS as [key, label] (key)}
+				{#if mode === 'all'}
+					<button
+						class="btn"
+						id="caughtBtn"
+						class:filter-include={caughtFilter === 1}
+						class:filter-exclude={caughtFilter === 2}
+						onclick={() => (caughtFilter = (caughtFilter + 1) % 3)}>Fanget</button
+					>
+				{/if}
+				{#each SPECIAL_FILTERS.filter(([key]) => mode === 'mine' || ALL_MODE_FILTERS.has(key)) as [key, label] (key)}
 					<button
 						class="btn"
 						class:filter-include={specialFilter[key] === 1}
@@ -230,13 +301,15 @@
 						onclick={() => cycleSpecial(key)}>{label}</button
 					>
 				{/each}
-				<button
-					class="btn"
-					id="duplicatesBtn"
-					class:filter-include={duplicates === 1}
-					class:filter-exclude={duplicates === 2}
-					onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
-				>
+				{#if mode === 'mine'}
+					<button
+						class="btn"
+						id="duplicatesBtn"
+						class:filter-include={duplicates === 1}
+						class:filter-exclude={duplicates === 2}
+						onclick={() => (duplicates = (duplicates + 1) % 3)}>Dobler</button
+					>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -250,7 +323,7 @@
 			{/if}
 		{:else}
 			{#each filtered.slice(0, visibleCount) as item (item.entry)}
-				<PokemonCard card={item.card} count={countOf(item.entry)} />
+				<PokemonCard card={item.card} count={item.count ?? countOf(item.entry)} locked={item.locked} />
 			{/each}
 		{/if}
 	</div>
@@ -269,8 +342,13 @@
 		>
 		<!-- svelte-ignore a11y_missing_attribute -->
 		<a id="amountCaught" class="statisticText" data-text=" fanget.">{all ? player.caught : '?'}</a>
-		<!-- svelte-ignore a11y_missing_attribute -->
-		<a id="amountCaught2" class="statisticText" data-text=" unike.">{all ? all.length : '?'}</a>
+		{#if mode === 'all'}
+			<!-- svelte-ignore a11y_missing_attribute -->
+			<a id="speciesCaught" class="statisticText" data-text=" arter.">{caughtSpecies} / {species.length}</a>
+		{:else}
+			<!-- svelte-ignore a11y_missing_attribute -->
+			<a id="amountCaught2" class="statisticText" data-text=" unike.">{all ? all.length : '?'}</a>
+		{/if}
 		<!-- svelte-ignore a11y_missing_attribute -->
 		<a id="amountCaught3" class="statisticText" data-text=" i søk.">{all ? filtered.length : '?'}</a>
 	</div>
@@ -372,6 +450,31 @@
 	.filter-row,
 	.dropdowns {
 		display: contents;
+	}
+	/* Mine or Alle: two halves of one pill, next to the search. */
+	.mode {
+		display: flex;
+		flex: 0 0 auto;
+		padding: 3px;
+		border-radius: 999px;
+		background: var(--pm-cream);
+	}
+	.mode button {
+		min-width: 64px;
+		height: 34px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 999px;
+		background: none;
+		color: var(--pm-ink);
+		font: inherit;
+		font-size: 15px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.mode button[aria-pressed='true'] {
+		background: var(--pm-ink);
+		color: var(--pm-paper);
 	}
 	.dropdowns .altbtn {
 		order: 1;

@@ -3,11 +3,15 @@
 	// get a coloured edge and a small label, so the rarity does not depend on colour alone. Shiny
 	// cards are foiled like trading cards: a rainbow foil behind the Pokémon, a glare sweeping over
 	// it, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
-	// does not flash in unison.
+	// does not flash in unison. Legendaries and mythics stand in an Aura. A `locked` card is one the
+	// all-species Pokédex has not seen caught: a shadow with no name, like the dex in the games.
 	import Foil from '#lib/Foil.svelte';
+	import Aura from '#lib/Aura.svelte';
 
-	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number }} */
-	let { card, count } = $props();
+	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, locked?: boolean, target?: string }} */
+	let { card, count, locked = false, target } = $props();
+
+	const phase = $derived(`${-((card.id * 0.37) % 6)}s`);
 
 	const RARITY_LABEL = { legendary: 'Legendarisk', mythic: 'Mytisk' };
 </script>
@@ -16,22 +20,25 @@
 	id={card.entry}
 	class="pm-card"
 	class:shiny={card.shiny}
-	class:legendary={card.rarity === 'legendary'}
-	class:mythic={card.rarity === 'mythic'}
-	href="./pokeviewer.html?pokemonId={card.id}"
-	target="_blank"
+	class:legendary={!locked && card.rarity === 'legendary'}
+	class:mythic={!locked && card.rarity === 'mythic'}
+	class:locked
+	href="./pokeviewer.html?pokemonId={card.id}{card.shiny ? '&shiny=1' : ''}"
+	{target}
 >
 	<div class="art">
-		<Foil on={card.shiny} phase="{-((card.id * 0.37) % 6)}s">
-			<span class="sprite" style="background-image: url('{card.image}');"></span>
+		<Foil on={card.shiny && !locked} {phase}>
+			<Aura kind={locked ? '' : card.rarity} {phase}>
+				<span class="sprite" style="background-image: url('{card.image}');"></span>
+			</Aura>
 		</Foil>
 		<span class="number">#{card.cardId}</span>
-		<span class="count card-counter">x{count}</span>
-		{#if card.shiny || card.rarity}
+		{#if !locked}<span class="count card-counter">x{count}</span>{/if}
+		{#if !locked && (card.shiny || card.rarity)}
 			<span class="tag">{card.shiny ? '✨ Shiny' : ''}{card.shiny && card.rarity ? ' · ' : ''}{card.rarity ? RARITY_LABEL[card.rarity] : ''}</span>
 		{/if}
 	</div>
-	<div class="name">{card.name}</div>
+	<div class="name">{locked ? '???' : card.name}</div>
 	<div class="types">
 		{#each card.types as type, i (i)}<span class="type t-{type.toLowerCase()}">{type}</span>{/each}
 	</div>
@@ -93,6 +100,13 @@
 	}
 	.shiny .art {
 		background-color: oklch(0.94 0.05 90);
+	}
+	.locked .sprite {
+		filter: brightness(0);
+		opacity: 0.55;
+	}
+	.locked .name {
+		color: var(--pm-ink-soft);
 	}
 	.number,
 	.count {

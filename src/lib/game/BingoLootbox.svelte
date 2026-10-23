@@ -4,7 +4,8 @@
 	// opens in a foil frame, like the shiny cards in the Pokédex.
 
 	import Foil from '#lib/Foil.svelte';
-	import { pokemonInfo } from '#lib/game/pokemon.js';
+	import Aura from '#lib/Aura.svelte';
+	import { isLegendary, isMythic, pokemonInfo } from '#lib/game/pokemon.js';
 
 	/** @type {{ prizes: import('#lib/bingo.js').Prize[], onDone: () => void }} */
 	let { prizes, onDone } = $props();
@@ -75,6 +76,9 @@
 				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.webp`,
 				plainImage: false,
 				shiny,
+				rarity: /** @type {'' | 'legendary' | 'mythic'} */ (
+					isLegendary(Number(prize.pokedexId)) ? 'legendary' : isMythic(Number(prize.pokedexId)) ? 'mythic' : ''
+				),
 				lines: [source, kind + name],
 				small: prize.easterCoins ? '+' + Number(prize.easterCoins).toLocaleString('no-NO') + ' mynter' : ''
 			};
@@ -98,9 +102,11 @@
 		<div class="blootbox-tap">Trykk for å åpne...</div>
 	{:else if revealed && display}
 		<div class="blootbox-prize">
-			<div class="prize-art" class:foil-frame={display.shiny}>
+			<div class="prize-art {display.rarity ?? ''}" class:frame={display.shiny || display.rarity} class:foil-frame={display.shiny}>
 				<Foil on={!!display.shiny}>
-					<img src={display.image} alt="" style:filter={display.plainImage ? 'none' : null} />
+					<Aura kind={display.rarity ?? ''}>
+						<img src={display.image} alt="" style:filter={display.plainImage ? 'none' : null} />
+					</Aura>
 				</Foil>
 			</div>
 			<div class="blootbox-label">
@@ -178,15 +184,25 @@
 	.prize-art {
 		position: relative;
 	}
-	/* Cream inside, the shiny's rainbow in the border; the foil and glare stay inside the frame. */
-	.foil-frame {
+	/* Shinies, legendaries and mythics open in a cream frame that keeps the foil, glare and aura
+	   inside it. A shiny's border is the rainbow; otherwise the rarity's colour. */
+	.frame {
 		display: grid;
 		place-items: center;
 		width: 224px;
 		aspect-ratio: 1;
 		overflow: hidden;
-		border: 4px solid transparent;
+		border: 4px solid oklch(0.72 0.12 75);
 		border-radius: 22px;
+		background: oklch(0.955 0.02 85);
+		box-shadow: 0 0 40px oklch(0.85 0.14 85 / 0.6);
+	}
+	.frame.mythic {
+		border-color: oklch(0.66 0.16 330);
+		box-shadow: 0 0 40px oklch(0.75 0.15 330 / 0.6);
+	}
+	.frame.foil-frame {
+		border-color: transparent;
 		background:
 			linear-gradient(oklch(0.94 0.05 90), oklch(0.94 0.05 90)) padding-box,
 			var(--pm-foil-edge) border-box;
