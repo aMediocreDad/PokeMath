@@ -639,7 +639,7 @@
 		{/if}
 		<div class="cards" id="pokedex">
 			{#each recent as entry (entry)}
-				<PokemonCard card={describe(entry)} count={countOf(entry)} target="_blank" />
+				<PokemonCard card={describe(entry)} count={countOf(entry)} />
 			{/each}
 		</div>
 		<a class="pm-button secondary all-link" href="./dex.html">Se alle dine Pokémon</a>

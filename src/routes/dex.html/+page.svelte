@@ -8,6 +8,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { describe, legacyCardHtml, loadPokemonInfo, alternateFormCount, pokemonInfo } from '#lib/game/pokemon.js';
 	import PokemonCard from '#lib/PokemonCard.svelte';
+	import PokemonDetail from '#lib/PokemonDetail.svelte';
 
 	const PAGE_SIZE = 60;
 	const ALL_GENS = ['gen-1', 'gen-2', 'gen-3', 'gen-4', 'gen-5', 'gen-6', 'gen-7', 'gen-8', 'gen-9', 'gen-0'];
@@ -62,10 +63,35 @@
 		localStorage.setItem('dexMode', next);
 	}
 
+	// Split view on an iPad, held either way, and wider: the list on the left, the picked Pokémon
+	// in detail on the right, like the Pokédex in the games. Narrower, a card opens the viewer.
+	const SPLIT_QUERY = '(min-width: 760px)';
+	let split = $state(false);
+	/** @type {{ id: number, shiny: boolean } | null} The Pokémon picked for the pane. */
+	let picked = $state(null);
+	/** pokemon_info.json, there once the list is built. */
+	const info = $derived(all ? pokemonInfo() : null);
+	/** The filter bar's and the stats bar's heights, so the pane fits between them. */
+	let filterHeight = $state(0);
+	/** @type {HTMLElement | undefined} */
+	let pane = $state();
+	// A newly picked Pokémon starts at the top of the pane, not where the last one was scrolled to.
+	$effect(() => {
+		void shown?.id;
+		void shown?.shiny;
+		if (pane) pane.scrollTop = 0;
+	});
+	let barHeight = $state(0);
+
 	onMount(() => {
 		const stored = localStorage.getItem('dexBarsCollapsed');
 		// On phones the progress bars start folded away unless the player opened them before.
 		barsCollapsed = stored === null ? matchMedia('(max-width: 720px)').matches : stored === '1';
+		const wide = matchMedia(SPLIT_QUERY);
+		split = wide.matches;
+		const change = () => (split = wide.matches);
+		wide.addEventListener('change', change);
+		return () => wide.removeEventListener('change', change);
 	});
 
 	// Build the list once both the save and pokemon_info.json are there (_tryInitDex()).
@@ -130,6 +156,11 @@
 		return items;
 	});
 
+	// The pane shows the picked Pokémon, or the first in the list until one is picked.
+	const shown = $derived(
+		picked ?? (filtered[0] ? { id: filtered[0].id, shiny: filtered[0].card.shiny && !filtered[0].locked } : null)
+	);
+
 	// Show the first page again whenever the results change.
 	$effect(() => {
 		void filtered;
@@ -175,9 +206,9 @@
 	// Coming back from the viewer brings back the filters and where the list was scrolled to.
 	/** @type {import('./$types').Snapshot<any>} */
 	export const snapshot = {
-		capture: () => ({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, visibleCount, scrollY: window.scrollY }),
+		capture: () => ({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, picked, visibleCount, scrollY: window.scrollY }),
 		restore: (saved) => {
-			({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search } = saved);
+			({ mode, genFilter, typeFilter, specialFilter, duplicates, caughtFilter, sort, search, picked } = saved);
 			restoreScroll = saved;
 		}
 	};
@@ -261,7 +292,7 @@
 <svelte:document onclick={closePanels} />
 
 <div class="main dex" class:dex-bars-hidden={barsCollapsed}>
-	<div id="filterButtons">
+	<div id="filterButtons" bind:offsetHeight={filterHeight}>
 		<div class="mode" role="group" aria-label="Vis">
 			<button id="dexModeMine" aria-pressed={mode === 'mine'} onclick={() => setMode('mine')}>Mine</button>
 			<button id="dexModeAll" aria-pressed={mode === 'all'} onclick={() => setMode('all')}>Alle arter</button>
@@ -314,28 +345,64 @@
 		</div>
 	</div>
 
-	<div id="pokedex">
-		{#if !all}
-			{#if player.loaded}
-				{#each { length: 20 }, i (i)}<div class="skeleton"></div>{/each}
-			{:else}
-				Laster...<br /><br />
+	<div class="dex-body" class:split>
+		<div class="dex-list">
+			<div id="pokedex">
+				{#if !all}
+					{#if player.loaded}
+						{#each { length: 20 }, i (i)}<div class="skeleton"></div>{/each}
+					{:else}
+						Laster...<br /><br />
+					{/if}
+				{:else}
+					{#each filtered.slice(0, visibleCount) as item (item.entry)}
+						<PokemonCard
+							card={item.card}
+							count={item.count ?? countOf(item.entry)}
+							locked={item.locked}
+							selected={split && shown?.id === item.id && shown?.shiny === (item.card.shiny && !item.locked)}
+							onselect={split ? () => (picked = { id: item.id, shiny: item.card.shiny && !item.locked }) : undefined}
+						/>
+					{/each}
+				{/if}
+			</div>
+			{#if all && visibleCount < filtered.length}
+				<div id="dex-sentinel" style="height:1px;width:100%;" use:loadMore></div>
 			{/if}
-		{:else}
-			{#each filtered.slice(0, visibleCount) as item (item.entry)}
-				<PokemonCard card={item.card} count={item.count ?? countOf(item.entry)} locked={item.locked} />
-			{/each}
+			<div id="dexLoadStatus" style:opacity={all && filtered.length > 0 ? '0' : '1'}>
+				{#if all}{filtered.length > 0 ? `${filtered.length} Pokémon` : 'Ingen funnet'}{/if}
+			</div>
+		</div>
+		{#if split && all}
+			<aside
+				bind:this={pane}
+				class="dex-pane"
+				aria-label="Valgt Pokémon"
+				style:--pane-top="{filterHeight}px"
+				style:--pane-bottom="{barHeight}px"
+			>
+				{#if shown && info}
+					{#key shown.id}
+						<PokemonDetail
+							{info}
+							id={shown.id}
+							shiny={shown.shiny}
+							compact
+							onpick={(id) => (picked = { id, shiny: false })}
+						/>
+					{/key}
+					<a class="pm-button secondary open-viewer" href="./pokeviewer.html?pokemonId={shown.id}{shown.shiny ? '&shiny=1' : ''}"
+						>Åpne i Pokéviewer</a
+					>
+				{:else}
+					<p class="pane-empty">Ingen Pokémon å vise.</p>
+				{/if}
+			</aside>
 		{/if}
-	</div>
-	{#if all && visibleCount < filtered.length}
-		<div id="dex-sentinel" style="height:1px;width:100%;" use:loadMore></div>
-	{/if}
-	<div id="dexLoadStatus" style:opacity={all && filtered.length > 0 ? '0' : '1'}>
-		{#if all}{filtered.length > 0 ? `${filtered.length} Pokémon` : 'Ingen funnet'}{/if}
 	</div>
 </div>
 
-<div class="pm-dexbar" id="dex-botbar">
+<div class="pm-dexbar" id="dex-botbar" bind:offsetHeight={barHeight}>
 	<div class="dex-stats-row">
 		<button class="dex-progress-toggle" class:collapsed={barsCollapsed} id="progressToggleBtn" onclick={toggleBars} title="Vis/skjul fremdrift"
 			>&#x25B2;</button
@@ -562,6 +629,41 @@
 	}
 	.active .caret {
 		color: inherit;
+	}
+
+	/* iPad and wider: list and pane side by side. The pane stays put between the filter bar and
+	   the stats bar while the list scrolls. */
+	.dex-body.split {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) clamp(360px, 42vw, 520px);
+		gap: 16px;
+		max-width: 1400px;
+		margin: 0 auto;
+		padding-right: 16px;
+	}
+	.split #pokedex {
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		max-width: none;
+		padding-right: 0;
+	}
+	.dex-pane {
+		position: sticky;
+		top: calc(var(--pm-bar-height) + var(--pane-top) + 18px);
+		max-height: calc(100vh - var(--pm-bar-height) - var(--pane-top) - var(--pane-bottom) - 36px);
+		margin-top: 18px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
+		padding: 0 2px 4px;
+	}
+	.open-viewer {
+		display: block;
+		margin-top: 14px;
+		text-align: center;
+	}
+	.pane-empty {
+		margin: 0;
+		color: var(--pm-ink-soft);
 	}
 
 	/* Cards fill the row instead of keeping a fixed width. */

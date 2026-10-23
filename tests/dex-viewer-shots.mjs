@@ -1,6 +1,8 @@
 // The Pokédex's two modes and the viewer: legendary and mythic auras on cards, in the viewer and in
 // a bingo prize; the shiny foil in the viewer; "Alle arter" with shadows; a card opening the viewer
 // and "‹ Pokédex" bringing back the filters and scroll; and an empty save landing in "Alle arter".
+// On the iPad (760 px and wider) the Pokédex is split: a tap shows the Pokémon in a pane beside the
+// list. A card under the game opens the viewer in the same tab, and "‹ Spillet" goes back to it.
 // Usage: node dex-viewer-shots.mjs [base] [outdir]. tests/dex-viewer-serve-shots.sh builds this
 // checkout and serves it on :3124.
 import { createRequire } from "module";
@@ -72,7 +74,38 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     const shown = await page.locator("#pokedex .pm-card").count();
     // A card already on screen, so the click does not scroll the list first.
     const onScreen = await page.evaluate(() => [...document.querySelectorAll("#pokedex .pm-card")].findIndex((c) => c.getBoundingClientRect().top > 200));
-    await page.locator("#pokedex .pm-card").nth(onScreen).click();
+    if (vp === "ipad") {
+      // Split view: the tap fills the pane and stays on the page; an evolution tapped in the pane
+      // replaces it; the pane's button opens the full viewer.
+      const card = page.locator("#pokedex .pm-card").nth(onScreen);
+      const id = (await card.getAttribute("href")).match(/pokemonId=(\d+)/)[1];
+      await card.click();
+      await page.waitForTimeout(400);
+      check(page.url().includes("dex.html") && await page.locator(`.dex-pane .number`).textContent() === `#${id}`, `${tag}: a tap shows #${id} in the pane`);
+      check(await card.getAttribute("aria-current") === "true", `${tag}: the picked card is marked`);
+      check(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore) < 40, `${tag}: picking does not scroll the list`);
+      await page.locator('[id="dexModeMine"]').click();
+      await page.click('[data-filter="all"]');
+      await page.locator('[id="N1"]').click();
+      await page.locator('.dex-pane #next-evolution-wrapper a').first().click();
+      await page.waitForTimeout(300);
+      check(await page.locator(".dex-pane .number").textContent() === "#2", `${tag}: an evolution in the pane shows #2`);
+      await page.waitForTimeout(800);
+      await page.evaluate(pin);
+      await page.screenshot({ path: `${OUT}dex-split-${tag}.png` });
+      await page.evaluate(() => document.getAnimations().forEach((a) => a.play()));
+      await page.locator('[id="S150"]').click();
+      await page.waitForTimeout(300);
+      check(await page.locator(".dex-pane .hero-art .foil").count() === 1, `${tag}: a shiny in the pane is foiled`);
+      await page.click("#dexModeAll");
+      await page.click('[data-filter="Legendarisk"]');
+      await page.waitForTimeout(300);
+      await page.evaluate((y) => window.scrollTo(0, y), scrollBefore);
+      await page.waitForTimeout(300);
+      await page.click(".open-viewer");
+    } else {
+      await page.locator("#pokedex .pm-card").nth(onScreen).click();
+    }
     await page.waitForURL(/pokeviewer/);
     await page.waitForSelector(".hero .name");
     await page.click(".to-dex");
@@ -82,6 +115,7 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     check(await page.locator("#dexModeAll[aria-pressed=true]").count() === 1, `${tag}: back in Alle arter`);
     check(await page.locator('[data-filter="Legendarisk"].filter-include').count() === 1, `${tag}: Legendarisk filter kept`);
     check(await page.locator("#pokedex .pm-card").count() === shown, `${tag}: same cards shown (${shown})`);
+    if (vp === "ipad") check(await page.locator(".dex-pane .number").textContent() === "#150", `${tag}: the pane keeps the picked Pokémon`);
     const scrollAfter = await page.evaluate(() => window.scrollY);
     check(Math.abs(scrollAfter - scrollBefore) < 40, `${tag}: scroll kept (${scrollBefore} → ${scrollAfter})`);
 
@@ -124,10 +158,43 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
   await page.screenshot({ path: `${OUT}dex-empty-${vp}.png` });
   await page.locator('#pokedex [href*="pokemonId=25"]').scrollIntoViewIfNeeded();
   await page.locator('#pokedex [href*="pokemonId=25"]').click();
-  await page.waitForSelector(".hero .name");
+  await page.waitForTimeout(300);
   check(await page.locator(".hero .name").textContent() === "???", `${vp}: empty save sees #25 as a shadow`);
   await empty.close();
+
+  // A card under the game opens the viewer in the same tab, and the back link returns to the game.
+  {
+    const context = await browser.newContext({ ...device, serviceWorkers: "block" });
+    await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
+    await context.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.getItem(k) === null && localStorage.setItem(k, v)), SAVE);
+    const page = await context.newPage();
+    await page.goto(BASE + "/pokemath.html?stage=2");
+    await page.waitForSelector(".recent .pm-card");
+    check(await page.locator(".recent .pm-card[target]").count() === 0, `${vp}: game cards have no new-tab target`);
+    await page.locator(".recent .pm-card").first().click();
+    await page.waitForURL(/pokeviewer/);
+    check(await page.locator(".to-dex").textContent() === "‹ Spillet", `${vp}: the viewer offers ‹ Spillet`);
+    await page.click(".to-dex");
+    await page.waitForURL(/pokemath\.html/);
+    check(true, `${vp}: ‹ Spillet goes back to the game`);
+    await context.close();
+  }
 }
+// iPad held sideways: the split view at its most common size.
+{
+  const context = await browser.newContext({ ...devices["iPad (gen 7) landscape"], serviceWorkers: "block" });
+  await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
+  await context.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.getItem(k) === null && localStorage.setItem(k, v)), SAVE);
+  const page = await context.newPage();
+  await page.goto(BASE + "/dex.html");
+  await page.waitForSelector(".dex-pane .number");
+  await page.locator('[id="N151"]').click();
+  await page.waitForTimeout(800);
+  await page.evaluate(pin);
+  await page.screenshot({ path: `${OUT}dex-split-ipad-landscape.png` });
+  await context.close();
+}
+
 // Desktop: both Pokédex modes and a viewer hero at 1280 wide, and the catch screen's burst behind a
 // legendary and a mythic. The roll is random, so the burst gets the rarity class set by hand: this
 // checks the look, not which Pokémon was caught.
@@ -145,6 +212,7 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
   await page.click("#dexModeAll");
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}dex-all-desktop.png` });
+  check(await page.locator(".dex-pane").count() === 1, "desktop: the Pokédex is split");
   await page.goto(BASE + "/pokeviewer.html?pokemonId=150&shiny=1");
   await page.waitForSelector(".hero .name");
   await page.waitForTimeout(600);

@@ -5,11 +5,12 @@
 	// it, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
 	// does not flash in unison. Legendaries and mythics stand in an Aura. A `locked` card is one the
 	// all-species Pokédex has not seen caught: a shadow with no name, like the dex in the games.
+	// With `onselect` a tap picks the card instead of opening the viewer (the Pokédex's split view).
 	import Foil from '#lib/Foil.svelte';
 	import Aura from '#lib/Aura.svelte';
 
-	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, locked?: boolean, target?: string }} */
-	let { card, count, locked = false, target } = $props();
+	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number, locked?: boolean, selected?: boolean, onselect?: () => void }} */
+	let { card, count, locked = false, selected = false, onselect } = $props();
 
 	const phase = $derived(`${-((card.id * 0.37) % 6)}s`);
 
@@ -23,8 +24,14 @@
 	class:legendary={!locked && card.rarity === 'legendary'}
 	class:mythic={!locked && card.rarity === 'mythic'}
 	class:locked
+	class:selected
+	aria-current={selected ? 'true' : undefined}
 	href="./pokeviewer.html?pokemonId={card.id}{card.shiny ? '&shiny=1' : ''}"
-	{target}
+	onclick={(e) => {
+		if (!onselect) return;
+		e.preventDefault();
+		onselect();
+	}}
 >
 	<div class="art">
 		<Foil on={card.shiny && !locked} {phase}>
@@ -56,6 +63,10 @@
 		color: var(--pm-ink);
 		text-decoration: none;
 		transition: transform 120ms ease-out;
+	}
+	.pm-card.selected {
+		outline: 3px solid var(--pm-ink);
+		outline-offset: 3px;
 	}
 	.pm-card:active {
 		transform: scale(0.97);
