@@ -6,6 +6,7 @@
 	import { loadPokemonInfo, pokemonInfo } from '#lib/game/pokemon.js';
 	import { me } from '#lib/me.svelte.js';
 	import { cloud, logOut } from '#lib/cloudSave.svelte.js';
+	import { canTilt, tiltOn, setTilt } from '#lib/tilt.js';
 
 	const P = 'images/playericons/';
 
@@ -13,6 +14,9 @@
 	let uuid = $state('Laster…');
 	let iconsOpen = $state(false);
 	let backgroundsOpen = $state(false);
+	/** Whether the shiny foil follows the tilt; shown only on a phone or tablet. */
+	let tiltShown = $state(false);
+	let tilt = $state(false);
 
 	// Fill the form once, when the save has loaded (initProfile() in the legacy page).
 	let initialised = false;
@@ -27,6 +31,8 @@
 	let spent = $state(0);
 	onMount(() => {
 		uuid = localStorage.getItem('UUID') || '–';
+		tiltShown = canTilt();
+		tilt = tiltOn();
 		try {
 			spent = (JSON.parse(localStorage.getItem('badges') ?? 'null') || { badges: [] }).badges.find((/** @type {{ id: number }} */ b) => b.id === 20)?.progress || 0;
 		} catch {
@@ -132,6 +138,13 @@
 		localStorage.setItem('shopBackground', JSON.stringify(''));
 		player.save('background');
 		toast('Bakgrunnen ble fjernet.');
+	}
+
+	/** Safari asks before the page gets the tilt, and says no when the question is declined. */
+	async function switchTilt() {
+		const wanted = tilt;
+		tilt = await setTilt(wanted);
+		if (wanted && !tilt) toast('Fikk ikke lov til å bruke bevegelsen. Prøv igjen, og trykk Tillat.');
 	}
 
 	function copyUUID() {
@@ -297,6 +310,16 @@
 				<p class="hint">Ikke kontakt med serveren akkurat nå.</p>
 			{/if}
 		</section>
+		{#if tiltShown}
+			<section class="panel pm-surface">
+				<h3 class="card-title">Glans på shiny</h3>
+				<label class="switch-row" for="tiltSwitch">
+					<span>Vipp for å få glansen til å bevege seg</span>
+					<input type="checkbox" class="switch" id="tiltSwitch" bind:checked={tilt} onchange={switchTilt} />
+				</label>
+				<p class="hint">Glansen på shiny Pokémon følger nettbrettet når du vipper det. Av: den følger med når du scroller.</p>
+			</section>
+		{/if}
 		<section class="panel pm-surface uuid-card">
 			<h3 class="card-title">Spiller-ID</h3>
 			<div class="uuid-row">
@@ -558,6 +581,51 @@
 		gap: 8px;
 		margin-top: 12px;
 	}
+	.switch-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	/* An on/off switch drawn on the checkbox itself, as in the customizer. */
+	.switch {
+		appearance: none;
+		-webkit-appearance: none;
+		position: relative;
+		flex-shrink: 0;
+		width: 56px;
+		height: 32px;
+		margin: 0;
+		border-radius: 999px;
+		background: var(--pm-line);
+		cursor: pointer;
+		transition: background 150ms ease-out;
+	}
+	.switch::after {
+		content: '';
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 26px;
+		height: 26px;
+		border-radius: 50%;
+		background: var(--pm-paper);
+		box-shadow: 0 1px 3px oklch(0.3 0.03 265 / 0.3);
+		transition: transform 150ms ease-out;
+	}
+	.switch:checked {
+		background: var(--pm-green-deep);
+	}
+	.switch:checked::after {
+		transform: translateX(24px);
+	}
+	.switch:focus-visible {
+		outline: 3px solid var(--pm-ink);
+		outline-offset: 2px;
+	}
+
 	.uuid-row {
 		display: flex;
 		align-items: center;
