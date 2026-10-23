@@ -73,6 +73,10 @@ const browser = muteAudio(await webkit.launch());
   const supported = await page.evaluate(() => CSS.supports("animation-timeline: view()"));
   console.log("     this WebKit ties animations to scrolling:", supported);
   check(await page.locator(`${CARD} .foil.scrolls`).count() === (supported ? 1 : 0), "iphone: foil follows scrolling where the browser can");
+  // Safari on a real iPhone lets the blended layers out past overflow: hidden; headless WebKit
+  // does not, so this checks the clip that keeps them in, not the corners themselves.
+  const clip = await page.locator(`${CARD} .art`).evaluate((el) => getComputedStyle(el).clipPath);
+  check(/round 12px/.test(clip), `iphone: the window is clipped to its rounded corners (${clip})`);
   if (supported) {
     const card = page.locator(CARD);
     await card.evaluate((el) => el.scrollIntoView({ block: "end" })); await page.waitForTimeout(300);

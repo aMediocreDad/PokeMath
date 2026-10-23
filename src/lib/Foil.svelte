@@ -39,8 +39,11 @@
 		scrolls = CSS.supports('animation-timeline: view()') && !fixed(windowEl);
 		if (scrolls) windowEl.style.setProperty('view-timeline', '--foil-window');
 		if (!link) windowEl.style.touchAction = 'pan-y';
-		// The shine lights up what is under it in the window, not the page behind the card.
+		// The shine lights up what is under it in the window, not the page behind the card. Safari
+		// on iPhone and iPad lets blended layers out past the window's rounded corners, despite
+		// overflow: hidden, so the window is clipped to its own corners as well.
 		windowEl.style.isolation = 'isolate';
+		windowEl.style.clipPath = `inset(0 round ${getComputedStyle(windowEl).borderRadius})`;
 		const unfollow = [followTilt(foil), followTilt(shine), followTilt(glare)];
 		/** @param {PointerEvent} e */
 		const move = (e) => {
