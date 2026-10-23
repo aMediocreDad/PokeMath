@@ -271,8 +271,11 @@
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 		box-shadow: 0 0.15em 0.3em oklch(0 0 0 / 0.2);
 	}
+	/* Pinned to the window's edges: the window's height comes from the flex layout, which a
+	   percentage height cannot follow, and the picture would sit at the top and run off the bottom. */
 	.art {
-		position: relative;
+		position: absolute;
+		inset: 0;
 		display: block;
 		width: 100%;
 		height: 100%;
