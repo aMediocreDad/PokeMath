@@ -1,13 +1,13 @@
 <script>
 	// A Pokémon as a trading card: yellow frame, name and HP across the top, the picture in a framed
-	// window, its stats set like attacks (Angrep and Forsvar as normal / special, and Fart), and its
-	// Pokédex entry as the flavour text. It is the reveal of the Pokédex: the pane beside the list
+	// window, its stats set like attacks (Attack and Defense as normal / special, and Speed), and its
+	// Pokédex entry as the flavour text. Like a real card, it is in English. It is the reveal of the Pokédex: the pane beside the list
 	// and the viewer show it. A legendary's or mythic's aura sits in the window; a shiny's picture
-	// is a holo, with glitter and a rainbow sheen.
+	// is done like a Shiny Vault card: silver, gold sparkles, rainbow etching.
 	// The whole card turns in 3D towards the mouse anywhere on it, or a finger dragged sideways
 	// across it, and springs back when let go; with the tilt switched on in the profile (tilt.js),
-	// tilting the iPad or phone turns it instead. The light, the sheen and the glitter all move with
-	// the turn, not with the pointer. Only this one card turns, never the cards in the list. The
+	// tilting the iPad or phone turns it instead. The light, the sparkles and the etching all move
+	// with the turn, not with the pointer. Only this one card turns, never the cards in the list. The
 	// technique follows poke-holo.simey.me; no code is taken from it.
 	import Aura from '#lib/Aura.svelte';
 	import TypeIcon from '#lib/TypeIcon.svelte';
@@ -29,18 +29,24 @@
 	/** @param {any} types */
 	const typeList = (types) => (Array.isArray(types) ? types : [types]).map((t) => String(t).toLowerCase());
 	const types = $derived(typeList(pokemon.types));
-	const STAGES = ['Basis', 'Steg 1', 'Steg 2'];
+	const STAGES = ['Basic', 'Stage 1', 'Stage 2'];
 	const RARITY_MARK = { legendary: '★', mythic: '✦' };
-	const metres = (/** @type {number} */ dm) => (dm / 10).toLocaleString('no-NO', { minimumFractionDigits: 1 });
+	const metres = (/** @type {number} */ dm) => (dm / 10).toLocaleString('en-GB', { minimumFractionDigits: 1 });
 	/** One energy for each 50 of the stronger value, one to four, as a stronger attack costs more. */
 	const cost = (/** @type {number[]} */ values) => Math.max(1, Math.min(4, Math.ceil(Math.max(...values.map(Number)) / 50)));
 	/** @type {[string, number[]][]} */
 	const moves = $derived([
-		['Angrep', [pokemon.base_atk, pokemon.base_satk]],
-		['Forsvar', [pokemon.base_def, pokemon.base_sdef]],
-		['Fart', [pokemon.base_spd]]
+		['Attack', [pokemon.base_atk, pokemon.base_satk]],
+		['Defense', [pokemon.base_def, pokemon.base_sdef]],
+		['Speed', [pokemon.base_spd]]
 	]);
 	const holo = $derived(shiny && !locked);
+	// A shiny's picture, like a Shiny Vault card: gold four-point sparkles and soft streaks of
+	// coloured light behind the Pokémon. Sparkles: x and y of the centre in %, size in % of the
+	// window's width, and depth, how far it drifts as the card turns. Streaks: start in %, angle
+	// and hue.
+	const STARS = [[16, 22, 20, 1], [84, 18, 13, 0.6], [80, 70, 22, 1.2], [22, 78, 12, 0.7], [56, 10, 9, 0.4], [92, 46, 8, 0.5], [8, 50, 7, 0.4]];
+	const STREAKS = [[-10, 30, 18, 20], [60, 85, -24, 60], [55, 15, 28, 340], [-5, 75, -12, 30]];
 
 	/** @type {HTMLElement | undefined} */
 	let card = $state();
@@ -104,7 +110,8 @@
 		class:locked
 		class:holo
 		role="img"
-		aria-label={locked ? 'Ukjent Pokémon' : `${pokemon.name}${holo ? ', shiny' : ''}`}
+		lang="en"
+		aria-label={locked ? 'Unknown Pokémon' : `${pokemon.name}${holo ? ', shiny' : ''}`}
 	>
 		<div class="face">
 			<header>
@@ -114,18 +121,23 @@
 				<span class="energy">{#each types as type (type)}<TypeIcon {type} />{/each}</span>
 			</header>
 			<div class="window">
+				{#if holo}
+					<span class="vault" aria-hidden="true">
+						{#each STREAKS as [x, y, angle, hue], i (i)}<span class="streak" style:--x="{x}%" style:--y="{y}%" style:--angle="{angle}deg" style:--hue={hue}></span>{/each}
+						{#each STARS as [x, y, size, depth], i (i)}<span class="star" style:--x="{x}%" style:--y="{y}%" style:--size="{size}%" style:--depth={depth}></span>{/each}
+					</span>
+				{/if}
 				<Aura kind={locked ? '' : rarity}>
 					<img src={image} alt="" class="art" class:shadow={locked} />
 				</Aura>
 				{#if holo}
-					<span class="window-sheen" aria-hidden="true"></span>
+					<span class="etch" aria-hidden="true"></span>
 					<span class="sheen" aria-hidden="true"></span>
-					<span class="glitter" aria-hidden="true"></span>
 				{/if}
 			</div>
 			<p class="strip">
-				Nr. {id}{#if !locked}
-					· {pokemon.generation ? pokemon.generation[0].toUpperCase() + pokemon.generation.slice(1) : 'Ukjent'}
+				No. {id}{#if !locked}
+					· {pokemon.generation ? pokemon.generation[0].toUpperCase() + pokemon.generation.slice(1) : 'Unknown'}
 					{#if pokemon.height}· {metres(pokemon.height)} m{/if}
 					{#if pokemon.weight}· {metres(pokemon.weight)} kg{/if}
 				{/if}
@@ -140,12 +152,12 @@
 						</span>
 					</div>
 				{/each}
-				<p class="move-key">Normal / spesial</p>
+				<p class="move-key">Normal / special</p>
 			</div>
-			<p class="flavor" lang="en">{locked ? 'Fang denne Pokémonen for å se mer om den.' : pokemon.description}</p>
+			<p class="flavor">{locked ? 'Catch this Pokémon to learn more about it.' : pokemon.description}</p>
 			<footer>
 				<span>{types.map((t) => t[0].toUpperCase() + t.slice(1)).join(' / ')}</span>
-				<span>{#if !locked && rarity}<span class="mark {rarity}" aria-label={rarity === 'legendary' ? 'Legendarisk' : 'Mytisk'}>{RARITY_MARK[rarity]}</span>{/if}{id}/1025</span>
+				<span>{#if !locked && rarity}<span class="mark {rarity}" aria-label={rarity === 'legendary' ? 'Legendary' : 'Mythical'}>{RARITY_MARK[rarity]}</span>{/if}{id}/1025</span>
 			</footer>
 		</div>
 		<span class="glare" aria-hidden="true"></span>
@@ -355,57 +367,95 @@
 		background: oklch(0.9 0.01 265);
 	}
 
-	/* A shiny's picture is a holo: a rainbow foil, a band of rainbow that slides across as the card
-	   turns, and glitter, all inside the window. They take their place from the turn (--ax, --ay),
-	   so they move with the card wherever the pointer is. The glitter is three grids of tiny
-	   lights at different pitches; sliding them against each other makes them twinkle. */
-	.glitter,
-	.sheen,
-	.window-sheen {
+	/* A shiny's picture, like a Shiny Vault card: a white-gold ground engraved with a faint zig-zag,
+	   gold four-point sparkles and soft coloured streaks behind the Pokémon, and over everything
+	   a fine etching of rings in gold and pearl that shift as the card turns. A soft band of light
+	   crosses with the turn. Everything takes its place from the turn (--ax, --ay), so it moves
+	   with the card wherever the pointer is. */
+	.holo .window {
+		background:
+			repeating-linear-gradient(60deg, oklch(0.75 0.04 85 / 0.09) 0 1px, transparent 1px 5px) padding-box,
+			repeating-linear-gradient(-60deg, oklch(0.75 0.04 85 / 0.09) 0 1px, transparent 1px 5px) padding-box,
+			radial-gradient(circle at 50% 55%, oklch(1 0.01 95), oklch(0.96 0.04 92) 55%, oklch(0.88 0.07 85)) padding-box,
+			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
+	}
+	.vault,
+	.etch,
+	.sheen {
 		position: absolute;
 		inset: 0;
-		border-radius: inherit;
 		pointer-events: none;
 	}
-	.glitter {
-		background:
-			radial-gradient(circle, oklch(1 0 0) 0 0.6px, transparent 1.2px) calc(var(--ax) * 9px) calc(var(--ay) * 7px) / 9px 11px,
-			radial-gradient(circle, oklch(0.95 0.1 90) 0 0.7px, transparent 1.4px) calc(var(--ax) * -13px) calc(var(--ay) * -11px) / 13px 17px,
-			radial-gradient(circle, oklch(0.9 0.1 300) 0 0.7px, transparent 1.4px) calc(var(--ay) * 6px) calc(var(--ax) * 8px) / 19px 15px;
-		opacity: calc(0.35 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.5);
+	.vault {
+		overflow: hidden;
 	}
-	/* A band of rainbow, blended so it tints the picture instead of bleaching it. At rest it
-	   lies across the top-left corner; turning the card slides it over. */
+	.star {
+		position: absolute;
+		left: var(--x);
+		top: var(--y);
+		width: var(--size);
+		aspect-ratio: 1;
+		translate: calc(-50% + var(--ax) * var(--depth) * -8px) calc(-50% + var(--ay) * var(--depth) * -8px);
+	}
+	/* The glow, and the star itself as thin rays drawn on top. */
+	.star::before,
+	.star::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	.star::before {
+		inset: 15%;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, oklch(0.92 0.15 95 / 0.8), oklch(0.85 0.15 85 / 0) 100%);
+	}
+	.star::after {
+		background: radial-gradient(closest-side, oklch(1 0.02 95), oklch(0.88 0.17 92) 45%, oklch(0.8 0.16 80) 100%);
+		clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%);
+	}
+	.streak {
+		position: absolute;
+		left: var(--x);
+		top: var(--y);
+		width: 75%;
+		height: 3%;
+		border-radius: 50%;
+		background: linear-gradient(90deg, transparent, oklch(0.75 0.15 var(--hue) / 0.75) 45%, oklch(0.9 0.08 var(--hue) / 0.9) 55%, transparent);
+		filter: blur(1px);
+		rotate: var(--angle);
+		translate: calc(var(--ax) * -5px) calc(var(--ay) * -5px);
+	}
+	/* Fine rings, centred on the Pokémon, cut out of a rainbow that slides with the turn. */
+	.etch {
+		background: linear-gradient(
+				115deg,
+				oklch(0.92 0.1 95),
+				oklch(0.82 0.13 80),
+				oklch(0.97 0.03 100),
+				oklch(0.84 0.08 340),
+				oklch(0.86 0.12 85),
+				oklch(0.92 0.1 95)
+			)
+			calc(50% + var(--ax) * 60%) calc(50% + var(--ay) * 40%) / 300% 300%;
+		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
+		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
+		mix-blend-mode: overlay;
+		opacity: calc(0.55 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
+	}
+	/* The light catching the foil: a bright white-gold band with a softer gold glow around it. */
 	.sheen {
 		background: linear-gradient(
 				115deg,
-				transparent 36%,
-				oklch(0.62 0.22 25 / 0.75) 41%,
-				oklch(0.75 0.18 90 / 0.75) 45%,
-				oklch(0.68 0.2 150 / 0.75) 49%,
-				oklch(0.6 0.18 240 / 0.75) 53%,
-				oklch(0.55 0.22 300 / 0.75) 57%,
-				transparent 62%
+				transparent 30%,
+				oklch(0.95 0.08 90 / 0.35) 42%,
+				oklch(1 0.03 95 / 0.8) 48%,
+				oklch(1 0.03 95 / 0.8) 52%,
+				oklch(0.95 0.08 90 / 0.35) 58%,
+				transparent 70%
 			)
 			calc(30% + var(--ax) * 70%) calc(30% + var(--ay) * 50%) / 250% 250%;
-		mix-blend-mode: overlay;
-		opacity: calc(0.55 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.45);
-	}
-	.window-sheen {
-		background:
-			repeating-linear-gradient(115deg, oklch(1 0 0 / 0.2) 0 2px, transparent 2px 6px),
-			linear-gradient(
-					115deg,
-					oklch(0.7 0.16 85),
-					oklch(0.62 0.18 350),
-					oklch(0.62 0.15 250),
-					oklch(0.7 0.16 160),
-					oklch(0.7 0.16 85),
-					oklch(0.62 0.18 350)
-				)
-				calc(50% + var(--ax) * 50%) calc(50% + var(--ay) * 30%) / 250% 250%;
-		mix-blend-mode: overlay;
-		opacity: 0.6;
+		mix-blend-mode: screen;
+		opacity: calc(0.45 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
 	}
 
 	/* The light on the card: a soft spot that follows the turn, brightest when turned furthest. It

@@ -30,7 +30,7 @@
 	class:quiet
 	class:selected
 	aria-current={selected ? 'true' : undefined}
-	href="./pokeviewer.html?pokemonId={card.id}{card.shiny ? '&shiny=1' : ''}"
+	href="./pokeviewer.html?pokemonId={card.id}{card.cardId.includes('-') ? `&form=${card.cardId.split('-')[1]}` : ''}{card.shiny ? '&shiny=1' : ''}"
 	onclick={(e) => {
 		if (!onselect) return;
 		e.preventDefault();

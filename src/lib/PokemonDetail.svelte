@@ -1,14 +1,14 @@
 <script>
 	// One Pokémon in detail: its trading card (HoloCard) with its stats, the title, names in other
-	// languages, evolutions and alternate forms. Pokémon you have not caught are shown as a shadow. Used by the
-	// Pokéviewer page and, on iPad, beside the Pokédex list, where `compact` stacks it for the
-	// narrower pane. A tap on an evolution calls `onpick` with its number instead of following the
-	// link.
+	// languages, evolutions and alternate forms. Pokémon you have not caught are shown as a shadow.
+	// Used by the Pokéviewer page and, on iPad, beside the Pokédex list, where `compact` stacks it
+	// for the narrower pane. A tap on an evolution or another form calls `onpick` with its number
+	// (and form) instead of following the link.
 	import { player } from '#lib/player.svelte.js';
 	import HoloCard from '#lib/HoloCard.svelte';
 
-	/** @type {{ info: import('#lib/game/pokemon.js').PokemonInfo, id: number, shiny?: boolean, compact?: boolean, onpick?: (id: number) => void }} */
-	let { info, id, shiny = false, compact = false, onpick } = $props();
+	/** @type {{ info: import('#lib/game/pokemon.js').PokemonInfo, id: number, form?: string, shiny?: boolean, compact?: boolean, onpick?: (id: number, form?: string) => void }} */
+	let { info, id, form = '', shiny = false, compact = false, onpick } = $props();
 
 	const folder = $derived(shiny ? 'shiny' : 'normal');
 	/** @param {string | number} entry */
@@ -18,7 +18,12 @@
 
 	/** @type {any} The base form, with stats, description and names in other languages. */
 	const pokemon = $derived(info?.[id]?.['0']);
-	const unlocked = $derived(owned(id));
+	/** @type {any} An alternate form (`form` is its key, as in "89-1"): its own name, types and picture, the base form's stats and entry. */
+	const variant = $derived(form ? info?.[id]?.[form] : null);
+	/** @type {any} What the card and title show: the form when one is asked for, else the base form. */
+	const shown = $derived(variant ? { ...pokemon, name: variant.name ?? pokemon?.name, types: variant.types ?? pokemon?.types } : pokemon);
+	const imageId = $derived(variant?.imageid ?? id);
+	const unlocked = $derived(owned(variant ? `${id}-${form}` : id));
 	/** @type {'' | 'legendary' | 'mythic'} */
 	const rarity = $derived(pokemon?.is_legendary ? 'legendary' : pokemon?.is_mythical ? 'mythic' : '');
 
@@ -34,16 +39,18 @@
 	const evolvesTo = $derived(
 		info ? Object.keys(info).filter((key) => info?.[key]?.['0']?.evo_from === id).map(Number) : []
 	);
-	const altForms = $derived(Object.entries(info?.[id] ?? {}).filter(([key, form]) => key !== '0' && form));
+	/** The other forms of this species: with a form on the card, the base form ('0') and the rest of the forms, not the one shown. */
+	const altForms = $derived(Object.entries(info?.[id] ?? {}).filter(([key, value]) => value && key !== (form || '0')));
 
 	/**
 	 * @param {MouseEvent} event
 	 * @param {number} next
+	 * @param {string} [nextForm] an alternate form's key, or none for the base form
 	 */
-	function pick(event, next) {
+	function pick(event, next, nextForm = '') {
 		if (!onpick) return;
 		event.preventDefault();
-		onpick(next);
+		onpick(next, nextForm);
 	}
 </script>
 
@@ -69,12 +76,12 @@
 		<div id="main-pokemon-wrapper" class="hero pm-surface" class:shiny>
 			{#if pokemon}
 				<div class="hero-art" class:locked={!unlocked}>
-				<HoloCard {pokemon} {id} image="images/pokemon/{folder}/{id}.webp" {shiny} {rarity} {stage} locked={!unlocked} />
+				<HoloCard pokemon={shown} {id} image="images/pokemon/{folder}/{imageId}.webp" {shiny} {rarity} {stage} locked={!unlocked} />
 			</div>
 				<div class="hero-info">
-					<p class="number">#{id}</p>
-					<svelte:element this={compact ? 'h2' : 'h1'} class="name">{unlocked ? pokemon.name : '???'}</svelte:element>
-					{@render types(pokemon.types)}
+					<p class="number">#{variant ? `${id}-${form}` : id}</p>
+					<svelte:element this={compact ? 'h2' : 'h1'} class="name">{unlocked ? shown.name : '???'}</svelte:element>
+					{@render types(shown.types)}
 					{#if unlocked && rarity}<p class="rarity {rarity}">{rarity === 'legendary' ? 'Legendarisk' : 'Mytisk'}</p>{/if}
 					{#if !unlocked}<p class="locked-note">Fang denne Pokémonen for å se mer om den.</p>{/if}
 				</div>
@@ -126,8 +133,11 @@
 	<section id="alternate-forms-wrapper" class="alternate-forms-wrapper" style:display={pokemon ? (altForms.length > 0 ? '' : 'none') : null}>
 		<h2 class="pm-section-title wrapper-header">Andre former</h2>
 		<div class="alt-grid">
-			{#each altForms as [key, form] (key)}
-				{@render smallPokemon(`${id}-${key}`, form, owned(`${id}-${key}`), form.imageid ?? id)}
+			{#each altForms as [key, other] (key)}
+				{@const base = key === '0'}
+				<a href="./pokeviewer.html?pokemonId={id}{base ? '' : `&form=${key}`}" onclick={(e) => pick(e, id, base ? '' : key)}>
+					{@render smallPokemon(base ? id : `${id}-${key}`, other, owned(base ? id : `${id}-${key}`), other.imageid ?? id)}
+				</a>
 			{/each}
 		</div>
 	</section>
@@ -229,7 +239,8 @@
 	.evolutions > :only-child {
 		grid-column: 1 / -1;
 	}
-	.evolution-wrapper a {
+	.evolution-wrapper a,
+	.alt-grid a {
 		color: inherit;
 		text-decoration: none;
 	}

@@ -66,7 +66,7 @@
 	// in detail on the right, like the Pokédex in the games. Narrower, a card opens the viewer.
 	const SPLIT_QUERY = '(min-width: 760px)';
 	let split = $state(false);
-	/** @type {{ id: number, shiny: boolean } | null} The Pokémon picked for the pane. */
+	/** @type {{ id: number, form?: string, shiny: boolean } | null} The Pokémon picked for the pane; `form` is an alternate form's key. */
 	let picked = $state(null);
 	/** pokemon_info.json, there once the list is built. */
 	const info = $derived(all ? pokemonInfo() : null);
@@ -150,9 +150,15 @@
 		return items;
 	});
 
+	/** The pane's pick for a list item: its species, its form if it is one, and shiny. @param {DexItem} item */
+	function pickOf(item) {
+		const form = item.card.cardId.includes('-') ? item.card.cardId.split('-')[1] : '';
+		return { id: item.id, form, shiny: item.card.shiny && !item.locked };
+	}
+
 	// The pane shows the picked Pokémon, or the first in the list until one is picked.
 	const shown = $derived(
-		picked ?? (filtered[0] ? { id: filtered[0].id, shiny: filtered[0].card.shiny && !filtered[0].locked } : null)
+		picked ?? (filtered[0] ? pickOf(filtered[0]) : null)
 	);
 
 	// Show the first page again whenever the results change.
@@ -413,8 +419,8 @@
 							count={item.count ?? countOf(item.entry)}
 							locked={item.locked}
 							quiet
-							selected={split && shown?.id === item.id && shown?.shiny === (item.card.shiny && !item.locked)}
-							onselect={split ? () => (picked = { id: item.id, shiny: item.card.shiny && !item.locked }) : undefined}
+							selected={split && !!shown && JSON.stringify(shown) === JSON.stringify(pickOf(item))}
+							onselect={split ? () => (picked = pickOf(item)) : undefined}
 						/>
 					{/each}
 				{/if}
@@ -438,12 +444,13 @@
 						<PokemonDetail
 							{info}
 							id={shown.id}
+							form={shown.form}
 							shiny={shown.shiny}
 							compact
-							onpick={(id) => (picked = { id, shiny: false })}
+							onpick={(id, form = '') => (picked = { id, form, shiny: id === shown.id && shown.shiny })}
 						/>
 					{/key}
-					<a class="pm-button secondary open-viewer" href="./pokeviewer.html?pokemonId={shown.id}{shown.shiny ? '&shiny=1' : ''}"
+					<a class="pm-button secondary open-viewer" href="./pokeviewer.html?pokemonId={shown.id}{shown.form ? `&form=${shown.form}` : ''}{shown.shiny ? '&shiny=1' : ''}"
 						>Åpne i Pokéviewer</a
 					>
 				{:else}

@@ -56,7 +56,7 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     if (vp === "ipad") {
       await page.locator('[id="S150"]').click();
       await page.waitForTimeout(300);
-      check(await page.locator(".dex-pane .holo-card.holo .glitter").count() === 1 && await page.locator(".dex-pane .holo-card .aura.legendary").count() === 1, `${tag}: the picked shiny legendary's card has glitter and aura`);
+      check(await page.locator(".dex-pane .holo-card.holo .vault .star").count() > 0 && await page.locator(".dex-pane .holo-card .aura.legendary").count() === 1, `${tag}: the picked shiny legendary's card has sparkles and aura`);
     }
     await page.waitForTimeout(800);
     await page.evaluate(pin);
@@ -259,6 +259,31 @@ for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", device
     await page.waitForTimeout(1200);
     await page.screenshot({ path: `${OUT}catch-burst-${rarity}-desktop.png` });
   }
+  await context.close();
+}
+// Only an alternate form caught (Alolan Muk, N89-1): the pane and the viewer show that form, not
+// the base Muk as a shadow.
+{
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block" });
+  await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
+  await context.addInitScript((s) => Object.entries(s).forEach(([k, v]) => localStorage.getItem(k) === null && localStorage.setItem(k, v)),
+    { ...SAVE, pokemonlist: "N89-1", dexMode: "mine", uuid: "00000000-0000-4000-8000-0000000089f1" });
+  const page = await context.newPage();
+  await page.goto(BASE + "/dex.html");
+  await page.waitForSelector(".dex-pane .holo-card");
+  const paneName = await page.locator(".dex-pane .card-name").textContent();
+  check(/alolan/i.test(paneName) && await page.locator(".dex-pane .holo-card.locked").count() === 0, `form: the pane shows ${paneName}, not a shadow`);
+  await page.click(".open-viewer");
+  await page.waitForSelector(".hero .name");
+  const viewerName = await page.locator(".hero .name").textContent();
+  check(/alolan/i.test(viewerName) && page.url().includes("form=1"), `form: the viewer shows ${viewerName}`);
+  // Its other forms list the base Muk, not the Alolan one on the card; a tap shows it.
+  const others = await page.locator("#alternate-forms-wrapper .small-name").allTextContents();
+  check(others.some((t) => t.includes("#89 ")) || others.some((t) => /#89$/.test(t.trim())), `form: other forms include the base form (${others.join(", ")})`);
+  check(!others.some((t) => t.includes("#89-1")), "form: other forms leave out the form on the card");
+  await page.locator('#alternate-forms-wrapper a[href$="pokemonId=89"]').click();
+  await page.waitForTimeout(300);
+  check(await page.locator(".hero .number").textContent() === "#89", "form: tapping the base form shows it");
   await context.close();
 }
 await browser.close();

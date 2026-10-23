@@ -14,6 +14,8 @@
 	let info = $state.raw(null);
 	let currentId = $state(1);
 	let shiny = $state(false);
+	/** An alternate form's key from the link, as in "89-1"; cleared when moving to another Pokémon. */
+	let form = $state('');
 	let searchText = $state('');
 
 	const folder = $derived(shiny ? 'shiny' : 'normal');
@@ -54,14 +56,20 @@
 		}
 	}
 
-	/** An evolution tapped in the detail: show it here, and keep the address in step. @param {number} id */
-	function pickPokemon(id) {
+	/**
+	 * An evolution or another form tapped in the detail: show it here, and keep the address in step.
+	 * @param {number} id
+	 * @param {string} [nextForm] an alternate form's key, or none for the base form
+	 */
+	function pickPokemon(id, nextForm = '') {
+		form = nextForm;
 		searchPokemon(id);
-		replaceState(`?pokemonId=${id}${shiny ? '&shiny=1' : ''}`, {});
+		replaceState(`?pokemonId=${id}${form ? `&form=${form}` : ''}${shiny ? '&shiny=1' : ''}`, {});
 	}
 
 	/** @param {'prev' | 'next'} direction */
 	function step(direction) {
+		form = '';
 		const id = direction === 'next' ? nextId : prevId;
 		searchPokemon(id);
 	}
@@ -78,6 +86,7 @@
 			if (ids.length) MAX_ID = Math.max(...ids);
 			const params = new URLSearchParams(location.search);
 			shiny = params.get('shiny') === '1';
+			form = params.get('form') ?? '';
 			const id = params.get('pokemonId');
 			if (id) {
 				searchText = id;
@@ -116,7 +125,7 @@
 				style:background-image={info ? `url(images/pokemon/${folder}/${prevId}.webp)` : null}
 			></span>
 		</button>
-		<form class="search" onsubmit={(e) => { e.preventDefault(); searchPokemon(); }}>
+		<form class="search" onsubmit={(e) => { e.preventDefault(); form = ''; searchPokemon(); }}>
 			<input type="text" id="searchBar" placeholder="Navn eller nummer" aria-label="Søk etter Pokémon" bind:value={searchText} />
 			<button id="searchButton" class="pm-button small" type="submit">Søk</button>
 		</form>
@@ -137,7 +146,7 @@
 
 
 	{#if info}
-		<PokemonDetail {info} id={currentId} {shiny} onpick={pickPokemon} />
+		<PokemonDetail {info} id={currentId} {form} {shiny} onpick={pickPokemon} />
 	{/if}
 </div>
 
