@@ -309,6 +309,9 @@
 		}
 	}
 
+	/** When the board was last seen full, so the prize can wait for the celebration. */
+	let fullAt = 0;
+
 	/** @param {import('#lib/bingoHost.js').Milestone[]} milestones */
 	function celebrate(milestones) {
 		for (const m of milestones) {
@@ -319,8 +322,9 @@
 			events = [...events, { ts: Date.now(), name: '🏆', pokemonName: m.label, matched: true }];
 			showToast('match', [[{ t: m.label, b: true }]]);
 			if (m.type === 'full') {
+				// The server ends the game with the prize by itself; it shows once the confetti has had a moment.
 				playSound('caughtpkmn.ogg');
-				setTimeout(() => send({ type: 'hostLockLobby', code: currentCode }), 1500);
+				fullAt = Date.now();
 			} else {
 				playSound('lvlup.ogg');
 			}
@@ -330,10 +334,14 @@
 	/** @param {any} msg */
 	function onMessage(msg) {
 		switch (msg.type) {
-			case 'lobbyPrize':
-				locked = true;
-				prize = prizeSummary(msg.prize, msg.eligibleCount || 0);
+			case 'lobbyPrize': {
+				const shown = prizeSummary(msg.prize, msg.eligibleCount || 0);
+				setTimeout(() => {
+					locked = true;
+					prize = shown;
+				}, Math.max(0, fullAt + 1500 - Date.now()));
 				return;
+			}
 			case 'linePrize':
 				showToast('match', [
 					[{ t: msg.lines.join(' og ') + ' full!', b: true }],
@@ -421,23 +429,41 @@
 		}
 	}
 
-	/** Log in through Access, then connect. @param {() => boolean} gone true once the page has closed */
-	async function start(gone) {
-		if (!(await ensureTeacher())) {
-			if (!gone()) goto('/lærer/index.html');
-			return;
+	/** Waits before reconnecting: longer after each failed try, back to the start once connected. */
+	let retryDelay = 1500;
+
+	/**
+	 * Log in through Access, then connect. The board stays on the projector for the whole lesson,
+	 * so a dropped connection comes back by itself and picks the running game up again.
+	 * @param {() => boolean} gone true once the page has closed
+	 * @param {boolean} [reconnect] coming back after a dropped connection
+	 */
+	async function start(gone, reconnect = false) {
+		// A reconnect keeps the login it has: checking it again offline would leave the page.
+		if (!reconnect) {
+			if (!(await ensureTeacher())) {
+				if (!gone()) goto('/lærer/index.html');
+				return;
+			}
+			if (gone()) return;
+			teacherSession = getTeacherSession();
+			settings = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
+			muted = localStorage.getItem('bingoMuted') === '1';
 		}
-		if (gone()) return;
-		teacherSession = getTeacherSession();
-		settings = JSON.parse(sessionStorage.getItem('bingoSettings') || '{}');
-		muted = localStorage.getItem('bingoMuted') === '1';
 
 		ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
 		ws.addEventListener('open', () => {
+			retryDelay = 1500;
+			const stored = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
+			if (reconnect) {
+				// Back after a dropped connection: the same game, never a new one.
+				if (stored.length === 6) send({ type: 'hostJoinLobby', code: stored });
+				status('Koblet til igjen.');
+				return;
+			}
 			// Started from the settings page: end the teacher's running lobby and make a new one.
 			const forceNew = sessionStorage.getItem('bingoForceNew') === '1';
 			sessionStorage.removeItem('bingoForceNew');
-			const stored = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 			if (!forceNew && stored.length === 6) {
 				status('Gjenoppretter lobby ' + stored + ' …');
 				send({ type: 'hostJoinLobby', code: stored });
@@ -452,7 +478,12 @@
 			status('WebSocket ERROR – se Console.');
 			console.error(e);
 		});
-		ws.addEventListener('close', (e) => status(`WebSocket lukket. code=${e.code} reason=${e.reason || '(ingen)'}`));
+		ws.addEventListener('close', () => {
+			if (gone()) return;
+			status('Mistet forbindelsen. Kobler til igjen …');
+			setTimeout(() => !gone() && start(gone, true), retryDelay);
+			retryDelay = Math.min(retryDelay * 2, 15000);
+		});
 		ws.addEventListener('message', (e) => {
 			let msg;
 			try {

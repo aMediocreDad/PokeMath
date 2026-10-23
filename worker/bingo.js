@@ -70,6 +70,9 @@ function buildBoard(difficulty, gridSize = 5) {
 	return { difficulty, cells, rows: size, cols: size };
 }
 
+/** Every cell is marked (or free): the game is over. @param {any} board */
+const boardFull = (board) => board.cells.every((/** @type {any} */ c) => c.free || c.marked);
+
 /** Rows and columns whose every cell is marked (or free). @param {any} board */
 function completedLines(board) {
 	const n = board.rows;
@@ -192,7 +195,14 @@ export class BingoHub extends DurableObject {
 	}
 
 	/** @param {WebSocket} ws */
-	async webSocketClose(ws) {
+	/** @param {WebSocket} ws @param {number} [code] @param {string} [reason] */
+	async webSocketClose(ws, code, reason) {
+		// Answer the browser's close, or its socket waits half-closed and never says it has gone.
+		try {
+			ws.close(code === 1005 || code === 1006 || !code ? 1000 : code, reason);
+		} catch {
+			// Already closed.
+		}
 		const who = ws.deserializeAttachment();
 		if (who?.role !== 'player') return;
 		const room = await this.room(who.code);
@@ -303,6 +313,25 @@ export class BingoHub extends DurableObject {
 		await this.ctx.storage.put(key, { at: Date.now(), prizes });
 	}
 
+	/**
+	 * End a bingo with the main prize: when the teacher hands it out, or when the board is full.
+	 * The server does the second itself, so the prize is paid even if the host page is asleep.
+	 * @param {any} room
+	 */
+	async lockRoom(room) {
+		if (room.locked) return;
+		room.locked = true;
+		const { prize, perPlayer } = computePrize(room);
+		const eligible = Object.values(room.players).filter((p) => p.catchCount > 0);
+		for (const player of eligible) {
+			await this.addPrizes(player.uuid, perPlayer(player));
+			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
+		}
+		await this.saveRoom(room);
+		log('bingo', `rom ${room.code} låst, ${eligible.length} vinnere`);
+		this.toHosts(room.code, { type: 'lobbyPrize', prize, eligibleCount: eligible.length });
+	}
+
 	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
 	async awardRaid(room) {
 		const players = Object.values(room.players).filter((p) => p.catchCount > 0);
@@ -368,21 +397,12 @@ const HANDLERS = {
 		await this.saveRoom(room);
 		this.toHosts(room.code, { type: 'boardUpdate', board: room.board, totalCatches: room.totalCatches });
 		this.announceLines(room, paid);
+		if (boardFull(room.board)) await this.lockRoom(room);
 	},
 
 	async hostLockLobby(ws, msg) {
 		const room = await this.hostRoom(ws, msg, 'bingo');
-		if (!room || room.locked) return;
-		room.locked = true;
-		const { prize, perPlayer } = computePrize(room);
-		const eligible = Object.values(room.players).filter((p) => p.catchCount > 0);
-		for (const player of eligible) {
-			await this.addPrizes(player.uuid, perPlayer(player));
-			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
-		}
-		await this.saveRoom(room);
-		log('bingo', `rom ${room.code} låst, ${eligible.length} vinnere`);
-		this.toHosts(room.code, { type: 'lobbyPrize', prize, eligibleCount: eligible.length });
+		if (room && !room.locked) await this.lockRoom(room);
 	},
 
 	async hostEndLobby(ws, msg) {
@@ -498,6 +518,7 @@ const HANDLERS = {
 		this.toHosts(room.code, { type: 'toastCatch', ...event, totalCatches: room.totalCatches, matchedCells: names, matchedCell: names[0] || null });
 		this.toHosts(room.code, { type: 'boardUpdate', board: room.board, totalCatches: room.totalCatches, lastEvent: event });
 		this.announceLines(room, paid);
+		if (boardFull(room.board)) await this.lockRoom(room);
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
 

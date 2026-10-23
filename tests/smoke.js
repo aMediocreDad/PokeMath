@@ -263,6 +263,18 @@ async function assertSilent(c, type, label) {
   assert((await (await joinAs(renamed, "Tuva")).next("joinResult")).ok, "…but can with a new one");
   const back = await joinAs(named, "Ola");
   assert((await back.next("joinResult")).ok && (await back.next("nameChanged")).name === "Ola N.", "a name the teacher gave survives a rejoin");
+  // A full board ends the game with the prize by itself, even with no host page left to do it.
+  khost.send({ type: "hostCreateLobby", teacherSession: token, settings: { difficulty: "easy", minLevel: "stage1", prizeType: "coins" } });
+  const full = await khost.next("lobbyCreated");
+  const fullCells = full.board.cells.filter((c) => !c.free);
+  for (const cell of fullCells) {
+    khost.send({ type: "hostMarkCell", teacherSession: token, code: full.code, cellId: cell.cellId, mark: true });
+    await khost.next("boardUpdate");
+  }
+  assert((await khost.next("lobbyPrize")).prize, "a full board hands out the prize without the host asking");
+  khost.send({ type: "hostEndLobby", teacherSession: token, code: full.code });
+  await khost.next("lobbyEnded");
+
   khost.send({ type: "hostEndLobby", teacherSession: token, code: room.code });
   assert((await khost.next("lobbyEnded")).code === room.code, "the host hears that the room has ended");
   for (const c of opened) c.ws.close();

@@ -15,7 +15,19 @@ const check = (name, ok, detail = '') => {
 const shot = (page, name) => OUT && page.screenshot({ path: `${OUT}/${name}.png` });
 
 const browser = muteAudio(await webkit.launch());
-const teacher = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+const teacherCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+// Keep the host page's sockets reachable, so the test can drop its connection.
+await teacherCtx.addInitScript(() => {
+	const Native = WebSocket;
+	window.__sockets = [];
+	window.WebSocket = class extends Native {
+		constructor(...args) {
+			super(...args);
+			window.__sockets.push(this);
+		}
+	};
+});
+const teacher = await teacherCtx.newPage();
 teacher.on('pageerror', (e) => console.log('teacher pageerror', e.message));
 teacher.on('dialog', (d) => d.accept());
 await teacher.goto(BASE + '/lærer/bingo_settings.html');
@@ -73,6 +85,16 @@ const rowPrize = await child.locator('.blootbox-label').textContent();
 check('the child gets the row prize', rowPrize.includes('Rad 1') && rowPrize.includes('500'), rowPrize.trim());
 await shot(child, 'bingo-row-child');
 await child.locator('#bingo-lootbox-overlay').click();
+
+// The connection drops (bad school wifi): the host page connects again and keeps the same game.
+await teacher.evaluate(() => window.__sockets.at(-1).close());
+await teacher.waitForFunction(() => window.__sockets.length > 1 && window.__sockets.at(-1).readyState === 1, null, { timeout: 10000 }).catch(() => {});
+await teacher.waitForTimeout(500);
+check('the host page connects again by itself', await teacher.evaluate(() => window.__sockets.length > 1 && window.__sockets.at(-1).readyState === 1));
+const cell = teacher.locator('#bingoCard tr').nth(1).locator('td[data-cell-id]').first();
+await cell.click();
+await teacher.waitForTimeout(800);
+check('…and goes on with the same game', (await cell.getAttribute('class'))?.includes('toggled') && (await teacher.textContent('#code')).trim() === code);
 
 const before = await child.evaluate(() => Number(localStorage.getItem('money') || 0));
 await teacher.click('#giveNowBtn');
