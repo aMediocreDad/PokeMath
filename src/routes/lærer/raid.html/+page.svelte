@@ -1,7 +1,7 @@
 <script>
 	// The teacher's raid screen, made for the projector (worker/raid.js). Pick a boss and a length,
-	// let the class join with the code, start, and watch every correct answer hit the boss. A reload
-	// rejoins the same raid (teacherRaidCode).
+	// let the class join with the code, start, and watch every correct answer hit the boss for the
+	// answer itself. A reload rejoins the same raid (teacherRaidCode).
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import TeacherPage from '#lib/TeacherPage.svelte';
@@ -13,9 +13,9 @@
 	import ChoiceGroup from '#lib/classgame/ChoiceGroup.svelte';
 	import GameControls from '#lib/classgame/GameControls.svelte';
 	import PlayerMenu from '#lib/classgame/PlayerMenu.svelte';
-	import { LENGTHS, RAID_BOSSES } from '#lib/raidConfig.js';
+	import { BOSS_HP, LENGTHS, RAID_BOSSES, raidMinutes } from '#lib/raidConfig.js';
 
-	/** @typedef {{ uuid: string, name: string, icon: string, catchCount: number, connected: boolean }} Player */
+	/** @typedef {{ uuid: string, name: string, icon: string, catchCount: number, damage?: number, connected: boolean }} Player */
 	/** @typedef {import('#lib/bingo.js').RaidState} RaidState */
 
 	const CODE_KEY = 'teacherRaidCode';
@@ -33,7 +33,7 @@
 	let raid = $state(null);
 	/** @type {Player[]} */
 	let players = $state([]);
-	/** @type {{ name: string, id: number }[]} newest first */
+	/** @type {{ name: string, damage?: number, id: number }[]} newest first */
 	let hits = $state([]);
 	/** @type {string[]} */
 	let winners = $state([]);
@@ -55,7 +55,9 @@
 	/** Set by "Nytt raid": once the old raid has ended, make a new one with the same setup. */
 	let restart = false;
 
-	const ranked = $derived([...players].sort((a, b) => b.catchCount - a.catchCount));
+	const ranked = $derived([...players].sort((a, b) => (b.damage ?? 0) - (a.damage ?? 0) || b.catchCount - a.catchCount));
+	/** The lengths, with how long each takes against the boss picked: more HP takes longer. */
+	const lengths = $derived(LENGTHS.map(([value, title, minutes]) => ({ value, title, sub: `ca. ${raidMinutes(choice.boss, minutes)} min` })));
 	const percent = $derived.by(() => (raid && raid.maxHp ? (100 * raid.hp) / raid.maxHp : 100));
 
 	/** @param {any} message */
@@ -72,7 +74,7 @@
 			raid = msg.raid;
 			players = msg.players || [];
 			choice.className = msg.className || choice.className;
-			hits = (msg.recent || []).map((/** @type {{ name: string }} */ h) => ({ name: h.name, id: hitId++ })).reverse();
+			hits = (msg.recent || []).map((/** @type {{ name: string, damage?: number }} */ h) => ({ name: h.name, damage: h.damage, id: hitId++ })).reverse();
 			ready = true;
 		} else if (msg.type === 'lobbyEnded' || msg.type === 'lobbyState' || msg.type === 'lobbyNotFound') {
 			// A bingo code, or a raid that has gone: start afresh.
@@ -87,7 +89,7 @@
 		} else if (msg.type === 'raidHit') {
 			raid = msg.raid;
 			players = msg.players;
-			hits = [{ name: msg.name, id: hitId++ }, ...hits].slice(0, 8);
+			hits = [{ name: msg.name, damage: msg.damage, id: hitId++ }, ...hits].slice(0, 8);
 			shake = false;
 			requestAnimationFrame(() => (shake = true));
 		} else if (msg.type === 'raidWon') {
@@ -223,8 +225,8 @@
 		<section class="panel" id="raidSetup">
 			<h2>Nytt raid</h2>
 			<p class="muted">
-				Klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff. Når livet er borte, fanger alle som var med
-				Pokémonen.
+				Klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar treffer like hardt som svaret: 42 gir 42 i skade. På
+				nivå 4 deles svaret på 10, og på nivå 5 på 1000. Når livet er borte, fanger alle som var med Pokémonen.
 			</p>
 
 			<h3>Velg boss</h3>
@@ -237,11 +239,12 @@
 					<button class="boss-pick" class:picked={choice.boss === id} role="radio" aria-checked={choice.boss === id} onclick={() => (choice.boss = id)}>
 						<img src={localSprite(id)} alt="" loading="lazy" />
 						<span>{bossName(id)}</span>
+						<span class="boss-hp">{BOSS_HP[id]} HP</span>
 					</button>
 				{/each}
 			</div>
 
-			<ChoiceGroup id="raidLength" label="Hvor lenge?" bind:value={choice.length} options={LENGTHS.map(([value, title, sub]) => ({ value, title, sub }))} />
+			<ChoiceGroup id="raidLength" label="Hvor lenge?" bind:value={choice.length} options={lengths} />
 
 			<label class="field class-name">
 				<span>Klassenavn (valgfritt)</span>
@@ -272,7 +275,11 @@
 					</div>
 				{:else}
 					<ul class="feed" aria-live="polite" aria-label="Siste treff">
-						{#each hits as h (h.id)}<li><strong>{h.name}</strong> traff!</li>{/each}
+						{#each hits as h (h.id)}
+							<li>
+								{#if h.damage}<strong>{h.name}</strong> traff for <b class="dmg">{h.damage}</b>!{:else}<strong>{h.name}</strong> traff!{/if}
+							</li>
+						{/each}
 					</ul>
 				{/if}
 
@@ -282,7 +289,7 @@
 						{#each ranked as p (p.uuid)}
 							<li class:offline={!p.connected}>
 								<button class="name" title="Trykk for alternativer" onclick={(e) => openPlayerMenu(p, e)}>{p.name}</button>
-								<span class="count">{p.catchCount}</span>
+								<span class="count" title="{p.catchCount} treff">{p.damage ?? p.catchCount}</span>
 							</li>
 						{/each}
 					</ul>
@@ -325,6 +332,16 @@
 		width: 64px;
 		height: 64px;
 		object-fit: contain;
+	}
+	.boss-hp {
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--pm-ink-soft);
+		font-variant-numeric: tabular-nums;
+	}
+	.dmg {
+		color: var(--pm-red);
+		font-variant-numeric: tabular-nums;
 	}
 	.random {
 		display: grid;

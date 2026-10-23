@@ -7,10 +7,11 @@
 	 * @type {{
 	 *   code: string,
 	 *   game: import('#lib/bingo.js').ClassGame | null,
-	 *   bossName: string
+	 *   bossName: string,
+	 *   lastHit?: { damage: number, id: number } | null
 	 * }}
 	 */
-	let { code, game, bossName } = $props();
+	let { code, game, bossName, lastHit = null } = $props();
 
 	const TITLES = { raid: () => `Raid · ${bossName}`, memory: () => `Memory · ${code}`, bingo: () => `Bingo · ${code}` };
 	const title = $derived(game ? TITLES[game.kind]() : `Klassespill · ${code}`);
@@ -31,12 +32,16 @@
 			return `${found} av ${pairs} par funnet · ${turns ? 'Klassen har et trekk!' : 'Svar riktig for å få et trekk'}`;
 		}
 		const { phase, hp, maxHp } = game.state;
-		return phase === 'won' ? 'Beseiret! Premien kommer.' : `${hp} / ${maxHp} liv igjen`;
+		if (phase === 'won') return 'Beseiret! Premien kommer.';
+		return `${lastHit ? `Du traff for ${lastHit.damage}! · ` : ''}${hp} / ${maxHp} liv igjen`;
 	});
 </script>
 
 <a class="banner" id={game?.kind === 'raid' ? 'raidIndicator' : game?.kind === 'memory' ? 'memoryIndicator' : 'bingoIndicator'} href="/bingo_join.html">
 	<span class="title">{title}</span>
+	{#if lastHit && game?.kind === 'raid' && game.state.phase === 'fight'}
+		{#key lastHit.id}<span class="pop" aria-hidden="true">−{lastHit.damage}</span>{/key}
+	{/if}
 	{#if bar !== null}
 		<span class="bar" class:found={game?.kind === 'memory'} aria-hidden="true"><span style:width="{100 * bar}%"></span></span>
 	{/if}
@@ -45,6 +50,7 @@
 
 <style>
 	.banner {
+		position: relative;
 		display: grid;
 		gap: 4px;
 		box-sizing: border-box;
@@ -78,6 +84,26 @@
 	}
 	.bar.found span {
 		background: var(--pm-gold);
+	}
+	/* The child's hit rises off the banner, as damage numbers do in games. */
+	.pop {
+		position: absolute;
+		top: 4px;
+		right: 16px;
+		font: 400 22px/1 var(--pm-display);
+		color: var(--pm-gold);
+		animation: rise 900ms ease-out forwards;
+		pointer-events: none;
+	}
+	@keyframes rise {
+		from { transform: translateY(8px) scale(1.3); opacity: 1; }
+		to { transform: translateY(-10px); opacity: 0; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.pop {
+			animation: none;
+			opacity: 0;
+		}
 	}
 	.note {
 		font-size: 14px;

@@ -1,13 +1,13 @@
 // Classroom raid: the class works together to beat one big Pokémon. Every correct answer on a
-// child's game page is one hit; when the boss's health reaches zero, everyone who hit it catches
-// it. The raid lives in the bingo Durable Object (worker/bingo.js) as a room of kind "raid", so it
+// child's game page is a hit for the answer itself, scaled to the child's level (damageFor in
+// src/lib/raidConfig.js); when the boss's HP reaches zero, everyone who hit it catches it. The raid lives in the bingo Durable Object (worker/bingo.js) as a room of kind "raid", so it
 // shares the lobby codes, the join page, the player socket and the prize claim with bingo.
 //
-// Phases: "lobby" (children join, hits do nothing), "fight" (started by the teacher, health set
-// from the number of children), "won". A child's hits are kept as catchCount, the field bingo's
-// player list already shows.
+// Phases: "lobby" (children join, hits do nothing), "fight" (started by the teacher, HP set from
+// the boss's base HP and the number of children), "won". A child's hits are kept as catchCount,
+// the field bingo's player list already shows, and the damage they did as damage.
 
-import { HITS_PER_CHILD, RAID_BOSSES } from '../src/lib/raidConfig.js';
+import { HP_PER_CHILD, RAID_BOSSES, damageFor, raidHp } from '../src/lib/raidConfig.js';
 
 /** A child's hits closer together than this are dropped: nobody answers that fast. */
 const MIN_HIT_GAP = 1000;
@@ -22,7 +22,7 @@ export function raidState(room) {
 /** @param {{ boss?: unknown, length?: unknown, className?: unknown }} settings @param {string} code */
 export function newRaid(settings, code) {
 	const boss = Number(settings.boss);
-	const length = Object.hasOwn(HITS_PER_CHILD, String(settings.length)) ? String(settings.length) : 'medium';
+	const length = Object.hasOwn(HP_PER_CHILD, String(settings.length)) ? String(settings.length) : 'medium';
 	return {
 		kind: 'raid',
 		code,
@@ -38,28 +38,31 @@ export function newRaid(settings, code) {
 	};
 }
 
-/** Health for the children in the lobby; at least one child's share, so one tester can win. @param {any} room */
+/** HP for the children in the lobby; at least one child's share, so one tester can win. @param {any} room */
 export function startRaid(room) {
-	const children = Math.max(1, Object.keys(room.players).length);
-	room.maxHp = room.hp = children * HITS_PER_CHILD[/** @type {keyof typeof HITS_PER_CHILD} */ (room.settings.length)];
+	room.maxHp = room.hp = raidHp(room.bossId, Object.keys(room.players).length, room.settings.length);
 	room.phase = 'fight';
 }
 
 /**
- * One correct answer. Returns false when it does not count (wrong phase, unknown child, too fast).
- * @param {any} room @param {string} uuid @param {number} now
+ * One correct answer, and the level it was given on. Returns the damage done, or 0 when it does
+ * not count (wrong phase, unknown child, too fast).
+ * @param {any} room @param {string} uuid @param {number} now @param {unknown} [value] @param {unknown} [stage]
  */
-export function hit(room, uuid, now) {
+export function hit(room, uuid, now, value, stage) {
 	const player = room.players[uuid];
-	if (room.phase !== 'fight' || !player || now - (player.lastHit || 0) < MIN_HIT_GAP) return false;
+	if (room.phase !== 'fight' || !player || now - (player.lastHit || 0) < MIN_HIT_GAP) return 0;
+	const damage = Math.min(room.hp, damageFor(value, stage));
 	player.lastHit = now;
 	player.catchCount += 1;
+	player.damage = (player.damage || 0) + damage;
 	room.totalCatches += 1;
-	room.hp = Math.max(0, room.hp - 1);
-	room.recent.push({ name: player.name, at: now });
+	room.hp -= damage;
+	room.recent.push({ name: player.name, damage, at: now });
 	if (room.recent.length > RECENT) room.recent.splice(0, room.recent.length - RECENT);
 	if (room.hp === 0) room.phase = 'won';
-	return true;
+	// At least 1: damageFor never says less, and a boss still fighting has HP left.
+	return damage;
 }
 
 /** What a child gets: the boss when it was beaten, and coins for every hit either way. @param {any} room @param {any} player */

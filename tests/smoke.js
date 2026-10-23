@@ -199,17 +199,31 @@ async function assertSilent(c, type, label) {
 
   rhost.send({ type: "hostStartRaid", teacherSession: token, code: raid.code });
   const started = await rhost.next("raidState");
-  assert(started.raid.phase === "fight" && started.raid.maxHp === 20 && started.raid.hp === 20, "start sets 10 health per child");
+  assert(started.raid.phase === "fight" && started.raid.maxHp === 212 && started.raid.hp === 212, "start: Mewtwo's 106 base HP per child");
   assert((await sockets[1].next("raidUpdate")).raid.phase === "fight", "children hear the raid started");
 
+  // A page from before damage sends a bare raidHit: an average hit of 10.
   sockets[0].send({ type: "raidHit", code: raid.code, uuid: kids[0] });
   sockets[0].send({ type: "raidHit", code: raid.code, uuid: kids[0] });
   const first = await rhost.next("raidHit");
   await assertSilent(rhost, "raidHit", "a second hit within a second is dropped");
-  assert(first.raid.hp === 19 && first.name === "Barn0", "a hit takes one health");
-  for (let round = 0; round < 10; round++) {
+  assert(first.raid.hp === 202 && first.damage === 10 && first.name === "Barn0", "a hit without an answer does 10");
+  assert((await sockets[0].next("raidDamage")).damage === 10, "the child hears their damage");
+  const hitWith = async (i, value, stage) => {
+    sockets[i].send({ type: "answer", code: raid.code, uuid: kids[i], value, stage });
+    return rhost.next("raidHit");
+  };
+  await sleep(1050);
+  assert((await hitWith(0, 0, 3)).damage === 1, "an answer of 0 still hits for 1");
+  assert((await hitWith(1, 972195, 5)).damage === 50, "a huge product hits for at most 50");
+  await sleep(1050);
+  assert((await hitWith(0, 4200, 99)).damage === 4, "a made-up level counts as level 5");
+  const h42 = await hitWith(1, 42, 3);
+  assert(h42.damage === 42 && h42.raid.hp === 105, "42 on level 3 hits for 42");
+  assert(h42.players.find((p) => p.uuid === kids[1]).damage === 92, "the host sees each child's damage");
+  for (let round = 0; round < 3; round++) {
     await sleep(1050);
-    for (const [i, id] of kids.entries()) if (round < 9 || i === 1) sockets[i].send({ type: "raidHit", code: raid.code, uuid: id });
+    for (const [i, id] of kids.entries()) sockets[i].send({ type: "answer", code: raid.code, uuid: id, value: 50, stage: 3 });
   }
   const won = await rhost.next("raidWon");
   assert(won.raid.phase === "won" && won.raid.hp === 0 && won.winners.length === 2, "the class beats the boss together");

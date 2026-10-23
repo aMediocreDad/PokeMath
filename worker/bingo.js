@@ -282,7 +282,7 @@ export class BingoHub extends DurableObject {
 	/** @param {any} room @param {WebSocket} [closing] a socket that is closing and no longer counts */
 	playerList(room, closing) {
 		const live = new Set(this.sockets((w) => w.role === 'player' && w.code === room.code).filter((ws) => ws !== closing).map((ws) => ws.deserializeAttachment().uuid));
-		return Object.values(room.players).map(({ uuid, name, icon, catchCount }) => ({ uuid, name, icon, catchCount, connected: live.has(uuid) }));
+		return Object.values(room.players).map(({ uuid, name, icon, catchCount, damage }) => ({ uuid, name, icon, catchCount, damage, connected: live.has(uuid) }));
 	}
 
 	snapshot(room) {
@@ -584,13 +584,15 @@ const HANDLERS = {
 		const room = await this.room(msg.code);
 		// Pages from before the memory game call every correct answer a raid hit.
 		if (room?.kind === 'memory') return HANDLERS.answer.call(this, ws, msg);
-		if (room?.kind !== 'raid' || !hit(room, msg.uuid, Date.now())) return;
+		const damage = room?.kind === 'raid' ? hit(room, msg.uuid, Date.now(), msg.value, msg.stage) : 0;
+		if (!damage) return;
 		const won = room.phase === 'won';
 		const winners = won ? await this.award(room) : [];
 		await this.saveRoom(room);
 		const player = room.players[msg.uuid];
-		this.toHosts(room.code, { type: 'raidHit', name: player.name, uuid: player.uuid, raid: raidState(room), players: this.playerList(room) });
+		this.toHosts(room.code, { type: 'raidHit', name: player.name, uuid: player.uuid, damage, raid: raidState(room), players: this.playerList(room) });
 		this.toPlayers(room.code, { type: 'raidUpdate', raid: raidState(room) });
+		this.toPlayer(room.code, player.uuid, { type: 'raidDamage', damage });
 		if (won) {
 			log('raid', `raid ${room.code} vunnet av ${winners.length}`);
 			this.toHosts(room.code, { type: 'raidWon', raid: raidState(room), winners });

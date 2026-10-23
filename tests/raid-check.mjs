@@ -1,8 +1,9 @@
 // A whole raid in the browser: the teacher makes one on /lærer/raid.html, two children join with the
-// code and answer problems, every correct answer hits the boss on the teacher's screen, and both
-// children catch it. Run against tests/serve-worker.sh. Usage: node tests/raid-check.mjs [outdir]
+// code and answer problems, every correct answer hits the boss for the answer (damageFor), and
+// both children catch it. Run against tests/serve-worker.sh. Usage: node tests/raid-check.mjs [outdir]
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { damageFor } from '../src/lib/raidConfig.js';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:3123';
@@ -64,37 +65,46 @@ await shot(host, 'raid-lobby');
 
 await host.locator('#startGameBtn').click();
 await host.locator('#raidHp').waitFor();
-check('start gives 10 health per child', (await host.locator('#raidHp').textContent()).trim() === '20 / 20 liv');
+check("start gives Mewtwo's 106 base HP per child", (await host.locator('#raidHp').textContent()).trim() === '212 / 212 liv');
 
 const solve = async (page) => {
 	const [a, op, b] = (await page.locator('.problem').textContent()).trim().split(/\s+/);
 	const [x, y] = [Number(a), Number(b)];
 	return op === '+' ? x + y : op === '-' || op === '−' ? x - y : op === '·' ? x * y : x / y;
 };
+/** Damage the children's answers should have done. */
+let dealt = 0;
 /** Answer correctly, a little over a second apart (the server drops faster hits). */
 async function play(page, times) {
 	for (let i = 0; i < times; i++) {
+		if (await host.locator('#raidVictory').isVisible()) return;
 		if (await page.locator('#pokeball:not(.is-hidden)').isVisible()) {
 			await page.locator('#pokeball').click();
 			await page.waitForTimeout(400);
 			await page.locator('.reset-button:not(.is-hidden)').click();
 		}
-		await page.locator('.our-field').fill(String(await solve(page)));
+		const value = await solve(page);
+		dealt += damageFor(value, 1);
+		await page.locator('.our-field').fill(String(value));
 		await page.locator('.answer-button').click();
 		await page.waitForTimeout(1150);
 	}
 }
-await Promise.all([play(kids[0], 4), play(kids[1], 4)]);
+await Promise.all([play(kids[0], 3), play(kids[1], 3)]);
+await host.waitForTimeout(500);
 const mid = (await host.locator('#raidHp').textContent()).trim();
-check('correct answers hit the boss', mid === '12 / 20 liv', mid);
+check('each answer hits for the answer', mid === `${212 - dealt} / 212 liv`, `${mid}, expected ${212 - dealt}`);
+check('the feed shows the damage', /traff for \d+!/.test(await host.locator('.feed li').first().textContent()));
 await shot(host, 'raid-fight');
-check('children see the boss lose health', (await kids[1].locator('#raidIndicator').textContent()).includes('12 / 20'));
+const banner = await kids[1].locator('#raidIndicator').textContent();
+check('children see the boss lose HP and their own hit', banner.includes(`${212 - dealt} / 212`) && /Du traff for \d+!/.test(banner), banner);
 const overflow = await kids[1].evaluate(() => document.documentElement.scrollWidth - innerWidth);
 check('the raid banner fits on a phone', overflow <= 0, `${overflow}px too wide`);
 await shot(kids[0], 'raid-child');
 await shot(kids[1], 'raid-child-phone');
 
-await Promise.all([play(kids[0], 6), play(kids[1], 6)]);
+// Level 1 answers average about 7, so about 30 answers finish the boss.
+for (let round = 0; round < 40 && !(await host.locator('#raidVictory').isVisible()); round++) await Promise.all([play(kids[0], 1), play(kids[1], 1)]);
 await host.locator('#raidVictory').waitFor({ timeout: 10_000 });
 check('the class wins', true);
 await host.waitForTimeout(600);
@@ -104,12 +114,15 @@ for (const [i, page] of kids.entries()) {
 	const name = i ? 'Ola' : 'Kari';
 	const list = await page.evaluate(() => localStorage.getItem('pokemonlist') || '');
 	check(`${name} caught Mewtwo`, /(^|\|)[NS]150($|\|)/.test(list), list.slice(-20));
-	// The winning hit was each child's tenth answer, which also won a round: the prize waits.
-	check(`${name}'s prize waits for the win screen`, (await page.locator('.catch.open').isVisible()) && !(await page.locator('#bingo-lootbox-overlay').isVisible()));
-	await page.locator('#pokeball').click();
-	await page.locator('.reset-button:not(.is-hidden)').click();
+	// The winning hit no longer falls on a set answer, so it may or may not also win a round. When it
+	// does, the prize must wait for the win screen; __stacked notes it if it ever shows on top.
+	if (await page.locator('.catch.open').isVisible()) {
+		check(`${name}'s prize waits for the win screen`, !(await page.locator('#bingo-lootbox-overlay').isVisible()));
+		await page.locator('#pokeball').click();
+		await page.locator('.reset-button:not(.is-hidden)').click();
+	}
 	await page.locator('#bingo-lootbox-overlay').waitFor({ timeout: 5000 });
-	check(`${name} sees the prize after the win screen`, !(await page.evaluate(() => window.__stacked)));
+	check(`${name}'s prize never showed on top of the win screen`, !(await page.evaluate(() => window.__stacked)));
 	check(`${name} leaves the won raid by themselves`, (await page.locator('#raidIndicator').count()) === 0 && (await page.evaluate(() => localStorage.getItem('bingoJoinedCode'))) === null);
 }
 await shot(kids[1], 'raid-prize-phone');

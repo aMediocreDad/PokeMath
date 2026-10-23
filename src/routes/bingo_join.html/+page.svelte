@@ -204,7 +204,7 @@
 		<ul>
 			<li>Du blir med i spillet læreren styrer, og spiller PokéMath som vanlig.</li>
 			<li><b>Bingo:</b> Pokémon du fanger, sendes til bingobrettet. Passer fangsten en rute, krysses den av.</li>
-			<li><b>Raid:</b> hvert riktige svar er et treff på bossen. Når den er beseiret, fanger alle som var med den.</li>
+			<li><b>Raid:</b> hvert riktige svar treffer bossen, like hardt som svaret. Når den er beseiret, fanger alle som var med den.</li>
 			<li><b>Memory:</b> riktige svar gir klassen trekk på tavla. Når alle parene er funnet, fanger alle som var med en av Pokémonene.</li>
 		</ul>
 		<details class="small uuid">

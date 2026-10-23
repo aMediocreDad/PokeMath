@@ -44,7 +44,7 @@
 		{
 			id: 'raid',
 			name: 'Raid',
-			about: 'Hele klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff, og alle fanger den til slutt.',
+			about: 'Hele klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar treffer like hardt som svaret, og alle fanger den til slutt.',
 			start: '/lærer/raid.html',
 			resume: savedRaidCode.length === 6 ? { href: '/lærer/raid.html', label: `Fortsett raid ${savedRaidCode}` } : undefined
 		},

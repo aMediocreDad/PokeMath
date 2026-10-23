@@ -93,8 +93,9 @@ const PRIZES_GIVEN = 'bingoPrizesGiven';
  * @param {(message: string, duration: number, position: string) => void} handlers.onAdminPopup
  * @param {(game: ClassGame) => void} [handlers.onGame]
  *   The lobby was joined, or the game moved on (started, hit, won).
+ * @param {(damage: number) => void} [handlers.onDamage]  This child's answer hit the raid boss for this much.
  */
-export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
+export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDamage }) {
 	const url = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 	/** @type {WebSocket | null} */
 	let ws = null;
@@ -227,6 +228,8 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 				ws?.close();
 			} else if (msg.type === 'raidUpdate') {
 				onGame?.({ kind: 'raid', state: msg.raid });
+			} else if (msg.type === 'raidDamage') {
+				onDamage?.(msg.damage);
 			} else if (msg.type === 'memoryUpdate') {
 				onGame?.({ kind: 'memory', state: msg.memory });
 			} else if (msg.type === 'bingoUpdate') {
@@ -289,10 +292,14 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 			if (!code || !info.pokemonCode) return false;
 			return send({ type: 'catchPokemon', code, uuid: await uuid(), name: playerName(), ...info });
 		},
-		/** A correct answer: a hit on the raid boss, or towards memory's next turn. Bingo ignores it. */
-		async reportHit() {
+		/**
+		 * A correct answer: a hit on the raid boss, as hard as the answer on its level, or towards
+		 * memory's next turn. Bingo ignores it.
+		 * @param {number} value the answer @param {string | number} stage the level
+		 */
+		async reportHit(value, stage) {
 			const code = await ready();
-			return code ? send({ type: 'answer', code, uuid: await uuid() }) : false;
+			return code ? send({ type: 'answer', code, uuid: await uuid(), value, stage: Number(stage) }) : false;
 		},
 		stop() {
 			stopped = true;
