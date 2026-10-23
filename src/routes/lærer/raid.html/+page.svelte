@@ -211,7 +211,7 @@
 			<div class="side">
 				{#if raid.phase === 'lobby'}
 					<div class="join panel">
-						<p class="muted">Gå til <strong>Bli med i klassespill</strong> og skriv</p>
+						<p class="muted">Gå til <strong>Bli med i klassespill</strong> og skann QR-koden, eller skriv</p>
 						<p class="code" id="raidCode">{code}</p>
 						{#await qrDataUrl(joinUrl(code), 360) then src}<img class="qr" {src} alt="QR-kode for å bli med" width="180" height="180" />{/await}
 					</div>

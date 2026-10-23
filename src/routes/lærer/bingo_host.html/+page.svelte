@@ -763,7 +763,8 @@
 	<div id="qrModal" class="overlay" onclick={(e) => e.target === e.currentTarget && (qrOpen = false)}>
 		<div class="qr-box" role="dialog" aria-modal="true" aria-label="QR-kode">
 			<button id="qrClose" class="close" aria-label="Lukk" onclick={() => (qrOpen = false)}>×</button>
-			<p class="qr-title">Scan for å bli med</p>
+			<p class="qr-title">Skann i Pokémath for å bli med</p>
+			<p class="qr-sub">Bli med i klassespill → Skann QR-kode</p>
 			{#await qrDataUrl(joinUrl(currentCode), 440) then src}<img id="qrImage" {src} alt="QR-kode" width="220" height="220" />{/await}
 			<p id="qrUrl" class="qr-url">{joinUrl(currentCode)}</p>
 		</div>
@@ -1363,13 +1364,18 @@
 		right: 8px;
 	}
 	.qr-title {
-		margin: 0 0 12px;
+		margin: 0 0 4px;
 		font-family: var(--pm-display);
 		font-size: 22px;
 		color: var(--pm-red);
 	}
 	#qrImage {
 		border-radius: 8px;
+	}
+	.qr-sub {
+		margin: 0 0 12px;
+		color: var(--pm-ink-soft);
+		font-size: 14px;
 	}
 	.qr-url {
 		max-width: 260px;

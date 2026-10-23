@@ -11,6 +11,34 @@ export const code6 = (s) => String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, 
 export const isUuidLike = (value) =>
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 
+/**
+ * The lobby code in a join link: ?code=ABC123, or a path ending in the code.
+ * @param {URL} url @returns {string} the code, or ''
+ */
+export function codeFromUrl(url) {
+	const query = code6(url.searchParams.get('code'));
+	if (query.length === 6) return query;
+	const lastPart = url.pathname.split('/').filter(Boolean).at(-1) || '';
+	// The page's own name is not a code: "bingo_join.html" would otherwise become "BINGOJ".
+	if (lastPart.endsWith('.html')) return '';
+	const last = code6(lastPart);
+	return last.length === 6 ? last : '';
+}
+
+/**
+ * The lobby code in a scanned QR code: the teacher's join link (from any address, as a school
+ * may show an old one), or the bare code. Never followed as a link. @param {string} text
+ */
+export function scannedCode(text) {
+	const trimmed = text.trim();
+	if (/^[0-9A-Z]{6}$/i.test(trimmed)) return trimmed.toUpperCase();
+	try {
+		return codeFromUrl(new URL(trimmed));
+	} catch {
+		return '';
+	}
+}
+
 /** The lobby code, from bingoJoinedCode or the older bingoCode key. */
 export function storedBingoCode() {
 	const primary = code6(localStorage.getItem('bingoJoinedCode'));

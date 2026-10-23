@@ -4,8 +4,9 @@
 	// Both games share the code, so this page does not need to know which one it is.
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { code6, isUuidLike } from '#lib/bingo.js';
+	import { code6, codeFromUrl, isUuidLike } from '#lib/bingo.js';
 	import { generateUUID } from '#lib/uuid.js';
+	import QrScanner from '#lib/QrScanner.svelte';
 
 	let code = $state('');
 	let student = $state('Ash');
@@ -17,6 +18,10 @@
 	let copied = $state(false);
 	/** The lobby this device is already in, when the page opened without a new code. */
 	let joined = $state('');
+	/** Set in the browser: the scan button shows only where there is a camera to ask for. */
+	let canScan = $state(false);
+	/** @type {MediaStream | null} The camera, while the scanner is open. */
+	let camera = $state(null);
 
 	/**
 	 * A QR code scanned with the camera can open the page in private mode, on another address, or
@@ -48,7 +53,7 @@
 		if (!isIOS) return null;
 		return {
 			title: 'Data ikke tilgjengelig i denne fanen',
-			body: 'Siden ble åpnet i en isolert nettleserkontekst (skjer ofte når QR-koder skannes med kameraet). Pokémath-dataen din ligger i en annen fane. Trykk «Åpne i nettleser» for å åpne siden på nytt med tilgang til profilen din, eller kopier lenken og lim den inn i adressefeltet.',
+			body: 'Siden ble åpnet i en isolert nettleserkontekst (skjer ofte når QR-koder skannes med kameraet). Pokémath-dataen din ligger et annet sted. Åpne Pokémath slik du pleier, gå til «Bli med i klassespill» og trykk «Skann QR-kode». Eller trykk «Åpne i nettleser», eller kopier lenken og lim den inn i adressefeltet.',
 			canOpen: true
 		};
 	}
@@ -78,30 +83,19 @@
 		return fresh;
 	}
 
-	/** From ?code=ABC123, or a path ending in the code. */
-	function codeFromUrl() {
-		const query = code6(new URLSearchParams(location.search).get('code'));
-		if (query.length === 6) return query;
-		const parts = location.pathname.split('/').filter(Boolean);
-		const lastPart = parts[parts.length - 1] || '';
-		// The page's own name is not a code: "bingo_join.html" would otherwise become "BINGOJ".
-		if (lastPart.endsWith('.html')) return '';
-		const last = code6(lastPart);
-		return last.length === 6 ? last : '';
-	}
-
 	onMount(() => {
+		canScan = typeof navigator.mediaDevices?.getUserMedia === 'function';
 		// Before joinUUID(), which stores an id and would hide a missing save.
 		warning = browserWarning();
 		if (warning && !warning.canOpen && warning.title.startsWith('Privat')) {
 			// localStorage throws here, so only the code from the address can be shown.
-			code = codeFromUrl();
+			code = codeFromUrl(new URL(location.href));
 			return;
 		}
 		uuid = joinUUID();
 		student = (localStorage.getItem('username') || localStorage.getItem('playerName') || localStorage.getItem('name') || '').trim() || 'Ash';
 		const stored = code6(localStorage.getItem('bingoJoinedCode') || localStorage.getItem('bingoCode') || '');
-		const fromUrl = codeFromUrl();
+		const fromUrl = codeFromUrl(new URL(location.href));
 		code = fromUrl || stored;
 		if (stored.length === 6 && (!fromUrl || fromUrl === stored)) joined = stored;
 	});
@@ -117,6 +111,32 @@
 		status = { msg: 'Klar! Velg et trinn for å begynne å fange Pokémon.', kind: 'good' };
 		joining = true;
 		setTimeout(() => goto('/'), 800);
+	}
+
+	/** Asked for inside the tap: the back camera when there is one, any camera otherwise. */
+	async function scan() {
+		status = { msg: '', kind: 'info' };
+		try {
+			camera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+		} catch (e) {
+			const name = /** @type {Error} */ (e)?.name;
+			status = {
+				msg:
+					name === 'NotAllowedError'
+						? 'Pokémath fikk ikke bruke kameraet. Skriv inn koden i stedet.'
+						: name === 'NotFoundError' || name === 'OverconstrainedError'
+							? 'Fant ikke noe kamera. Skriv inn koden i stedet.'
+							: 'Kameraet startet ikke. Skriv inn koden i stedet.',
+				kind: 'bad'
+			};
+		}
+	}
+
+	/** @param {string} scanned */
+	function scannedJoin(scanned) {
+		camera = null;
+		code = scanned;
+		join();
 	}
 
 	function clear() {
@@ -168,6 +188,9 @@
 				<button id="joinBtn" class="pm-button" type="submit" disabled={joining}>Bli med</button>
 			</form>
 			<p class="hint">6 tegn, bokstaver og tall.</p>
+			{#if canScan}
+				<button id="scanBtn" class="pm-button secondary scan" type="button" disabled={joining} onclick={scan}>📷 Skann QR-kode</button>
+			{/if}
 		{/if}
 		<p id="status" class="status {status.kind}" role="status">{status.msg}</p>
 		<div class="meta">
@@ -188,6 +211,10 @@
 		</details>
 	</section>
 </div>
+
+{#if camera}
+	<QrScanner stream={camera} onCode={scannedJoin} onClose={() => (camera = null)} />
+{/if}
 
 {#if warning}
 	<div id="browser-warning" class="backdrop">
@@ -252,6 +279,9 @@
 		margin: 8px 0 0;
 		color: var(--pm-ink-soft);
 		font-size: 14px;
+	}
+	.scan {
+		margin-top: 14px;
 	}
 	.status {
 		min-height: 1.4em;
