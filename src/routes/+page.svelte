@@ -112,9 +112,9 @@
 		{@render tile('stage-custom', 'customizer.html', 'images/gear.png', 'Eget nivå', ['Velg regnearter', 'og tall selv'], 0, 'custom')}
 	</nav>
 
-	<section class="bingo-row" aria-label="Bingo">
+	<section class="bingo-row" aria-label="Klassespill">
 		<a class="pm-button secondary" id="homeJoinBingo" href="/bingo_join.html">🎲 Bli med i klassespill</a>
-		{#if me.teacher}<a class="pm-button" id="homeStartBingo" href="/lærer/index.html">🧑‍🏫 Styr bingo</a>{/if}
+		{#if me.teacher}<a class="pm-button" id="homeTeacher" href="/lærer/index.html">🧑‍🏫 Lærersiden</a>{/if}
 	</section>
 
 	<p class="hint" id="stage-hint-box" aria-live="polite">

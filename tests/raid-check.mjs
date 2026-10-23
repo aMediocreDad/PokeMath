@@ -114,12 +114,33 @@ for (const [i, page] of kids.entries()) {
 }
 await shot(kids[1], 'raid-prize-phone');
 
-// "Avslutt raidet" ends the room; the page forgets it only when the server says so.
-check('the teacher ends a won raid with "Avslutt raidet"', (await host.locator('#endRaidBtn').textContent()).trim() === 'Avslutt raidet');
+// "Nytt raid" repeats the setup with a new code, as bingo's "Nytt brett".
+await shot(host, 'raid-won-controls');
+await host.locator('#newRaidBtn').click();
+await host.locator('#raidCode').waitFor({ timeout: 5000 }).catch(() => {});
+const code2 = (await host.locator('#raidCode').textContent().catch(() => '')).trim();
+check('"Nytt raid" makes a new raid with a new code', /^[0-9A-Z]{6}$/.test(code2) && code2 !== code, `${code} -> ${code2}`);
+check('…with the same boss', (await host.locator('.boss-name').textContent()).trim() === 'Mewtwo');
+
+// A child joins the new raid; "Avslutt raidet" mid-fight ends it and goes back to the teacher page.
+const kari = kids[0];
+await kari.goto(BASE + '/bingo_join.html');
+await kari.locator('#code').fill(code2);
+await kari.locator('#joinBtn').click();
+await kari.waitForURL(BASE + '/');
+await kari.goto(BASE + '/pokemath.html?stage=1');
+await kari.locator('#raidIndicator').waitFor();
+await host.locator('#startRaidBtn:not([disabled])').click();
+await host.locator('#raidHp').waitFor();
+await shot(host, 'raid-fight-controls');
 await host.locator('#endRaidBtn').click();
+await host.waitForURL(/\/l%C3%A6rer\/index\.html|\/lærer\/index\.html/, { timeout: 5000 }).catch(() => {});
+check('"Avslutt raidet" goes back to the teacher page', decodeURI(host.url()).endsWith('/lærer/index.html'), decodeURI(host.url()));
+await kari.locator('#raidIndicator').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+check('…and the children leave the raid', (await kari.locator('#raidIndicator').count()) === 0);
+await host.goto(BASE + '/lærer/raid.html');
 await host.locator('#raidSetup').waitFor({ timeout: 5000 }).catch(() => {});
-check('ending the raid goes back to the setup', await host.locator('#raidSetup').isVisible());
-check('…and forgets the code', (await host.evaluate(() => localStorage.getItem('teacherRaidCode'))) === null);
+check('…and the raid page starts from the setup', await host.locator('#raidSetup').isVisible());
 
 await browser.close();
 console.log(results.every(Boolean) ? 'ALL PASS' : 'SOME FAILED');

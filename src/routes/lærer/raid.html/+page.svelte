@@ -15,6 +15,8 @@
 	/** @typedef {import('#lib/bingo.js').RaidState} RaidState */
 
 	const CODE_KEY = 'teacherRaidCode';
+	/** The last setup, so "Nytt raid" can repeat it after a reload too. */
+	const CHOICE_KEY = 'teacherRaidChoice';
 
 	/** @type {WebSocket | undefined} */
 	let ws;
@@ -39,6 +41,8 @@
 	const bossName = (id) => info[String(id)]?.['0']?.name || `#${id}`;
 
 	let choice = $state({ boss: /** @type {number | 'random'} */ ('random'), length: 'medium', className: '' });
+	/** Set by "Nytt raid": once the old raid has ended, make a new one with the same setup. */
+	let restart = false;
 
 	const ranked = $derived([...players].sort((a, b) => b.catchCount - a.catchCount));
 	const percent = $derived.by(() => (raid && raid.maxHp ? (100 * raid.hp) / raid.maxHp : 100));
@@ -62,6 +66,11 @@
 		} else if (msg.type === 'lobbyEnded' || msg.type === 'lobbyState' || msg.type === 'lobbyNotFound') {
 			// A bingo code, or a raid that has gone: start afresh.
 			forget();
+			if (restart && msg.type === 'lobbyEnded') {
+				restart = false;
+				ready = false;
+				create();
+			}
 		} else if (msg.type === 'playersUpdate') {
 			players = msg.players;
 		} else if (msg.type === 'raidHit') {
@@ -89,6 +98,7 @@
 	}
 
 	function create() {
+		localStorage.setItem(CHOICE_KEY, JSON.stringify({ boss: choice.boss, length: choice.length }));
 		send({ type: 'hostCreateRaid', settings: { boss: choice.boss, length: choice.length, className: choice.className.trim() } });
 	}
 
@@ -96,14 +106,37 @@
 		send({ type: 'hostStartRaid', code });
 	}
 
-	function end() {
-		const fighting = raid?.phase === 'fight';
-		if (fighting && !confirm('Avslutte raidet nå? Barna får mynter for treffene sine, men ikke Pokémonen.')) return;
-		if (raid?.phase === 'lobby' && players.length && !confirm('Avbryte raidet? Barna kobles fra.')) return;
-		// The room is forgotten when the server says it has ended, not before: an End sent on a
-		// dropped connection would leave the children playing and the coins unpaid.
-		if (ws?.readyState !== WebSocket.OPEN) return alert('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.');
+	/** What ending the raid now means for the children, for the confirm boxes. */
+	const endNote = () => (raid?.phase === 'fight' ? ' Barna får mynter for treffene sine, men ikke Pokémonen.' : '');
+
+	/**
+	 * The room is forgotten when the server says it has ended, not before: an End sent on a
+	 * dropped connection would leave the children playing and the coins unpaid.
+	 */
+	function sendEnd() {
+		if (ws?.readyState !== WebSocket.OPEN) {
+			alert('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.');
+			return false;
+		}
 		send({ type: 'hostEndLobby', code });
+		return true;
+	}
+
+	/** Back to the setup. In the lobby this is "Avbryt". */
+	function newSettings() {
+		if (raid?.phase === 'lobby' ? players.length && !confirm('Avbryte raidet? Barna kobles fra.') : !confirm(`Velge nye innstillinger?\n\nDette raidet avsluttes.${endNote()}`)) return;
+		sendEnd();
+	}
+
+	/** The same boss choice and length again, with a new code (as bingo's "Nytt brett"). */
+	function newRaid() {
+		if (!confirm(`Lage et nytt raid med de samme innstillingene?\n\nDet gamle raidet avsluttes, og elevene må koble til med den nye koden.${endNote()}`)) return;
+		restart = sendEnd();
+	}
+
+	function endRaid() {
+		if (!confirm(`Avslutte raidet? Alle elevene kobles fra.${endNote()}`)) return;
+		if (sendEnd()) goto('/lærer/index.html');
 	}
 
 	/** @param {() => boolean} gone */
@@ -114,6 +147,13 @@
 		}
 		if (gone()) return;
 		teacherSession = getTeacherSession();
+		try {
+			const saved = JSON.parse(localStorage.getItem(CHOICE_KEY) || 'null');
+			if (saved && (saved.boss === 'random' || RAID_BOSSES.includes(saved.boss))) choice.boss = saved.boss;
+			if (saved && LENGTHS.some(([value]) => value === saved.length)) choice.length = saved.length;
+		} catch {
+			// A broken setup: the defaults do.
+		}
 		fetch('/pokemon_info.json')
 			.then((r) => r.json())
 			.then((data) => (info = data))
@@ -246,10 +286,12 @@
 				<div class="actions">
 					{#if raid.phase === 'lobby'}
 						<button class="pm-button" id="startRaidBtn" disabled={!players.length} onclick={startFight}>Start raidet</button>
-						<button class="pm-button secondary" onclick={end}>Avbryt</button>
+						<button class="pm-button secondary" onclick={newSettings}>Avbryt</button>
 					{:else}
-						<!-- The children leave a won raid by themselves; this clears it here too. -->
-						<button class="pm-button" class:secondary={raid.phase === 'fight'} id="endRaidBtn" onclick={end}>Avslutt raidet</button>
+						<!-- As bingo's controls. The children leave a won raid by themselves. -->
+						<button class="pm-button" class:secondary={raid.phase === 'fight'} id="newRaidBtn" onclick={newRaid}>Nytt raid</button>
+						<button class="pm-button secondary" id="raidSettingsBtn" onclick={newSettings}>Nye innstillinger</button>
+						<button class="pm-button secondary danger" id="endRaidBtn" onclick={endRaid}>Avslutt raidet</button>
 					{/if}
 				</div>
 			</div>
@@ -328,14 +370,17 @@
 		justify-items: center;
 		padding: 20px;
 		border-radius: var(--pm-radius);
-		background: radial-gradient(circle at 50% 40%, var(--pm-paper), var(--pm-cream) 70%);
+		/* A dark stage, as the raid banner on the children's game page; the cream page around it
+		   is too close to cream for a card to show. */
+		background: radial-gradient(circle at 50% 38%, oklch(0.42 0.05 265), var(--pm-ink) 72%);
+		color: var(--pm-paper);
 		box-shadow: var(--pm-shadow);
 	}
 	.boss {
 		width: min(420px, 80%);
 		aspect-ratio: 1;
 		object-fit: contain;
-		filter: drop-shadow(0 18px 20px oklch(0 0 0 / 0.35));
+		filter: drop-shadow(0 18px 20px oklch(0 0 0 / 0.5));
 	}
 	.boss.shake {
 		animation: hit 260ms ease-out;
@@ -362,7 +407,7 @@
 		width: 100%;
 		height: 28px;
 		border-radius: 999px;
-		background: var(--pm-line);
+		background: oklch(1 0 0 / 0.18);
 		overflow: hidden;
 	}
 	.hp-fill {
