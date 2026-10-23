@@ -1,7 +1,9 @@
 <script>
 	// The prize reveal after a bingo game, ported from the lootbox in static/pokestuff.js.
-	// Shows one spinning ball per prize; it opens on a tap or after 2.5 seconds.
+	// Shows one spinning ball per prize; it opens on a tap or after 2.5 seconds. A shiny Pokémon
+	// opens in a foil frame, like the shiny cards in the Pokédex.
 
+	import Foil from '#lib/Foil.svelte';
 	import { pokemonInfo } from '#lib/game/pokemon.js';
 
 	/** @type {{ prizes: import('#lib/bingo.js').Prize[], onDone: () => void }} */
@@ -72,6 +74,7 @@
 			return {
 				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.webp`,
 				plainImage: false,
+				shiny,
 				lines: [source, kind + name],
 				small: prize.easterCoins ? '+' + Number(prize.easterCoins).toLocaleString('no-NO') + ' mynter' : ''
 			};
@@ -95,7 +98,11 @@
 		<div class="blootbox-tap">Trykk for å åpne...</div>
 	{:else if revealed && display}
 		<div class="blootbox-prize">
-			<img src={display.image} alt="" style:filter={display.plainImage ? 'none' : null} />
+			<div class="prize-art" class:foil-frame={display.shiny}>
+				<Foil on={!!display.shiny}>
+					<img src={display.image} alt="" style:filter={display.plainImage ? 'none' : null} />
+				</Foil>
+			</div>
 			<div class="blootbox-label">
 				{#each display.lines as line, i (i)}{#if i > 0}<br />{/if}{line}{/each}
 				{#if display.small}<br /><span class="small">{display.small}</span>{/if}
@@ -168,7 +175,25 @@
 		gap: 12px;
 		animation: reveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	}
+	.prize-art {
+		position: relative;
+	}
+	/* Cream inside, the shiny's rainbow in the border; the foil and glare stay inside the frame. */
+	.foil-frame {
+		display: grid;
+		place-items: center;
+		width: 224px;
+		aspect-ratio: 1;
+		overflow: hidden;
+		border: 4px solid transparent;
+		border-radius: 22px;
+		background:
+			linear-gradient(oklch(0.94 0.05 90), oklch(0.94 0.05 90)) padding-box,
+			var(--pm-foil-edge) border-box;
+		box-shadow: 0 0 40px oklch(0.85 0.14 85 / 0.6);
+	}
 	.blootbox-prize img {
+		position: relative;
 		width: 200px;
 		height: 200px;
 		image-rendering: pixelated;

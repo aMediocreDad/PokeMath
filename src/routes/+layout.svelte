@@ -71,6 +71,15 @@
 		--pm-cream: oklch(0.955 0.02 85);
 		--pm-line: oklch(0.86 0.025 80);
 		--pm-gold: oklch(0.83 0.15 85);
+		/* The rainbow edge of a foiled shiny (PokemonCard, BingoLootbox). */
+		--pm-foil-edge: linear-gradient(
+			135deg,
+			oklch(0.85 0.14 85),
+			oklch(0.8 0.13 350),
+			oklch(0.82 0.11 250),
+			oklch(0.86 0.13 160),
+			oklch(0.85 0.14 85)
+		);
 		--pm-green: oklch(0.7 0.17 145);
 		--pm-green-deep: oklch(0.55 0.15 145);
 		--pm-display: 'Lilita One', 'Source Sans Pro', system-ui, sans-serif;

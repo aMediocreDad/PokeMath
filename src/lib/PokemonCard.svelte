@@ -4,6 +4,8 @@
 	// cards are foiled like trading cards: a rainbow foil behind the Pokémon, a glare sweeping over
 	// it, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
 	// does not flash in unison.
+	import Foil from '#lib/Foil.svelte';
+
 	/** @type {{ card: import('#lib/game/pokemon.js').PokemonCard, count: number }} */
 	let { card, count } = $props();
 
@@ -19,10 +21,10 @@
 	href="./pokeviewer.html?pokemonId={card.id}"
 	target="_blank"
 >
-	<div class="art" style:--phase="{-((card.id * 0.37) % 6)}s">
-		{#if card.shiny}<span class="foil" aria-hidden="true"></span>{/if}
-		<span class="sprite" style="background-image: url('{card.image}');"></span>
-		{#if card.shiny}<span class="glare" aria-hidden="true"></span>{/if}
+	<div class="art">
+		<Foil on={card.shiny} phase="{-((card.id * 0.37) % 6)}s">
+			<span class="sprite" style="background-image: url('{card.image}');"></span>
+		</Foil>
 		<span class="number">#{card.cardId}</span>
 		<span class="count card-counter">x{count}</span>
 		{#if card.shiny || card.rarity}
@@ -73,14 +75,7 @@
 		/* Paper inside, rainbow only in the border: this layer sits above the card's own background. */
 		background:
 			linear-gradient(var(--pm-paper), var(--pm-paper)) padding-box,
-			linear-gradient(
-				135deg,
-				oklch(0.85 0.14 85),
-				oklch(0.8 0.13 350),
-				oklch(0.82 0.11 250),
-				oklch(0.86 0.13 160),
-				oklch(0.85 0.14 85)
-			) border-box;
+			var(--pm-foil-edge) border-box;
 	}
 	.art {
 		position: relative;
@@ -98,54 +93,6 @@
 	}
 	.shiny .art {
 		background-color: oklch(0.94 0.05 90);
-	}
-	/* Foil and glare are wider than the art and slide with transform, which stays cheap with a
-	   full Pokédex of shinies; animating background-position would repaint every card. */
-	.foil,
-	.glare {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		left: -100%;
-		width: 300%;
-		pointer-events: none;
-	}
-	.foil {
-		opacity: 0.55;
-		background:
-			repeating-linear-gradient(115deg, oklch(1 0 0 / 0.35) 0 2px, transparent 2px 7px),
-			linear-gradient(
-				115deg,
-				oklch(0.86 0.12 85),
-				oklch(0.82 0.12 350),
-				oklch(0.84 0.1 250),
-				oklch(0.87 0.12 160),
-				oklch(0.86 0.12 85),
-				oklch(0.82 0.12 350),
-				oklch(0.84 0.1 250)
-			);
-		animation: foil-drift 9s ease-in-out var(--phase) infinite alternate;
-	}
-	.glare {
-		background: linear-gradient(
-			115deg,
-			transparent 40%,
-			oklch(1 0 0 / 0.55) 48%,
-			oklch(1 0 0 / 0.75) 50%,
-			oklch(1 0 0 / 0.55) 52%,
-			transparent 60%
-		);
-		transform: translateX(-34%);
-		animation: glare-sweep 6s ease-in-out var(--phase) infinite;
-	}
-	@keyframes foil-drift {
-		from { transform: translateX(-30%); }
-		to { transform: translateX(30%); }
-	}
-	@keyframes glare-sweep {
-		0% { transform: translateX(-34%); }
-		30%,
-		100% { transform: translateX(34%); }
 	}
 	.number,
 	.count {
@@ -204,15 +151,6 @@
 		font-size: 12px;
 		font-weight: 700;
 		text-transform: capitalize;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.foil {
-			animation: none;
-		}
-		.glare {
-			display: none;
-		}
 	}
 
 	@media (max-width: 480px) {
