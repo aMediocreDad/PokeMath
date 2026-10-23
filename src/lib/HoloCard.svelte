@@ -276,6 +276,7 @@
 	.art {
 		position: absolute;
 		inset: 0;
+		box-sizing: border-box;
 		display: block;
 		width: 100%;
 		height: 100%;
