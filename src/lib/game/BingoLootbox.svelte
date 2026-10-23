@@ -49,7 +49,7 @@
 				image: '/images/coinbag.svg',
 				plainImage: true,
 				lines: [
-					(prize.source === 'admin' ? 'Gave fra admin: ' : prize.source === 'line' ? `Bingo! ${prize.label || 'En rad'} er full: ` : prize.source === 'raid' ? 'Raid: ' : '') +
+					(prize.source === 'admin' ? 'Gave fra admin: ' : prize.source === 'line' ? `Bingo! ${prize.label || 'En rad'} er full: ` : prize.source === 'raid' ? 'Raid: ' : prize.source === 'memory' ? 'Memory: ' : '') +
 						'+' +
 						amount.toLocaleString('no-NO') +
 						' mynter!'
@@ -67,9 +67,10 @@
 			const variant = variantKey ? forms?.[variantKey] : undefined;
 			const imageId = variant?.imageid || prize.pokedexId;
 			const name = prize.easterName || variant?.name || forms?.['0']?.name || 'Pokémon #' + prize.pokedexId;
-			const source = prize.source === 'admin' ? 'Gave fra admin:' : prize.source === 'easter' ? 'Eventpremie!' : 'Bingo-premie!';
+			const source = prize.source === 'admin' ? 'Gave fra admin:' : prize.source === 'easter' ? 'Eventpremie!' : prize.source === 'memory' ? 'Memory-premie!' : 'Bingo-premie!';
+			// Memory's Pokémon is whatever was on the board: the label names no rarity, the frame shows it.
 			const kind =
-				prize.source === 'admin' || prize.source === 'easter'
+				prize.source === 'admin' || prize.source === 'easter' || prize.source === 'memory'
 					? shiny ? 'Shiny ' : ''
 					: shiny ? '✨ Shiny ' : prize.legendary ? 'Legendarisk ' : 'Mytisk ';
 			return {

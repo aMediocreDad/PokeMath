@@ -33,7 +33,7 @@
 	.teacher.narrow {
 		max-width: 540px;
 	}
-	/* The bingo board and the raid fill the projector. */
+	/* The bingo board, the raid and memory fill the projector. */
 	.teacher.wide {
 		max-width: 1500px;
 	}

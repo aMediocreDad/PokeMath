@@ -1,4 +1,5 @@
-// End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round and a raid.
+// End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round, a raid and a
+// memory game.
 const WebSocket = require("ws");
 const BASE = process.argv[2];
 const WS = BASE.replace("http", "ws") + "/ws";
@@ -225,6 +226,115 @@ async function assertSilent(c, type, label) {
   await sockets[0].next("ended");
   assert(true, "children told the raid ended");
   for (const c of [rhost, late, ...sockets]) c.ws.close();
+
+  // Memory round: two children's answers earn turns, and the host plays a perfect memory.
+  const mhost = client();
+  await mhost.open();
+  mhost.send({ type: "hostCreateMemory", teacherSession: token, settings: { size: "small", className: "5B" } });
+  const mem = await mhost.next("memoryState");
+  assert(mem.kind === "memory" && mem.memory.phase === "lobby" && mem.memory.cards.length === 12, "memory created in the lobby phase");
+  assert(mem.memory.cards.every((c) => c.id === null), "face-down cards do not tell their Pokémon");
+  const mkids = [crypto.randomUUID(), crypto.randomUUID()];
+  const msockets = [];
+  for (const [i, id] of mkids.entries()) {
+    const c = client();
+    await c.open();
+    c.send({ type: "joinLobby", code: mem.code, uuid: id, name: `Barn${i}`, icon: "" });
+    const joined = await c.next("joinResult");
+    assert(joined.ok && joined.kind === "memory" && joined.memory.phase === "lobby" && !joined.bingo, `child ${i} joined the memory game`);
+    msockets.push(c);
+  }
+  msockets[0].send({ type: "answer", code: mem.code, uuid: mkids[0] });
+  await assertSilent(mhost, "memoryAnswer", "an answer before the start does nothing");
+  mhost.send({ type: "hostMemoryFlip", teacherSession: token, code: mem.code, index: 0 });
+  await assertSilent(mhost, "memoryFlip", "no flipping before the start");
+  msockets[0].send({ type: "catchPokemon", code: mem.code, uuid: mkids[0], name: "Barn0", pokemonCode: "N25", pokedexId: 25, pokemonName: "Pikachu", types: [], flags: {}, difficulty: "stage3" });
+  await assertSilent(mhost, "toastCatch", "a catch in a memory game is ignored");
+  mhost.send({ type: "hostStartMemory", teacherSession: token, code: mem.code });
+  const mstarted = await mhost.next("memoryState");
+  assert(mstarted.memory.phase === "play" && mstarted.memory.turnCost === 2 && mstarted.memory.turns === 1, "start: a turn costs one answer per child, and one turn to begin");
+  assert((await msockets[1].next("memoryUpdate")).memory.phase === "play", "children hear memory started");
+
+  // A page from before memory calls a correct answer raidHit.
+  msockets[0].send({ type: "raidHit", code: mem.code, uuid: mkids[0] });
+  const legacy = await mhost.next("memoryAnswer");
+  assert(legacy.memory.pool === 1 && legacy.name === "Barn0", "an old page's raid hit counts as a memory answer");
+  await sleep(1050);
+
+  /** index -> Pokémon, as the class remembers it */
+  const seen = new Map();
+  const matched = new Set();
+  let state = legacy.memory;
+  const flipCard = async (index) => {
+    mhost.send({ type: "hostMemoryFlip", teacherSession: token, code: mem.code, index });
+    const m = await mhost.next("memoryFlip");
+    seen.set(index, m.memory.cards[index].id);
+    state = m.memory;
+    return m;
+  };
+  const earnTurn = async () => {
+    for (const [i, id] of mkids.entries()) msockets[i].send({ type: "answer", code: mem.code, uuid: id });
+    for (let i = 0; i < 2; i++) state = (await mhost.next("memoryAnswer")).memory;
+    await sleep(1050);
+  };
+  let misses = 0;
+  let guard = 0;
+  while (state.phase !== "won" && guard++ < 40) {
+    if (state.turns < 1) await earnTurn();
+    const unmatchedKnown = [...seen].filter(([i]) => !matched.has(i));
+    const pair = unmatchedKnown.find(([i, id]) => unmatchedKnown.some(([j, other]) => j !== i && other === id));
+    const unknown = state.cards.map((_, i) => i).filter((i) => !seen.has(i));
+    let first, second;
+    if (pair) {
+      first = await flipCard(pair[0]);
+      second = await flipCard(unmatchedKnown.find(([j, id]) => j !== pair[0] && id === pair[1])[0]);
+    } else {
+      first = await flipCard(unknown[0]);
+      const id = first.memory.cards[unknown[0]].id;
+      const twin = unmatchedKnown.find(([j, other]) => j !== unknown[0] && other === id);
+      second = await flipCard(twin ? twin[0] : unknown[1]);
+    }
+    if (first.result !== "first") assert(false, "the first card of a turn opens");
+    if (second.result === "match") for (const i of second.memory.cards.map((c, k) => (c.matched ? k : -1)).filter((k) => k >= 0)) matched.add(i);
+    else misses++;
+  }
+  console.log(`     (a perfect memory needed ${misses} misses)`);
+  const mwon = await mhost.next("memoryWon");
+  assert(mwon.memory.phase === "won" && mwon.memory.found === 6 && mwon.winners.length === 2, "the class finds every pair together");
+  await msockets[0].next("finished");
+  await msockets[0].next("bingoReward");
+  const boardIds = new Set(mwon.memory.cards.map((c) => c.id));
+  for (const id of mkids) {
+    const prizes = (await j(`/bingo/claim-prizes?uuid=${id}`)).body.prizes;
+    const [pokemon, coins] = prizes;
+    assert(pokemon?.type === "pokemon" && boardIds.has(pokemon.pokedexId) && pokemon.source === "memory", "every child who answered catches a Pokémon from the board");
+    assert(coins?.type === "coins" && coins.amount >= 1000 && coins.source === "memory", "and coins for the answers and the win");
+  }
+  const mlate = client();
+  await mlate.open();
+  mlate.send({ type: "joinLobby", code: mem.code, uuid: crypto.randomUUID(), name: "Sen", icon: "" });
+  assert((await mlate.next("joinResult")).ok === false, "no joining a solved board");
+  mhost.send({ type: "hostEndLobby", teacherSession: token, code: mem.code });
+  await msockets[0].next("ended");
+
+  // A memory game ended half way still pays for the answers.
+  mhost.send({ type: "hostCreateMemory", teacherSession: token, settings: { size: "medium" } });
+  const mem2 = await mhost.next("memoryState");
+  assert(mem2.memory.cards.length === 16, "a medium board has 16 cards");
+  const quitter = crypto.randomUUID();
+  const q = client();
+  await q.open();
+  q.send({ type: "joinLobby", code: mem2.code, uuid: quitter, name: "Halv", icon: "" });
+  await q.next("joinResult");
+  mhost.send({ type: "hostStartMemory", teacherSession: token, code: mem2.code });
+  await mhost.next("memoryState");
+  q.send({ type: "answer", code: mem2.code, uuid: quitter });
+  await mhost.next("memoryAnswer");
+  mhost.send({ type: "hostEndLobby", teacherSession: token, code: mem2.code });
+  await mhost.next("lobbyEnded");
+  const halfPrizes = (await j(`/bingo/claim-prizes?uuid=${quitter}`)).body.prizes;
+  assert(halfPrizes.length === 1 && halfPrizes[0].type === "coins" && halfPrizes[0].amount === 25, "an unfinished board with no pair found pays only coins");
+  for (const c of [mhost, mlate, q, ...msockets]) c.ws.close();
 
   // The login gate: x-dev-anonymous makes a request logged out, as on the real site.
   const anon = { "x-dev-anonymous": "1" };

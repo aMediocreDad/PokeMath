@@ -1,6 +1,7 @@
-// The player's side of the class games, ported from static/bingo_client_live.js: bingo and the
-// raid (worker/raid.js) share one lobby code. Joins the lobby whose code bingo_join.html stored,
-// reports catches (bingo) or correct answers (raid), and claims prizes.
+// The player's side of the class games, ported from static/bingo_client_live.js: bingo, the
+// raid (worker/raid.js) and memory (worker/memory.js) share one lobby code. Joins the lobby whose
+// code bingo_join.html stored, reports catches (bingo) or correct answers (raid, memory), and
+// claims prizes.
 import { goto } from '$app/navigation';
 import { player } from '#lib/player.svelte.js';
 import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
@@ -78,13 +79,19 @@ const PRIZES_GIVEN = 'bingoPrizesGiven';
 
 /** @typedef {{ phase: 'lobby' | 'fight' | 'won', hp: number, maxHp: number, bossId: number }} RaidState */
 /** @typedef {{ phase: 'lobby' | 'play' }} BingoState */
+/**
+ * A face-down card has no id. `pool` answers of `turnCost` fill the meter towards the next turn.
+ * @typedef {{ phase: 'lobby' | 'play' | 'won', size: string, cards: { id: number | null, matched: boolean }[], open: number[],
+ *   pool: number, turnCost: number, turns: number, found: number, pairs: number }} MemoryState
+ */
+/** @typedef {{ kind: 'bingo', state: BingoState } | { kind: 'raid', state: RaidState } | { kind: 'memory', state: MemoryState }} ClassGame */
 
 /**
  * @param {object} handlers
  * @param {(prizes: Prize[]) => void} handlers.onPrizes  Prizes from a finished game, to give the player.
  * @param {(code: string) => void} handlers.onCodeChange  The lobby code changed ('' when it ended).
  * @param {(message: string, duration: number, position: string) => void} handlers.onAdminPopup
- * @param {(game: { kind: 'bingo', state: BingoState } | { kind: 'raid', state: RaidState }) => void} [handlers.onGame]
+ * @param {(game: ClassGame) => void} [handlers.onGame]
  *   The lobby was joined, or the game moved on (started, hit, won).
  */
 export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
@@ -208,7 +215,9 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 			if (msg.type === 'joinResult') {
 				if (msg.ok) {
 					joinedOk = true;
-					onGame?.(msg.kind === 'raid' ? { kind: 'raid', state: msg.raid } : { kind: 'bingo', state: msg.bingo ?? { phase: 'play' } });
+					if (msg.kind === 'raid') onGame?.({ kind: 'raid', state: msg.raid });
+					else if (msg.kind === 'memory') onGame?.({ kind: 'memory', state: msg.memory });
+					else onGame?.({ kind: 'bingo', state: msg.bingo ?? { phase: 'play' } });
 				} else {
 					forgetCode();
 					ws?.close();
@@ -218,11 +227,14 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 				ws?.close();
 			} else if (msg.type === 'raidUpdate') {
 				onGame?.({ kind: 'raid', state: msg.raid });
+			} else if (msg.type === 'memoryUpdate') {
+				onGame?.({ kind: 'memory', state: msg.memory });
 			} else if (msg.type === 'bingoUpdate') {
 				onGame?.({ kind: 'bingo', state: msg.bingo });
 			} else if (msg.type === 'finished') {
-				// The bingo locked or the boss fell: take the prizes, then leave, so the page stops
-				// showing a game that is over. The teacher's screen keeps it until they end it.
+				// The bingo locked, the boss fell or the board is solved: take the prizes, then leave,
+				// so the page stops showing a game that is over. The teacher's screen keeps it until
+				// they end it.
 				setTimeout(async () => {
 					await claimPrizes();
 					// Forget first, or the socket's close would reconnect to the old code.
@@ -277,10 +289,10 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame }) {
 			if (!code || !info.pokemonCode) return false;
 			return send({ type: 'catchPokemon', code, uuid: await uuid(), name: playerName(), ...info });
 		},
-		/** A correct answer: one hit on the raid boss. The server ignores it outside a raid fight. */
+		/** A correct answer: a hit on the raid boss, or towards memory's next turn. Bingo ignores it. */
 		async reportHit() {
 			const code = await ready();
-			return code ? send({ type: 'raidHit', code, uuid: await uuid() }) : false;
+			return code ? send({ type: 'answer', code, uuid: await uuid() }) : false;
 		},
 		stop() {
 			stopped = true;

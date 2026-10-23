@@ -1,8 +1,8 @@
 <script>
 	// The teacher start page, ported from static/lærer/index.html and teacher.js, in three parts:
-	// the games a teacher runs for the class (bingo so far; GAMES takes more), the children's login
-	// codes, and the shared secret codes. The email login is the teacher login, so there is nothing
-	// to register or log in to here.
+	// the games a teacher runs for the class (bingo, raid and memory; `games` takes more), the
+	// children's login codes, and the shared secret codes. The email login is the teacher login, so
+	// there is nothing to register or log in to here.
 	import { onMount } from 'svelte';
 	import TeacherPage from '#lib/TeacherPage.svelte';
 	import { apiJson, authHeaders, ensureTeacher } from '#lib/teacher.js';
@@ -17,6 +17,7 @@
 	/** The lobby the host page is running, so the teacher can go back to it. */
 	let savedBingoCode = $state('');
 	let savedRaidCode = $state('');
+	let savedMemoryCode = $state('');
 
 	onMount(async () => {
 		teacher = await ensureTeacher();
@@ -24,6 +25,7 @@
 		checked = true;
 		savedBingoCode = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 		savedRaidCode = (localStorage.getItem('teacherRaidCode') || '').toUpperCase().trim();
+		savedMemoryCode = (localStorage.getItem('teacherMemoryCode') || '').toUpperCase().trim();
 	});
 
 	/**
@@ -45,6 +47,13 @@
 			about: 'Hele klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff, og alle fanger den til slutt.',
 			start: '/lærer/raid.html',
 			resume: savedRaidCode.length === 6 ? { href: '/lærer/raid.html', label: `Fortsett raid ${savedRaidCode}` } : undefined
+		},
+		{
+			id: 'memory',
+			name: 'Memory',
+			about: 'Pokémon-par ligger med bildet ned på tavla. Riktige svar gir klassen trekk, og når alle parene er funnet, får alle en av dem.',
+			start: '/lærer/memory.html',
+			resume: savedMemoryCode.length === 6 ? { href: '/lærer/memory.html', label: `Fortsett memory ${savedMemoryCode}` } : undefined
 		}
 	]);
 

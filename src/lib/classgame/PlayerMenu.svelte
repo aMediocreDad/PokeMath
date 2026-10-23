@@ -1,6 +1,6 @@
 <script>
 	// The teacher's tools for one child in a class game: kick out, ask for a new name, or set one.
-	// The server handles these the same way for bingo and raid.
+	// The server handles these the same way for every class game.
 	/** @typedef {{ uuid?: string, name?: string }} Player */
 	/**
 	 * @type {{

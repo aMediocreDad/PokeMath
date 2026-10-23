@@ -37,11 +37,11 @@
 	let winScore = $state(5);
 	/** @type {(import('#lib/game/problems.js').Problem & { startedAt?: number }) | null} */
 	let problem = $state(null);
-	/** The class game this page reports to (bingo or raid), or '' outside one. */
+	/** The class game this page reports to (bingo, raid or memory), or '' outside one. */
 	let bingoCode = $state('');
 	/** @type {Parameters<NonNullable<Parameters<typeof startBingo>[0]['onGame']>>[0] | null} The game behind the code, once the lobby answered. */
 	let classGame = $state(null);
-	/** Setups that only pretend to be a level (see setupGame) do not hit the raid boss. */
+	/** Setups that only pretend to be a level (see setupGame) do not count in a raid or memory. */
 	let cheated = false;
 	let answer = $state('');
 	/** @type {HTMLInputElement | undefined} */
@@ -540,7 +540,8 @@
 			onGame: (game) => {
 				const was = classGame?.state.phase;
 				if (game.kind === 'raid' && was !== 'won' && game.state.phase === 'won') toast(`Dere klarte det! ${raidBoss} er beseiret!`);
-				if (was === 'lobby' && game.state.phase !== 'lobby') toast(game.kind === 'raid' ? 'Raidet har startet!' : 'Bingoen har startet!');
+				if (game.kind === 'memory' && was !== 'won' && game.state.phase === 'won') toast('Dere fant alle parene!');
+				if (was === 'lobby' && game.state.phase !== 'lobby') toast({ raid: 'Raidet har startet!', memory: 'Memory har startet!', bingo: 'Bingoen har startet!' }[game.kind]);
 				classGame = game;
 			},
 			onAdminPopup: (message, duration, position) => {

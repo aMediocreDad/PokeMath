@@ -1,32 +1,44 @@
 <script>
-	// The class game the child is in (bingo or raid), above the problem on the game page. One look
-	// for both games: the game and its code or boss, then what happens now. Tapping it leads to the
-	// join page, to leave or switch.
+	// The class game the child is in (bingo, raid or memory), above the problem on the game page.
+	// One look for all of them: the game and its code or boss, then what happens now. Tapping it
+	// leads to the join page, to leave or switch.
 
 	/**
 	 * @type {{
 	 *   code: string,
-	 *   game: { kind: 'bingo', state: import('#lib/bingo.js').BingoState } | { kind: 'raid', state: import('#lib/bingo.js').RaidState } | null,
+	 *   game: import('#lib/bingo.js').ClassGame | null,
 	 *   bossName: string
 	 * }}
 	 */
 	let { code, game, bossName } = $props();
 
-	const raid = $derived(game?.kind === 'raid' ? game.state : null);
-	const title = $derived(game?.kind === 'raid' ? `Raid · ${bossName}` : game?.kind === 'bingo' ? `Bingo · ${code}` : `Klassespill · ${code}`);
+	const TITLES = { raid: () => `Raid · ${bossName}`, memory: () => `Memory · ${code}`, bingo: () => `Bingo · ${code}` };
+	const title = $derived(game ? TITLES[game.kind]() : `Klassespill · ${code}`);
+	/** How full the bar under the title is, 0–1, or null for no bar. */
+	const bar = $derived.by(() => {
+		if (!game || game.state.phase === 'lobby') return null;
+		if (game.kind === 'raid') return game.state.hp / Math.max(1, game.state.maxHp);
+		if (game.kind === 'memory') return game.state.found / Math.max(1, game.state.pairs);
+		return null;
+	});
 	const note = $derived.by(() => {
 		if (!game) return 'Kobler til…';
 		if (game.state.phase === 'lobby') return 'Venter på at læreren starter';
 		if (game.kind === 'bingo') return 'Fangstene dine teller på brettet';
+		if (game.kind === 'memory') {
+			const { phase, found, pairs, turns } = game.state;
+			if (phase === 'won') return 'Alle parene er funnet! Premien kommer.';
+			return `${found} av ${pairs} par funnet · ${turns ? 'Klassen har et trekk!' : 'Svar riktig for å få et trekk'}`;
+		}
 		const { phase, hp, maxHp } = game.state;
 		return phase === 'won' ? 'Beseiret! Premien kommer.' : `${hp} / ${maxHp} liv igjen`;
 	});
 </script>
 
-<a class="banner" id={game?.kind === 'raid' ? 'raidIndicator' : 'bingoIndicator'} href="/bingo_join.html">
+<a class="banner" id={game?.kind === 'raid' ? 'raidIndicator' : game?.kind === 'memory' ? 'memoryIndicator' : 'bingoIndicator'} href="/bingo_join.html">
 	<span class="title">{title}</span>
-	{#if raid && raid.phase !== 'lobby'}
-		<span class="bar" aria-hidden="true"><span style:width="{(100 * raid.hp) / Math.max(1, raid.maxHp)}%"></span></span>
+	{#if bar !== null}
+		<span class="bar" class:found={game?.kind === 'memory'} aria-hidden="true"><span style:width="{100 * bar}%"></span></span>
 	{/if}
 	<span class="note">{note}</span>
 </a>
@@ -63,6 +75,9 @@
 		border-radius: inherit;
 		background: var(--pm-red);
 		transition: width 300ms ease;
+	}
+	.bar.found span {
+		background: var(--pm-gold);
 	}
 	.note {
 		font-size: 14px;

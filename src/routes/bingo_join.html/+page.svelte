@@ -1,5 +1,5 @@
 <script>
-	// Joining the teacher's class game (bingo or raid), ported from static/bingo_join.html. The code
+	// Joining the teacher's class game (bingo, raid or memory), ported from static/bingo_join.html. The code
 	// is stored under bingoJoinedCode (and the older bingoCode); the game page connects from there.
 	// Both games share the code, so this page does not need to know which one it is.
 	import { onMount } from 'svelte';
@@ -205,6 +205,7 @@
 			<li>Du blir med i spillet læreren styrer, og spiller PokéMath som vanlig.</li>
 			<li><b>Bingo:</b> Pokémon du fanger, sendes til bingobrettet. Passer fangsten en rute, krysses den av.</li>
 			<li><b>Raid:</b> hvert riktige svar er et treff på bossen. Når den er beseiret, fanger alle som var med den.</li>
+			<li><b>Memory:</b> riktige svar gir klassen trekk på tavla. Når alle parene er funnet, fanger alle som var med en av Pokémonene.</li>
 		</ul>
 		<details class="small uuid">
 			<summary>Teknisk informasjon</summary>

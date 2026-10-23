@@ -1,10 +1,11 @@
-// Screenshots of the class-game teacher screens at phone and desktop size: the bingo and raid
-// setups and waiting rooms. Run against tests/serve-worker.sh. Usage: node tests/class-game-shots.mjs <outdir>
+// Screenshots of the class-game screens at phone and desktop size: the teacher page's game list,
+// the bingo, raid and memory setups and waiting rooms, and the children's join page. Run against
+// tests/serve-worker.sh. Usage: node tests/class-game-shots.mjs <outdir>
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
-const BASE = 'http://localhost:3123';
+const BASE = process.env.BASE || 'http://localhost:3123';
 const OUT = process.argv[2] || '.';
 
 const browser = muteAudio(await webkit.launch());
@@ -15,6 +16,10 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 		const px = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 		console.log(px > 0 ? 'FAIL' : 'PASS', `${name} (${size}) fits`, px > 0 ? `${px}px too wide` : '');
 	};
+	await page.goto(BASE + '/lærer/index.html');
+	await page.locator('#game-memory').waitFor();
+	await page.screenshot({ path: `${OUT}/teacher-games-${size}.png`, fullPage: true });
+	await overflow('teacher page');
 	await page.goto(BASE + '/lærer/bingo_host.html');
 	await page.locator('#bingoSetup').waitFor();
 	await page.screenshot({ path: `${OUT}/bingo-setup-${size}.png`, fullPage: true });
@@ -35,5 +40,19 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 	await page.screenshot({ path: `${OUT}/raid-lobby-${size}.png`, fullPage: true });
 	await overflow('raid waiting room');
 	await page.click('#cancelGameBtn');
+	await page.goto(BASE + '/lærer/memory.html');
+	await page.locator('#memorySetup').waitFor();
+	await page.screenshot({ path: `${OUT}/memory-setup-${size}.png`, fullPage: true });
+	await overflow('memory setup');
+	await page.click('#createMemoryBtn');
+	await page.locator('#lobby').waitFor();
+	await page.waitForTimeout(500);
+	await page.screenshot({ path: `${OUT}/memory-lobby-${size}.png`, fullPage: true });
+	await overflow('memory waiting room');
+	await page.click('#cancelGameBtn');
+	await page.goto(BASE + '/bingo_join.html');
+	await page.locator('#code').waitFor();
+	await page.screenshot({ path: `${OUT}/join-${size}.png`, fullPage: true });
+	await overflow('join page');
 }
 await browser.close();

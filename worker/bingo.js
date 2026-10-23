@@ -1,6 +1,7 @@
 // Classroom bingo, ported from dev/bingo.js: the /ws WebSocket used by the teacher's host page
-// and the players' game page, plus /bingo/claim-prizes. The class raid (worker/raid.js) runs
-// in the same object as a room of kind "raid"; bingo-only handlers ignore raid rooms.
+// and the players' game page, plus /bingo/claim-prizes. The class raid (worker/raid.js) and
+// memory (worker/memory.js) run in the same object as rooms of kind "raid" and "memory";
+// bingo-only handlers ignore them.
 //
 // One Durable Object holds every lobby. The client names its lobby only in messages sent after
 // the socket opens, so the Worker cannot pick a lobby's object when the socket connects; at
@@ -9,6 +10,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import bingoTasks from '../static/bingo-tasks.js';
 import { log } from './http.js';
+import { answer, flip, memoryPrizes, memoryState, newMemory, startMemory } from './memory.js';
 import { hit, newRaid, raidPrizes, raidState, startRaid } from './raid.js';
 import { sessionTeacher } from './teacher.js';
 
@@ -49,6 +51,9 @@ const BAD_SESSION = { type: 'error', message: 'Lærerøkten er ugyldig. Logg inn
  * @param {any} room
  */
 const bingoPhase = (room) => room.phase || 'play';
+
+/** A raid or memory game still being played: leaving it now still pays the children. @param {any} room */
+const unfinished = (room) => (room.kind === 'raid' && room.phase === 'fight') || (room.kind === 'memory' && room.phase === 'play');
 
 /** @template T @param {T[]} list @param {number} count */
 const pick = (list, count) => [...list].sort(() => Math.random() - 0.5).slice(0, count);
@@ -241,8 +246,8 @@ export class BingoHub extends DurableObject {
 		let left = 0;
 		for (const [key, room] of await this.ctx.storage.list({ prefix: 'room:' })) {
 			if (now - (room.updatedAt || 0) > ROOM_LIFETIME) {
-				// A raid left mid-fight (the teacher closed the lid) still pays every child for their hits.
-				if (room.kind === 'raid' && room.phase === 'fight') await this.awardRaid(room);
+				// A game left mid-play (the teacher closed the lid) still pays every child for their answers.
+				if (unfinished(room)) await this.award(room);
 				for (const p of this.sockets((w) => w.code === room.code)) send(p, { type: 'ended' });
 				await this.ctx.storage.delete(key);
 				log('bingo', `rom ${room.code} ryddet bort`);
@@ -282,6 +287,7 @@ export class BingoHub extends DurableObject {
 
 	snapshot(room) {
 		if (room.kind === 'raid') return { kind: 'raid', code: room.code, className: room.settings.className || '', players: this.playerList(room), raid: raidState(room), recent: room.recent };
+		if (room.kind === 'memory') return { kind: 'memory', code: room.code, className: room.settings.className || '', players: this.playerList(room), memory: memoryState(room), recent: room.recent };
 		return { kind: 'bingo', code: room.code, phase: bingoPhase(room), board: room.board, className: room.settings.className || '', players: this.playerList(room), totalCatches: room.totalCatches, locked: Boolean(room.locked) };
 	}
 
@@ -340,11 +346,12 @@ export class BingoHub extends DurableObject {
 		this.toPlayers(room.code, { type: 'finished' });
 	}
 
-	/** Store each child's prizes from a finished raid and tell them to claim. @param {any} room */
-	async awardRaid(room) {
+	/** Store each child's prizes from a finished raid or memory game and tell them to claim. @param {any} room */
+	async award(room) {
 		const players = Object.values(room.players).filter((p) => p.catchCount > 0);
+		const prizes = room.kind === 'memory' ? memoryPrizes : raidPrizes;
 		for (const player of players) {
-			await this.addPrizes(player.uuid, raidPrizes(room, player));
+			await this.addPrizes(player.uuid, prizes(room, player));
 			this.toPlayer(room.code, player.uuid, { type: 'bingoReward' });
 		}
 		return players.map((p) => p.name);
@@ -360,7 +367,7 @@ export class BingoHub extends DurableObject {
 
 	/**
 	 * The lobby a host message names, once its teacher session checks out.
-	 * @param {WebSocket} ws @param {any} msg @param {'bingo' | 'raid'} [kind] only a lobby of this kind
+	 * @param {WebSocket} ws @param {any} msg @param {'bingo' | 'raid' | 'memory'} [kind] only a lobby of this kind
 	 */
 	async hostRoom(ws, msg, kind) {
 		if (!(await sessionTeacher(this.env, msg.teacherSession))) {
@@ -392,7 +399,8 @@ const HANDLERS = {
 		const room = await this.room(msg.code);
 		if (!room) return send(ws, { type: 'lobbyNotFound', code: msg.code });
 		ws.serializeAttachment({ role: 'host', code: room.code });
-		send(ws, { type: room.kind === 'raid' ? 'raidState' : 'lobbyState', ...this.snapshot(room), events: room.events });
+		const type = room.kind === 'raid' ? 'raidState' : room.kind === 'memory' ? 'memoryState' : 'lobbyState';
+		send(ws, { type, ...this.snapshot(room), events: room.events });
 	},
 
 	async hostStartBingo(ws, msg) {
@@ -427,8 +435,8 @@ const HANDLERS = {
 	async hostEndLobby(ws, msg) {
 		const room = await this.hostRoom(ws, msg);
 		if (!room) return;
-		// A raid ended before the boss fell still pays every child for their hits.
-		if (room.kind === 'raid' && room.phase === 'fight') await this.awardRaid(room);
+		// A raid ended before the boss fell, or a board left half done, still pays every child.
+		if (unfinished(room)) await this.award(room);
 		for (const p of this.sockets((w) => w.role === 'player' && w.code === room.code)) send(p, { type: 'ended' });
 		await this.ctx.storage.delete(`room:${room.code}`);
 		// The host forgets the room only on this, so an End lost on a dropped connection shows.
@@ -494,7 +502,8 @@ const HANDLERS = {
 		send(ws, {
 			type: 'joinResult', ok: true, kind: room.kind || 'bingo',
 			raid: room.kind === 'raid' ? raidState(room) : undefined,
-			bingo: room.kind === 'raid' ? undefined : { phase: bingoPhase(room) },
+			memory: room.kind === 'memory' ? memoryState(room) : undefined,
+			bingo: room.kind ? undefined : { phase: bingoPhase(room) },
 		});
 		if (existing?.renamedByHost && existing.name !== name) send(ws, { type: 'nameChanged', name: existing.name });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
@@ -503,8 +512,9 @@ const HANDLERS = {
 	async catchPokemon(_ws, msg) {
 		const room = await this.room(msg.code);
 		const player = room?.players[msg.uuid];
-		// Children in a raid catch Pokémon too; only their correct answers count there (raidHit).
-		if (!room || !player || room.locked || room.kind === 'raid') return;
+		// Children in a raid or memory game catch Pokémon too; only their correct answers count
+		// there (answer).
+		if (!room || !player || room.locked || (room.kind && room.kind !== 'bingo')) return;
 		// Before the start, catches count for nobody: the class is still joining.
 		if (bingoPhase(room) !== 'play') return;
 
@@ -570,11 +580,13 @@ const HANDLERS = {
 
 	// Only storage calls may be awaited between reading and saving the room: the object's input
 	// gate then keeps two hits from interleaving, so none is lost and the win is awarded once.
-	async raidHit(_ws, msg) {
+	async raidHit(ws, msg) {
 		const room = await this.room(msg.code);
+		// Pages from before the memory game call every correct answer a raid hit.
+		if (room?.kind === 'memory') return HANDLERS.answer.call(this, ws, msg);
 		if (room?.kind !== 'raid' || !hit(room, msg.uuid, Date.now())) return;
 		const won = room.phase === 'won';
-		const winners = won ? await this.awardRaid(room) : [];
+		const winners = won ? await this.award(room) : [];
 		await this.saveRoom(room);
 		const player = room.players[msg.uuid];
 		this.toHosts(room.code, { type: 'raidHit', name: player.name, uuid: player.uuid, raid: raidState(room), players: this.playerList(room) });
@@ -582,6 +594,54 @@ const HANDLERS = {
 		if (won) {
 			log('raid', `raid ${room.code} vunnet av ${winners.length}`);
 			this.toHosts(room.code, { type: 'raidWon', raid: raidState(room), winners });
+			this.toPlayers(room.code, { type: 'finished' });
+		}
+	},
+
+	/** A correct answer on a child's game page, in whichever game the code is. */
+	async answer(ws, msg) {
+		const room = await this.room(msg.code);
+		if (room?.kind === 'raid') return HANDLERS.raidHit.call(this, ws, msg);
+		if (room?.kind !== 'memory' || !answer(room, msg.uuid, Date.now())) return;
+		await this.saveRoom(room);
+		const player = room.players[msg.uuid];
+		this.toHosts(room.code, { type: 'memoryAnswer', name: player.name, uuid: player.uuid, memory: memoryState(room), players: this.playerList(room) });
+		this.toPlayers(room.code, { type: 'memoryUpdate', memory: memoryState(room) });
+	},
+
+	// ── Memory ──
+
+	async hostCreateMemory(ws, msg) {
+		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
+		const room = newMemory(msg.settings || {}, await this.makeCode());
+		await this.saveRoom(room);
+		ws.serializeAttachment({ role: 'host', code: room.code });
+		log('memory', `memory ${room.code} opprettet (${room.cards.length} kort)`);
+		send(ws, { type: 'memoryState', ...this.snapshot(room) });
+	},
+
+	async hostStartMemory(ws, msg) {
+		const room = await this.hostRoom(ws, msg, 'memory');
+		if (!room || room.phase !== 'lobby') return;
+		startMemory(room);
+		await this.saveRoom(room);
+		log('memory', `memory ${room.code} startet, ${room.turnCost} svar per trekk`);
+		this.toHosts(room.code, { type: 'memoryState', ...this.snapshot(room) });
+		this.toPlayers(room.code, { type: 'memoryUpdate', memory: memoryState(room) });
+	},
+
+	async hostMemoryFlip(ws, msg) {
+		const room = await this.hostRoom(ws, msg, 'memory');
+		const result = room && flip(room, msg.index);
+		if (!result) return;
+		const won = room.phase === 'won';
+		const winners = won ? await this.award(room) : [];
+		await this.saveRoom(room);
+		this.toHosts(room.code, { type: 'memoryFlip', index: Number(msg.index), result, memory: memoryState(room) });
+		if (result !== 'first') this.toPlayers(room.code, { type: 'memoryUpdate', memory: memoryState(room) });
+		if (won) {
+			log('memory', `memory ${room.code} løst av ${winners.length}`);
+			this.toHosts(room.code, { type: 'memoryWon', memory: memoryState(room), winners });
 			this.toPlayers(room.code, { type: 'finished' });
 		}
 	},

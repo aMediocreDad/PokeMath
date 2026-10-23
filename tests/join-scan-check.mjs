@@ -7,7 +7,7 @@ import QRCode from 'qrcode';
 import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
-const BASE = 'http://localhost:3123';
+const BASE = process.env.BASE || 'http://localhost:3123';
 const OUT = process.argv[2];
 const results = [];
 const check = (name, ok, detail = '') => {
