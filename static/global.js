@@ -433,7 +433,7 @@ function saveAll(){
 
   const sanitizedPokemonList = state.pkmnList.filter(pokemon => pokemon.trim() !== "");
   window.localStorage.setItem('pokemonlist', sanitizedPokemonList.join('|'));
-  
+
   window.localStorage.setItem('username', state.username || "Ash");
 
   if(true) {
@@ -674,7 +674,7 @@ function generateUUID() {
 async function uploadUserStats() {
     let uuid = localStorage.getItem("UUID");
     let token = localStorage.getItem("token");
-  
+
     if (!uuid || !token) {
       console.log("UUID or token missing. Attempting to get or create UUID and token.");
       const newCredentials = await getOrCreateUUID();
@@ -682,7 +682,7 @@ async function uploadUserStats() {
       uuid = newCredentials.uuid;
       token = newCredentials.token;
     }
-  
+
     if (state.pkmnCaught < 25) {
       console.log("Cannot upload stats: Less than 25 Pokémon caught.");
       return;
@@ -694,7 +694,7 @@ async function uploadUserStats() {
       console.log(`Username "${state.username}" is not allowed for upload yet.`);
       return;
     }
-  
+
     const payload = {
       uuid,
       token,
@@ -723,7 +723,7 @@ async function uploadUserStats() {
         coinLevel: shopOptions.coinLevel,
       },
     };
-  
+
     try {
       const response = await fetch(`${window.location.protocol}//${window.location.host}/update-user-stats`, {
         method: "POST",
@@ -741,7 +741,7 @@ async function uploadUserStats() {
         localStorage.setItem("token", newCredentials.token);
         return uploadUserStats(); // Retry with refreshed token
       }
-  
+
       const result = await response.json();
       if (response.ok) {
         console.log("User stats updated successfully:", result);
@@ -805,11 +805,11 @@ function cleanupCorruptedData() {
 
 function loadAll() {
   //Log to console
-  console.log('%cPokeMath!', 'color: black; background: red; font-size: 30px; padding: 10px');
-  console.log('%cVi er klar over at det er mulig å endre på egne verdier for å jukse i PokeMath. Dette er en svakhet ved at vi lagrer all spillerdata på brukerens maskin, istedet for å samle det inn til en server, men det er tryggere for brukeren med GDPR i fokus.', 'color: black; font-size: 20px; padding: 10px');
+  console.log('%cPokémath!', 'color: black; background: red; font-size: 30px; padding: 10px');
+  console.log('%cVi er klar over at det er mulig å endre på egne verdier for å jukse i Pokémath. Dette er en svakhet ved at vi lagrer all spillerdata på brukerens maskin, istedet for å samle det inn til en server, men det er tryggere for brukeren med GDPR i fokus.', 'color: black; font-size: 20px; padding: 10px');
   console.log('%cHvis du er her for å jukse til deg pokemon så skal vi ikke prøve å stoppe deg, men vit at å jukse i et spill vil ødelegge mye av motivasjonen du får ellers. Du ender altså bare opp med å ødelegge for deg selv. Hvis du finner ut av noen av våre hemmeligheter (f.eks lukene i julekalender eller andre events) så setter vi pris på om du klarer å holde det hemmelig for klassekammeratene dine!', 'color: black; font-size: 20px; padding: 10px');
-  console.log('%cDu kan finne all kildekoden til PokeMath på vår GitHub side (se Kontakt Oss). Det er litt lettere å lese seg frem der, enn i nettleserens Developer Tools. Ønsker du å bidra til prosjektet så er det stedet å starte! Finner du bugs, eller sikkerhetshull, så ikke nøl med å kontakte oss.', 'color: black; font-size: 20px; padding: 10px');
-  
+  console.log('%cDu kan finne all kildekoden til Pokémath på vår GitHub side (se Kontakt Oss). Det er litt lettere å lese seg frem der, enn i nettleserens Developer Tools. Ønsker du å bidra til prosjektet så er det stedet å starte! Finner du bugs, eller sikkerhetshull, så ikke nøl med å kontakte oss.', 'color: black; font-size: 20px; padding: 10px');
+
   //See if cookies are consented
   if(checkACookieExists("cookies")) {
     const cookiePolicy = document.getElementById("cookie-container");
@@ -848,7 +848,7 @@ function loadAll() {
     window.localStorage.setItem('username', "Ash")
   } else if(state.username.length < 1){
     state.username = "Ash";
-  
+
   }
   document.getElementById("cointext").dataset.total = state.totalScore;
   document.getElementById("balltext").textContent = state.pkmnCaught;
@@ -1033,8 +1033,8 @@ window.acceptCookies = function() {
 };
 
 window.addEventListener( "pageshow", function ( event ) {
-  var historyTraversal = event.persisted || 
-                         ( typeof window.performance != "undefined" && 
+  var historyTraversal = event.persisted ||
+                         ( typeof window.performance != "undefined" &&
                          window.performance.getEntriesByType("navigation")[0].type === "back_forward" );
   if ( historyTraversal ) {
     // Handle page restore.
@@ -1129,7 +1129,7 @@ function progressTypeAchievement(type) {
   let id = 1;
   //log(type + " was submitted.")
   switch (type) {
-    case "normal": 
+    case "normal":
       id = 1;
       break;
     case "fire":
@@ -1198,7 +1198,7 @@ if (storedAchievements) {
     storedAchievements.version = '1.1';
     // Perform any other necessary migrations here
   }
-  
+
   // After migrations, update the stored achievements in localStorage
   localStorage.setItem('badges', JSON.stringify(storedAchievements));
 
@@ -1229,7 +1229,7 @@ if (achievementGrid) {
             </div>
         `;
         achievementGrid.appendChild(achievementDiv);
-        
+
         // Add event listener for click
         achievementDiv.addEventListener('click', () => {
             achievementDiv.classList.toggle('active');
@@ -1264,20 +1264,20 @@ function updateProgressDisplay(achievement) {
 
 function triggerAchievementOverlay(imagePath, text) {
   const notificationContainer = document.getElementById('notification-container');
-  
+
   // Create the notification element
   const notification = document.createElement('div');
   notification.className = 'notification';
-  
+
   // Add the image and text to the notification
   notification.innerHTML = `
       <img src="${imagePath}" alt="${text}" width="250">
       <p>${text}</p>
   `;
-  
+
   // Append the notification to the container
   notificationContainer.appendChild(notification);
-  
+
   // Remove the notification after the animation completes
   setTimeout(() => notificationContainer.removeChild(notification), 8000);
 }
@@ -1285,20 +1285,20 @@ function triggerAchievementOverlay(imagePath, text) {
 // Function to display achievement notifications
 function notifyAchievement(achievement) {
   const notificationContainer = document.getElementById('notification-container');
-  
+
   // Create the notification element
   const notification = document.createElement('div');
   notification.className = 'notification';
-  
+
   // Add the badge image and achievement name to the notification
   notification.innerHTML = `
       <img src="/images/badges/${achievement.id}.png" alt="${achievement.name}" width="250">
       <p>Merke Låst Opp: ${achievement.name}</p>
   `;
-  
+
   // Append the notification to the container
   notificationContainer.appendChild(notification);
-  
+
   // Remove the notification after the animation completes
   setTimeout(() => notificationContainer.removeChild(notification), 8000);
 }

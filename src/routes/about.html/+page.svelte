@@ -172,7 +172,7 @@
 		<p>Hvilke hemmelige koder du har brukt, lagres i spillet, og dermed også i skylagringen.</p>
 		<p>
 			Cloudflare fører i tillegg tekniske logger over forespørsler en kort periode, til feilsøking. Loggene kan
-			inneholde brukernavn og e-postadresse.
+			inneholde brukernavn og e-postadresse (om denne er brukt til å logge inn).
 		</p>
 
 		<h3>Tredjeparter</h3>

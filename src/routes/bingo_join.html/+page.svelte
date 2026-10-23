@@ -27,7 +27,7 @@
 			localStorage.setItem('__pm_bw__', '1');
 			localStorage.removeItem('__pm_bw__');
 		} catch {
-			return { title: 'Privat surfing er på', body: 'Nettleseren din blokkerer lagring i privat modus. Åpne et vanlig nettleservindu og gå til PokeMath der.', canOpen: false };
+			return { title: 'Privat surfing er på', body: 'Nettleseren din blokkerer lagring i privat modus. Åpne et vanlig nettleservindu og gå til Pokémath der.', canOpen: false };
 		}
 		const hasPlayerData =
 			['uuid', 'user_uuid', 'pokemath_uuid'].some((key) => isUuidLike(localStorage.getItem(key))) || !!(localStorage.getItem('username') || '').trim();
@@ -40,7 +40,7 @@
 			const codeHint = urlCode ? ` Koden du skal skrive inn er: ${urlCode.toUpperCase()}.` : '';
 			return {
 				title: 'Feil adresse – data ikke tilgjengelig',
-				body: `QR-koden peker til en lokal nettverksadresse (${location.host}), men PokeMath-dataen din er lagret på den vanlige adressen til siden. Bytt til PokeMath-fanen din og skriv inn koden manuelt der.${codeHint}`,
+				body: `QR-koden peker til en lokal nettverksadresse (${location.host}), men Pokémath-dataen din er lagret på den vanlige adressen til siden. Bytt til Pokémath-fanen din og skriv inn koden manuelt der.${codeHint}`,
 				canOpen: false
 			};
 		}
@@ -48,7 +48,7 @@
 		if (!isIOS) return null;
 		return {
 			title: 'Data ikke tilgjengelig i denne fanen',
-			body: 'Siden ble åpnet i en isolert nettleserkontekst (skjer ofte når QR-koder skannes med kameraet). PokeMath-dataen din ligger i en annen fane. Trykk «Åpne i nettleser» for å åpne siden på nytt med tilgang til profilen din, eller kopier lenken og lim den inn i adressefeltet.',
+			body: 'Siden ble åpnet i en isolert nettleserkontekst (skjer ofte når QR-koder skannes med kameraet). Pokémath-dataen din ligger i en annen fane. Trykk «Åpne i nettleser» for å åpne siden på nytt med tilgang til profilen din, eller kopier lenken og lim den inn i adressefeltet.',
 			canOpen: true
 		};
 	}
@@ -172,7 +172,7 @@
 		<p id="status" class="status {status.kind}" role="status">{status.msg}</p>
 		<div class="meta">
 			<p>Du spiller som <b id="studentOut">{student}</b>.</p>
-			{#if student === 'Ash'}<p class="small">Navnet hentes fra PokeMath. Sett et brukernavn på <a href="/player_profile.html">profilen din</a>.</p>{/if}
+			{#if student === 'Ash'}<p class="small">Navnet hentes fra Pokémath. Sett et brukernavn på <a href="/player_profile.html">profilen din</a>.</p>{/if}
 		</div>
 	</section>
 	<section class="how pm-surface">

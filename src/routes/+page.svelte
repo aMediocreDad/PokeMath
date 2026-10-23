@@ -81,7 +81,7 @@
 <div class="main home">
 	<noscript>
 		<p class="noscript">
-			JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
+			JavaScript er ikke aktivert! Pokémath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
 			skru på JavaScript <a href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
 				>her (microsoft.com)</a
 			>.

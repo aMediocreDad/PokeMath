@@ -61,7 +61,7 @@
 </script>
 
 <svelte:head>
-	<title>PokeMath Bingo – Innstillinger</title>
+	<title>Pokémath Bingo – Innstillinger</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 

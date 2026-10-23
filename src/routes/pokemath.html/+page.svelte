@@ -562,7 +562,7 @@
 <div class="main game">
 	<noscript>
 		<p class="noscript">
-			JavaScript er ikke aktivert! PokeMath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
+			JavaScript er ikke aktivert! Pokémath trenger å bruke JavaScript for å fungere. Du kan lese mer om hvordan man kan
 			skru på JavaScript <a href="https://support.microsoft.com/nb-no/office/aktivere-javascript-7bb9ee74-6a9e-4dd1-babf-b0a1bb136361"
 				>her (microsoft.com)</a
 			>.
@@ -681,13 +681,13 @@
 {#if aprilNoteOpen}
 	<div class="april" role="dialog" aria-modal="true" aria-labelledby="april-title">
 		<div class="april-box pm-surface">
-			<p class="april-kicker">Viktig melding fra PokeMath</p>
+			<p class="april-kicker">Viktig melding fra Pokémath</p>
 			<h2 id="april-title">Banebrytende forskning endrer måten vi løser matte på</h2>
 			<p>
 				Forskere ved University of Wollongong i Australia har nylig dokumentert at å løse matteoppgaver <strong>opp-ned</strong> øker
 				aktiviteten i prefrontal cortex med <strong>340%</strong>, og resulterer i signifikant forbedret Pokémon-fangstrate.
 			</p>
-			<p>PokeMath tar forskning på alvor og har implementert dette funnet med umiddelbar virkning. Vi beklager eventuelle ulemper.</p>
+			<p>Pokémath tar forskning på alvor og har implementert dette funnet med umiddelbar virkning. Vi beklager eventuelle ulemper.</p>
 			<p class="april-source">Kilde: Journal of Inverted Mathematics, vol. 4, s. 1 (2025)</p>
 			<button
 				id="af-close"

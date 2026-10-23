@@ -506,7 +506,7 @@
 </script>
 
 <svelte:head>
-	<title>PokeMath – Bingo</title>
+	<title>Pokémath – Bingo</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 

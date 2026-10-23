@@ -60,7 +60,7 @@
 			<p> En ting du kan gjøre, om du opplever at du hele tiden mister alt du har, er å ta i bruk <ins><a href="./saveandload.html">lagre og last opp</a></ins> funksjonen.</p>
 		</div>
 	</div>
-	  
+
 	  <div class="faq-question">
 		<input id="q2" type="checkbox" class="panel">
 		<div class="plus" aria-hidden="true">+</div>
@@ -71,13 +71,13 @@
 			</p>
 		</div>
 	  </div>
-	  
+
 	  <div class="faq-question">
 		<input id="q3" type="checkbox" class="panel">
 		<div class="plus" aria-hidden="true">+</div>
-		<label for="q3" class="panel-title">Hvordan tjener PokeMath penger?</label>
+		<label for="q3" class="panel-title">Hvordan tjener Pokémath penger?</label>
 		<div class="panel-content">
-			<p>PokeMath tjener ikke penger, med unntak av donasjoner fra lærere og foreldre som setter pris på arbeidet.<br>
+			<p>Pokémath tjener ikke penger, med unntak av donasjoner fra lærere og foreldre som setter pris på arbeidet.<br>
 			Faktisk så taper vi penger på å ha siden oppe, men det er heldigvis ikke mye.</p>
 			<p>Vi betaler ca. 350kr i måneden for å holde siden oppe.<br>
 			Ettersom vi ikke vil ha reklame på nettsiden, og nettsiden ikke koster penger å ta i bruk, så tjener vi ingenting på nettsiden.</p>
@@ -147,7 +147,7 @@
 		<div class="panel-content">
 			<p><strong>OBS: Ta backup av dataen din før du tømmer nettlesercachen!</strong><br>
 			Gå til <a href="./saveandload.html">Lagre / Last inn</a> og last ned en lagringsfil først.</p>
-			<p>Klikk knappen under for å forsøke å tømme nettlesercachen for PokeMath automatisk:</p>
+			<p>Klikk knappen under for å forsøke å tømme nettlesercachen for Pokémath automatisk:</p>
 			<button class="pm-button small secondary" id="clearCacheBtn" onclick={clearCache}>Tøm cache</button>
 			<p id="clearCacheMsg" style="font-style:italic;">{cacheMessage}</p>
 
@@ -157,7 +157,7 @@
 				<li><strong>Mac:</strong> Hold inne <kbd>Cmd</kbd>+<kbd>Shift</kbd> og trykk <kbd>R</kbd></li>
 				<li><strong>iPhone / iPad (Safari):</strong> Gå til Innstillinger → Safari → Tøm historikk og nettstedsdata</li>
 				<li><strong>Android (Chrome):</strong> Trykk på de tre prikkene øverst til høyre → Innstillinger → Personvern → Tøm nettleserdata → velg «Bufrede bilder og filer»</li>
-				<li><strong>Alternativ (alle enheter):</strong> Sett enheten i flymodus → prøv å åpne PokeMath (siden feiler) → slå av flymodus → prøv igjen</li>
+				<li><strong>Alternativ (alle enheter):</strong> Sett enheten i flymodus → prøv å åpne Pokémath (siden feiler) → slå av flymodus → prøv igjen</li>
 			</ul>
 		</div>
 	</div>
