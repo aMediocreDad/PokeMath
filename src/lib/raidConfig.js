@@ -22,8 +22,11 @@ export const LENGTHS = /** @type {const} */ ([
 	['long', 'Lang', 10]
 ]);
 
-/** A hit is the answer divided by this, by level: 42 on level 3 hits for 42, 420 on level 4 too. */
-const DIVISOR = /** @type {Record<number, number>} */ ({ 1: 1, 2: 1, 3: 1, 4: 10, 5: 1000 });
+/**
+ * A hit is the answer times this, by level: 42 on level 3 hits for 42, 420 on level 4 too. Level 1's
+ * answers are small (about 7 on average), so they count half again, to keep its raids on time.
+ */
+const SCALE = /** @type {Record<number, number>} */ ({ 1: 1.5, 2: 1, 3: 1, 4: 0.1, 5: 0.001 });
 /** Every correct answer hits for at least this, so 0·7 counts too. */
 export const MIN_HIT = 1;
 /** Big products cannot end a raid alone. */
@@ -40,7 +43,7 @@ export function damageFor(value, stage) {
 	const answer = Math.abs(Number(value));
 	if (!Number.isFinite(answer)) return AVERAGE_HIT;
 	const level = Math.min(5, Math.max(1, Math.round(Number(stage)) || 3));
-	return Math.min(MAX_HIT, Math.max(MIN_HIT, Math.round(answer / DIVISOR[level])));
+	return Math.min(MAX_HIT, Math.max(MIN_HIT, Math.round(answer * SCALE[level])));
 }
 
 /** The boss's HP for this many children. @param {number} bossId @param {number} children @param {string} length */

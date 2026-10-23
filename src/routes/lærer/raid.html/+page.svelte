@@ -226,7 +226,7 @@
 			<h2>Nytt raid</h2>
 			<p class="muted">
 				Klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar treffer like hardt som svaret: 42 gir 42 i skade. På
-				nivå 4 deles svaret på 10, og på nivå 5 på 1000. Når livet er borte, fanger alle som var med Pokémonen.
+				nivå 1 teller svaret 1,5 ganger, på nivå 4 deles det på 10, og på nivå 5 på 1000. Når livet er borte, fanger alle som var med Pokémonen.
 			</p>
 
 			<h3>Velg boss</h3>
