@@ -1,6 +1,7 @@
 // Screenshot legacy and Svelte game pages at iPad size: playing, and the catch screen.
 // Usage: node game-shots.mjs [base] [date ISO] [prefix]
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
@@ -8,7 +9,7 @@ const DATE = process.argv[3] || "2026-05-12T10:00:00";
 const PREFIX = process.argv[4] || "game";
 const OUT = new URL("./shots/", import.meta.url).pathname;
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 for (const [label, path] of [["legacy", "/pokemath-legacy.html"], ["svelte", "/pokemath.html"]]) {
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

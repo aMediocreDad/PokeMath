@@ -59,7 +59,7 @@
 			choice.className = msg.className || choice.className;
 			hits = (msg.recent || []).map((/** @type {{ name: string }} */ h) => ({ name: h.name, id: hitId++ })).reverse();
 			ready = true;
-		} else if (msg.type === 'lobbyState' || msg.type === 'lobbyNotFound') {
+		} else if (msg.type === 'lobbyEnded' || msg.type === 'lobbyState' || msg.type === 'lobbyNotFound') {
 			// A bingo code, or a raid that has gone: start afresh.
 			forget();
 		} else if (msg.type === 'playersUpdate') {
@@ -100,8 +100,10 @@
 		const fighting = raid?.phase === 'fight';
 		if (fighting && !confirm('Avslutte raidet nå? Barna får mynter for treffene sine, men ikke Pokémonen.')) return;
 		if (raid?.phase === 'lobby' && players.length && !confirm('Avbryte raidet? Barna kobles fra.')) return;
+		// The room is forgotten when the server says it has ended, not before: an End sent on a
+		// dropped connection would leave the children playing and the coins unpaid.
+		if (ws?.readyState !== WebSocket.OPEN) return alert('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.');
 		send({ type: 'hostEndLobby', code });
-		forget();
 	}
 
 	/** @param {() => boolean} gone */

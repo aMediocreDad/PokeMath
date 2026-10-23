@@ -1,5 +1,6 @@
 // Teacher pages, the join page and the host board with some marks, at iPad, iPhone and desktop size.
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { webkit, devices } = require("playwright-core");
@@ -10,7 +11,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const login = async () => (await (await fetch(BASE + "/teacher/access-login", { method: "POST" })).json()).teacherSession;
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 for (const [vp, device] of [["ipad", devices["iPad (gen 7) landscape"]], ["iphone", devices["iPhone 13"]], ["desktop", { viewport: { width: 1440, height: 900 } }]]) {
   const context = await browser.newContext({ ...device });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

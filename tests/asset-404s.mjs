@@ -2,6 +2,7 @@
 // to load. Run it against a Worker started with MIRROR_ONLY=1 to check the mirror is complete.
 // Usage: node tests/asset-404s.mjs [base]
 import { createRequire } from 'module';
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.argv[2] || 'http://localhost:3123';
@@ -27,7 +28,7 @@ const pages = [
 	'/christmas.html', '/easter.html', '/bingo_join.html', '/l%C3%A6rer/index.html', '/l%C3%A6rer/bingo_settings.html',
 ];
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const failed = new Map();
 for (const device of ['iPhone 13', 'Desktop Safari']) {
 	const ctx = await browser.newContext({ ...devices[device] });

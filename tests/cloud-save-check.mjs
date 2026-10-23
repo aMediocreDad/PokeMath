@@ -2,6 +2,7 @@
 // smaller save replace a bigger one without the player choosing. Run against a fresh local
 // Worker (tests/serve-worker.sh). Usage: node tests/cloud-save-check.mjs
 import { createRequire } from 'module';
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = 'http://localhost:3123';
@@ -14,7 +15,7 @@ const check = (name, ok, detail = '') => {
 };
 const cloudCount = async () => ((await (await fetch(BASE + '/api/save', { headers: WHO })).json()).save?.pokemon ?? null);
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 async function device(name) {
 	const ctx = await browser.newContext({ ...devices['iPhone 13'], extraHTTPHeaders: WHO });
 	await ctx.addCookies([{ name: 'cookies', value: 'true', url: BASE }]);

@@ -1,6 +1,7 @@
 // Open two pages with the same seeded save and diff what each leaves in localStorage.
 // Usage: node load-diff.mjs <base> <pathA> <pathB>
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const [BASE, A, B] = process.argv.slice(2);
@@ -20,7 +21,7 @@ const saves = {
 };
 
 async function dump(path, save) {
-  const browser = await webkit.launch();
+  const browser = muteAudio(await webkit.launch());
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
   await context.addInitScript((s) => {

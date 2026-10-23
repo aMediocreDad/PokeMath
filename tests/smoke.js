@@ -235,6 +235,38 @@ async function assertSilent(c, type, label) {
   const loginPage = await fetch(BASE + "/login.html", { headers: anon });
   assert(loginPage.status === 200 && (await loginPage.text()).includes("Logg inn"), "login page is open");
 
+  // Kick, rename and End hold even when a child's iPad was asleep and joins again on waking.
+  const khost = client();
+  await khost.open();
+  khost.send({ type: "hostCreateLobby", teacherSession: token, settings: { difficulty: "easy", minLevel: "stage1", prizeType: "coins" } });
+  const room = await khost.next("lobbyCreated");
+  const opened = [khost];
+  const joinAs = async (id, name) => {
+    const c = client();
+    opened.push(c);
+    await c.open();
+    c.send({ type: "joinLobby", code: room.code, uuid: id, name, icon: "" });
+    return c;
+  };
+  const [kicked, renamed, named] = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+  for (const [id, name] of [[kicked, "Kari"], [renamed, "Tull"], [named, "Ola"]]) {
+    const c = await joinAs(id, name);
+    await c.next("joinResult");
+    c.ws.close();
+  }
+  khost.send({ type: "hostKickPlayer", teacherSession: token, code: room.code, uuid: kicked });
+  khost.send({ type: "hostForceRename", teacherSession: token, code: room.code, uuid: renamed });
+  khost.send({ type: "hostSetName", teacherSession: token, code: room.code, uuid: named, name: "Ola N." });
+  await sleep(300);
+  assert(!!(await (await joinAs(kicked, "Kari")).next("kicked")), "a kicked child cannot join again");
+  assert(!!(await (await joinAs(renamed, "Tull")).next("forceRename")), "a child asked to rename cannot join with the old name");
+  assert((await (await joinAs(renamed, "Tuva")).next("joinResult")).ok, "…but can with a new one");
+  const back = await joinAs(named, "Ola");
+  assert((await back.next("joinResult")).ok && (await back.next("nameChanged")).name === "Ola N.", "a name the teacher gave survives a rejoin");
+  khost.send({ type: "hostEndLobby", teacherSession: token, code: room.code });
+  assert((await khost.next("lobbyEnded")).code === room.code, "the host hears that the room has ended");
+  for (const c of opened) c.ws.close();
+
   // A child: a teacher makes a code, the child logs in with it and gets a save of their own.
   const child = await post("/teacher/kids", { name: "Kari" });
   assert(child.body.ok && /^[A-Z]{4}-\d{4}$/.test(child.body.code), "teacher makes a code");
@@ -267,11 +299,14 @@ async function assertSilent(c, type, label) {
   assert((await j("/api/me", { headers: last.headers })).status === 401, "removing the child ends their sessions");
   assert((await codeLogin(fresh.body.code)).status === 401, "removed child's code stops working");
 
-  // Guessing: ten wrong codes from one address lock it out for a quarter hour. Keep this last:
-  // the lock lasts for the rest of this server's run.
+  // Guessing: fifty different wrong codes from one address lock it out for a quarter hour; the
+  // same typo again does not count. Keep this last: the lock lasts for the rest of this server's run.
   assert((await codeLogin("ZZZZ-0000")).status === 401, "wrong codes are refused");
-  let tries = 1;
-  while (tries < 12 && (await codeLogin("ZZZZ-0000")).status === 401) tries++;
-  assert(tries < 12, "too many wrong codes lock the address");
+  let typos = 0;
+  while (typos < 60 && (await codeLogin("ZZZZ-0000")).status === 401) typos++;
+  assert(typos === 60, "the same typo again never locks the address");
+  const parallel = await Promise.all(Array.from({ length: 80 }, (_, i) => codeLogin(`ZZZZ-${String(1000 + i)}`)));
+  const blocked = parallel.filter((r) => r.status === 429).length;
+  assert(80 - blocked <= 50 && blocked >= 30, `different wrong codes lock the address, even sent at once (${80 - blocked} let through)`);
   assert((await codeLogin(fresh.body.code)).status === 429, "a locked address cannot log in at all");
 })().catch((e) => { console.log("FAIL", e.message); process.exitCode = 1; });

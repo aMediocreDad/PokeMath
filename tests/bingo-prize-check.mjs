@@ -2,6 +2,7 @@
 // "Del ut premien nå" ends the game with the main prize before the board is full.
 // Run against tests/serve-worker.sh. Usage: node tests/bingo-prize-check.mjs [outdir]
 import { createRequire } from 'module';
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = 'http://localhost:3123';
@@ -13,7 +14,7 @@ const check = (name, ok, detail = '') => {
 };
 const shot = (page, name) => OUT && page.screenshot({ path: `${OUT}/${name}.png` });
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const teacher = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
 teacher.on('pageerror', (e) => console.log('teacher pageerror', e.message));
 teacher.on('dialog', (d) => d.accept());
@@ -30,6 +31,8 @@ await ctx.addInitScript(() => localStorage.getItem('username') || localStorage.s
 const child = await ctx.newPage();
 child.on('pageerror', (e) => console.log('child pageerror', e.message));
 await child.goto(`${BASE}/bingo_join.html?code=${code}`);
+// The page reads the code from the address when it starts; a tap before that finds no code.
+await child.locator('#studentOut', { hasText: 'Kari' }).waitFor();
 await child.click('#joinBtn');
 await child.waitForURL(BASE + '/');
 await child.goto(BASE + '/pokemath.html?stage=1');
@@ -49,11 +52,17 @@ await child.locator('#pokeball').click();
 await child.locator('.reset-button:not(.is-hidden)').click();
 await teacher.waitForFunction(() => /1/.test(document.querySelector('#players .player-row')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
 
-// The teacher fills row 1 by hand; the matched cell from the catch may already be marked.
-for (let i = 0; i < 5; i++) {
-	const cell = teacher.locator('#bingoCard td[data-cell-id]').nth(i);
-	if (!(await cell.getAttribute('class'))?.includes('marked')) await cell.click();
-	await teacher.waitForTimeout(250);
+// The teacher fills row 1 by hand. The child's catch can mark one of its cells while this runs,
+// and a tap on that cell would unmark it again, so go over the row until all five are marked.
+const rowCells = teacher.locator('#bingoCard tr').first().locator('td[data-cell-id]');
+const marked = async (i) => (await rowCells.nth(i).getAttribute('class'))?.includes('toggled');
+for (let pass = 0; pass < 3; pass++) {
+	for (let i = 0; i < 5; i++) {
+		if (!(await marked(i))) await rowCells.nth(i).click();
+		await teacher.waitForTimeout(250);
+	}
+	await teacher.waitForTimeout(400);
+	if ((await Promise.all([0, 1, 2, 3, 4].map(marked))).every(Boolean)) break;
 }
 await teacher.locator('#toast', { hasText: 'Rad 1' }).waitFor({ timeout: 5000 });
 check('the teacher sees the row pay out', (await teacher.locator('#toast').textContent()).includes('+500 mynter til 1 elev'));

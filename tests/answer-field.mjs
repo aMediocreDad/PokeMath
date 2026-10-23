@@ -1,9 +1,10 @@
 // The answer field on a phone: comma decimals, the +/- button, junk input, and focus kept on taps.
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = "http://localhost:3123";
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const context = await browser.newContext({ ...devices["iPhone 13"] });
 await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
 const page = await context.newPage();

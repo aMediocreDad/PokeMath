@@ -1,10 +1,11 @@
 // Header on touch devices: what fits, and whether the menu and trainer card open and close on tap.
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = "http://localhost:3123";
 const OUT = new URL("./shots/", import.meta.url).pathname;
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 for (const [name, device] of [["se", devices["iPhone SE"]], ["iphone", devices["iPhone 13"]], ["ipad", devices["iPad (gen 7)"]], ["desktop", { viewport: { width: 1280, height: 800 } }]]) {
   const context = await browser.newContext({ ...device });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

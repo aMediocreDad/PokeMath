@@ -224,6 +224,8 @@ export class BingoHub extends DurableObject {
 		let left = 0;
 		for (const [key, room] of await this.ctx.storage.list({ prefix: 'room:' })) {
 			if (now - (room.updatedAt || 0) > ROOM_LIFETIME) {
+				// A raid left mid-fight (the teacher closed the lid) still pays every child for their hits.
+				if (room.kind === 'raid' && room.phase === 'fight') await this.awardRaid(room);
 				for (const p of this.sockets((w) => w.code === room.code)) send(p, { type: 'ended' });
 				await this.ctx.storage.delete(key);
 				log('bingo', `rom ${room.code} ryddet bort`);
@@ -390,6 +392,8 @@ const HANDLERS = {
 		if (room.kind === 'raid' && room.phase === 'fight') await this.awardRaid(room);
 		for (const p of this.sockets((w) => w.role === 'player' && w.code === room.code)) send(p, { type: 'ended' });
 		await this.ctx.storage.delete(`room:${room.code}`);
+		// The host forgets the room only on this, so an End lost on a dropped connection shows.
+		send(ws, { type: 'lobbyEnded', code: room.code });
 		log('bingo', `rom ${room.code} avsluttet`);
 	},
 
@@ -400,6 +404,8 @@ const HANDLERS = {
 		if (!player) return;
 		this.toPlayer(room.code, msg.uuid, { type: 'kicked' });
 		delete room.players[msg.uuid];
+		// A sleeping iPad misses the message and would join again on waking: remember the kick.
+		room.kicked = [...(room.kicked || []), msg.uuid];
 		await this.saveRoom(room);
 		log('bingo', `${player.name} kastet ut av ${room.code}`);
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
@@ -407,9 +413,12 @@ const HANDLERS = {
 
 	async hostForceRename(ws, msg) {
 		const room = await this.hostRoom(ws, msg);
-		if (!room?.players[msg.uuid]) return;
+		const player = room?.players[msg.uuid];
+		if (!player) return;
 		this.toPlayer(room.code, msg.uuid, { type: 'forceRename' });
 		delete room.players[msg.uuid];
+		// The player may join again only with another name.
+		room.renameAsked = { ...room.renameAsked, [msg.uuid]: player.name };
 		await this.saveRoom(room);
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
@@ -420,6 +429,7 @@ const HANDLERS = {
 		const name = String(msg.name || '').trim().slice(0, 22);
 		if (!player || !name) return;
 		player.name = name;
+		player.renamedByHost = true;
 		await this.saveRoom(room);
 		this.toPlayer(room.code, msg.uuid, { type: 'nameChanged', name });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
@@ -428,12 +438,22 @@ const HANDLERS = {
 	async joinLobby(ws, msg) {
 		const room = await this.room(msg.code);
 		if (!room || room.locked || room.phase === 'won' || !msg.uuid) return send(ws, { type: 'joinResult', ok: false });
+		// Kicked, or asked for a new name and still using the old one: tell them again, as the
+		// message may have reached a sleeping iPad.
+		if (room.kicked?.includes(msg.uuid)) return send(ws, { type: 'kicked' });
+		const name = String(msg.name || 'Ash').trim().slice(0, 22) || 'Ash';
+		if (room.renameAsked && msg.uuid in room.renameAsked) {
+			if (room.renameAsked[msg.uuid] === name) return send(ws, { type: 'forceRename' });
+			delete room.renameAsked[msg.uuid];
+		}
 		const existing = room.players[msg.uuid];
-		room.players[msg.uuid] = { uuid: msg.uuid, name: msg.name || 'Ash', icon: msg.icon || '', catchCount: existing?.catchCount || 0 };
+		// A rejoin keeps what the room knows (catches, raid hits); a name the teacher gave wins.
+		room.players[msg.uuid] = { ...existing, uuid: msg.uuid, name: existing?.renamedByHost ? existing.name : name, icon: String(msg.icon || '').slice(0, 200), catchCount: existing?.catchCount || 0 };
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'player', code: room.code, uuid: msg.uuid });
-		if (!existing) log('bingo', `${msg.name} ble med i ${room.code}`);
+		if (!existing) log('bingo', `${name} ble med i ${room.code}`);
 		send(ws, { type: 'joinResult', ok: true, kind: room.kind || 'bingo', raid: room.kind === 'raid' ? raidState(room) : undefined });
+		if (existing?.renamedByHost && existing.name !== name) send(ws, { type: 'nameChanged', name: existing.name });
 		this.toHosts(room.code, { type: 'playersUpdate', players: this.playerList(room) });
 	},
 

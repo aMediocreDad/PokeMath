@@ -1,6 +1,7 @@
 // Screens for design review: game (playing, win, caught), Pokédex, shop, profile on iPad and iPhone.
 // Usage: node design-shots.mjs <prefix>
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { webkit, devices } = require("playwright-core");
@@ -14,7 +15,7 @@ const SAVE = {
   boughtBackgrounds: "bg-002", boughtPlayerIcons: "player", playerIcon: "player", playerIconImg: "images/playericons/player.png",
   backupReminder: new Date(Date.now() + 9e9).toISOString(), tier1Solved: "41", tier3Solved: "12",
 };
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 for (const [vp, device] of [["ipad", devices["iPad (gen 7)"]], ["iphone", devices["iPhone 13"]]]) {
   const context = await browser.newContext({ ...device });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

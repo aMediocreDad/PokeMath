@@ -1,6 +1,7 @@
 // Legacy vs Svelte for bingo_join: QR link, typed code, bad code, clear, stored code, and that the
 // game page then joins the lobby. Usage: node join-parity.mjs
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = "http://localhost:3123";
@@ -17,7 +18,7 @@ const snap = (page) => page.evaluate(() => ({
   uuid: /^[0-9a-f-]{36}$/.test(localStorage.getItem("uuid") ?? ""),
 }));
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 async function run(path) {
   const context = await browser.newContext({ ...devices["iPhone 13"] });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

@@ -1,6 +1,7 @@
 // Touch audit of the Svelte pages on phone and tablet: screenshots plus measurable problems.
 // Usage: node touch-audit.mjs [prefix] [page-filter]
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { webkit, devices } = require("playwright-core");
@@ -26,7 +27,7 @@ const VIEWPORTS = {
   "ipad-land": devices["iPad (gen 7) landscape"],
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const report = [];
 for (const [vpName, device] of Object.entries(VIEWPORTS)) {
   const context = await browser.newContext({ ...device });

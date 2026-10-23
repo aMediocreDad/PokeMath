@@ -1,9 +1,10 @@
 // The two display fixes: the points counter per stage, and recent catches on load.
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
 await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
 await context.addInitScript(() => {

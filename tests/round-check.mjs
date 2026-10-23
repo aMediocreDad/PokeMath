@@ -2,6 +2,7 @@
 // not thrown yet. A thrown ball is never offered twice. Run against tests/serve-worker.sh.
 // Usage: node tests/round-check.mjs
 import { createRequire } from 'module';
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = 'http://localhost:3123';
@@ -11,7 +12,7 @@ const check = (name, ok, detail = '') => {
 	console.log(ok ? 'PASS' : 'FAIL', name, detail);
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const ctx = await browser.newContext({ ...devices['iPad (gen 7)'], extraHTTPHeaders: { 'x-dev-email': `round-${Date.now()}@test.no` } });
 await ctx.addCookies([{ name: 'cookies', value: 'true', url: BASE }]);
 const page = await ctx.newPage();

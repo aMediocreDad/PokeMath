@@ -1,6 +1,7 @@
 // The live-site bingo features on the Svelte pages: board size, continue button, kick and rename.
 // One teacher in WebKit (desktop), two students in WebKit (iPhone). Usage: node bingo-live-check.mjs [outdir]
 import { createRequire } from "module";
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = "http://localhost:3123";
@@ -10,7 +11,7 @@ const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok, detail }); console.log(ok ? "PASS" : "FAIL", name, detail); };
 
 const login = await (await fetch(BASE + "/teacher/access-login", { method: "POST" })).json();
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 
 const teacherCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await teacherCtx.addCookies([{ name: "cookies", value: "true", url: BASE }]);

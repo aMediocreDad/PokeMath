@@ -1,5 +1,6 @@
 // Compare legacy and Svelte headers with a player icon, a shop background and a due backup reminder.
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
@@ -14,7 +15,7 @@ const save = {
   shopBackground: JSON.stringify("bg-002"),
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 for (const path of ["/faq-legacy.html", "/faq.html"]) {
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
   await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);

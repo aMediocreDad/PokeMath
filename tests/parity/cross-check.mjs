@@ -1,9 +1,10 @@
 // Legacy and Svelte pages sharing one save, and client-side navigation between Svelte pages.
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
 await context.addCookies([{ name: "cookies", value: "true", url: BASE }]);
 await context.addInitScript(() => {

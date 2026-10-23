@@ -6,7 +6,8 @@ import { accessEmail, endSession, startSession } from './auth.js';
 import { body, json, log } from './http.js';
 
 const FAIL_WINDOW = 15 * 60 * 1000;
-const MAX_FAILS = 10;
+/** Different wrong codes per address and quarter hour. A whole class shares one address at school. */
+const MAX_FAILS = 50;
 
 /** Codes look like TOKE-4821: no I, O or Q, so they read aloud and type easily. */
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
@@ -18,7 +19,7 @@ export function newCode() {
 
 /**
  * A code's SHA-256, of its letters and digits only, so case and the dash do not matter. Unsalted
- * on purpose: the hash is how a code is looked up. With about 2.8 × 10⁹ codes and ten wrong tries
+ * on purpose: the hash is how a code is looked up. With about 2.8 × 10⁹ codes and fifty wrong tries
  * per address per quarter hour, guessing one is out of reach.
  * @param {string} code
  */
@@ -31,6 +32,20 @@ export async function hashCode(code) {
 /** A path on this site to go back to after logging in; anything else goes to the front page. */
 function safeNext(/** @type {string | null} */ next) {
 	return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+}
+
+/**
+ * Where a login comes from, for counting wrong codes: the IPv4 address, or an IPv6 address's /64,
+ * since one home or school network has a whole /64 to pick addresses from.
+ * @param {Request} request
+ */
+function origin(request) {
+	const ip = request.headers.get('CF-Connecting-IP') || 'local';
+	if (!ip.includes(':')) return ip;
+	const [head, tail] = ip.split('::');
+	const h = head ? head.split(':') : [];
+	const t = tail ? tail.split(':') : [];
+	return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 4).join(':') + '::/64';
 }
 
 /** Files anyone may fetch. */
@@ -47,22 +62,28 @@ export async function route(url, request, env) {
 	}
 
 	if (pathname === '/login/code' && request.method === 'POST') {
-		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const ip = origin(request);
 		const now = Date.now();
 		// Failures older than the window count for nothing, so they are not kept either.
 		await env.DB.prepare('DELETE FROM login_failures WHERE window_start < ?').bind(now - FAIL_WINDOW).run();
-		const fails = await env.DB.prepare('SELECT count, window_start FROM login_failures WHERE ip = ?').bind(ip).first();
-		const recent = fails && now - Number(fails.window_start) < FAIL_WINDOW ? Number(fails.count) : 0;
-		if (recent >= MAX_FAILS) return json({ ok: false, message: 'For mange feil forsøk. Vent et kvarter og prøv igjen.' }, 429);
+		// Count the try before the code is looked up, in the same statement that reads the count, so
+		// guesses sent all at once cannot slip in under the limit. It is taken back below when the
+		// code was right, or was already tried: a child typing the same typo again is not guessing.
+		const tries = await env.DB
+			.prepare('INSERT INTO login_failures (ip, count, window_start) VALUES (?, 1, ?) ON CONFLICT (ip) DO UPDATE SET count = count + 1 RETURNING count')
+			.bind(ip, now)
+			.first();
+		if (Number(tries?.count) > MAX_FAILS) return json({ ok: false, message: 'For mange feil forsøk. Vent et kvarter og prøv igjen.' }, 429);
 
-		const kid = await env.DB.prepare('SELECT id, name FROM kids WHERE code_hash = ?').bind(await hashCode((await body(request)).code || '')).first();
-		if (!kid) {
-			await env.DB
-				.prepare('INSERT INTO login_failures (ip, count, window_start) VALUES (?, 1, ?) ON CONFLICT (ip) DO UPDATE SET count = CASE WHEN ? - window_start < ? THEN count + 1 ELSE 1 END, window_start = CASE WHEN ? - window_start < ? THEN window_start ELSE ? END')
-				.bind(ip, now, now, FAIL_WINDOW, now, FAIL_WINDOW, now)
-				.run();
-			return json({ ok: false, message: 'Feil kode. Sjekk at du har skrevet den riktig.' }, 401);
-		}
+		const hash = await hashCode((await body(request)).code || '');
+		const kid = await env.DB.prepare('SELECT id, name FROM kids WHERE code_hash = ?').bind(hash).first();
+		// Each wrong code tried is remembered for the window, in the same table under its own key.
+		const repeat =
+			!kid &&
+			!(await env.DB.prepare('INSERT INTO login_failures (ip, count, window_start) VALUES (?, 0, ?) ON CONFLICT (ip) DO NOTHING').bind(`${ip}#${hash.slice(0, 16)}`, now).run())
+				.meta.changes;
+		if (kid || repeat) await env.DB.prepare('UPDATE login_failures SET count = count - 1 WHERE ip = ?').bind(ip).run();
+		if (!kid) return json({ ok: false, message: 'Feil kode. Sjekk at du har skrevet den riktig.' }, 401);
 		const setCookie = await startSession(env, url, { subject: `kid:${kid.id}`, kind: 'kid', name: String(kid.name) });
 		log('login', `kode: ${kid.name}`);
 		return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json', 'Set-Cookie': setCookie } });

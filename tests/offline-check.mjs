@@ -3,6 +3,7 @@
 // WebKit: Playwright's WebKit does not run service workers. Run against tests/serve-worker.sh.
 // Usage: node tests/offline-check.mjs [outdir]
 import { createRequire } from 'module';
+import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright-core');
 const BASE = 'http://localhost:3123';
@@ -13,7 +14,7 @@ const check = (name, ok, detail = '') => {
 	console.log(ok ? 'PASS' : 'FAIL', name, detail);
 };
 
-const browser = await chromium.launch();
+const browser = muteAudio(await chromium.launch());
 const ctx = await browser.newContext({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2 });
 await ctx.addCookies([{ name: 'cookies', value: 'true', url: BASE }]);
 const page = await ctx.newPage();

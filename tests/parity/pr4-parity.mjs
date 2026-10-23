@@ -1,6 +1,7 @@
 // Legacy vs Svelte for the PR 4 pages: run the same actions on both, compare a snapshot after
 // every step and the final localStorage. Usage: node pr4-parity.mjs [only-scenario-name]
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = "http://localhost:3123";
@@ -17,7 +18,7 @@ const sameValue = (k, a, b) => {
   return false;
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 
 async function run(path, scenario) {
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });

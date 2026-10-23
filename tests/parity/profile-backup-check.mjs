@@ -1,5 +1,6 @@
 // Legacy vs Svelte: profile page actions and backup round trips, compared by localStorage contents.
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { webkit, devices } = require("playwright-core");
@@ -17,7 +18,7 @@ const SAVE = {
   shinyLevel: "3",
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const errors = [];
 
 async function open(path, seed = SAVE) {

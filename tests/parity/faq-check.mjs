@@ -1,5 +1,6 @@
 // Check the Svelte FAQ against the legacy one in WebKit at iPad size, with a seeded save.
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
@@ -14,7 +15,7 @@ const save = {
   tier3Solved: "5",
 };
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
 await context.addInitScript((s) => {
   if (!localStorage.getItem("username")) for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);

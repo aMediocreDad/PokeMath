@@ -2,6 +2,7 @@
 // visible after each, and the storage at the end. Emails the mock server "sends" are read from its
 // log. Usage: SERVER_LOG=<task output file> node teacher-parity.mjs [scenario]
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { webkit, devices } = require("playwright-core");
@@ -113,7 +114,7 @@ const SCENARIOS = [
   },
 ];
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 async function run(path, scenario, tag) {
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });
   const page = await context.newPage();

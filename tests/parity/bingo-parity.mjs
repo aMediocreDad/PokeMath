@@ -1,6 +1,7 @@
 // Bingo, legacy vs Svelte game page: a scripted teacher hosts a lobby; the player joins, catches,
 // and receives a prize. Compares the WebSocket frames the page sends and the resulting save.
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const WebSocket = require("ws");
 const { webkit, devices } = require("playwright-core");
@@ -26,7 +27,7 @@ async function teacher() {
   return { ws, code, next, inbox, lock: () => ws.send(JSON.stringify({ type: "hostLockLobby", teacherSession, code })), end: () => ws.send(JSON.stringify({ type: "hostEndLobby", teacherSession, code })) };
 }
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 async function run(path) {
   const host = await teacher();
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });

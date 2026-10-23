@@ -2,6 +2,7 @@
 // and compare what they show and what they leave in localStorage.
 // Usage: node game-parity.mjs [base] [date ISO]
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const BASE = process.argv[2] || "http://localhost:3123";
@@ -42,7 +43,7 @@ function solve(text) {
   return Number(r.toFixed(6));
 }
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 
 async function play(path, scenario, seed) {
   const context = await browser.newContext({ ...devices["iPad (gen 7)"] });

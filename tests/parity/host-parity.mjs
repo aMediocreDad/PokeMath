@@ -2,6 +2,7 @@
 // Node over /ws. Boards and codes are random per lobby, so snapshots compare structure and text,
 // not which tasks landed where. Usage: node host-parity.mjs
 import { createRequire } from "module";
+import { muteAudio } from '../mute.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require("playwright-core");
 const WebSocket = require("ws");
@@ -50,7 +51,7 @@ const snapshot = (page) => page.evaluate(() => {
   };
 });
 
-const browser = await webkit.launch();
+const browser = muteAudio(await webkit.launch());
 async function run(path) {
   const token = await teacherSession();
   const context = await browser.newContext({ ...devices["iPad (gen 7) landscape"] });
