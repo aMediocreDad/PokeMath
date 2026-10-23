@@ -663,6 +663,9 @@
 			<div id="new-catch-info">
 				{#if catchImage}
 					<div class="pkmn-pop sprite" style="background-image: url('{catchImage}');" role="img" aria-label={caughtCard?.name}></div>
+					{#if caughtCard?.shiny}
+						<div class="sparkles" aria-hidden="true">{#each [0, 1, 2, 3, 4] as i (i)}<span></span>{/each}</div>
+					{/if}
 				{/if}
 			</div>
 			{#if caughtCard}
@@ -999,6 +1002,31 @@
 		filter: drop-shadow(0 16px 18px oklch(0 0 0 / 0.45));
 		animation: pop 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
+	/* A shiny's twinkle on the catch screen, like the sparkle the games play on a shiny. */
+	.sparkles {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+	.sparkles span {
+		position: absolute;
+		width: 26px;
+		aspect-ratio: 1;
+		background: oklch(0.97 0.08 95);
+		clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+		filter: drop-shadow(0 0 6px oklch(0.85 0.15 85));
+		opacity: 0;
+		animation: twinkle 1.6s ease-in-out infinite;
+	}
+	.sparkles span:nth-child(1) { top: 8%; left: 14%; animation-delay: 0.5s; }
+	.sparkles span:nth-child(2) { top: 18%; right: 8%; width: 34px; animation-delay: 0.8s; }
+	.sparkles span:nth-child(3) { bottom: 22%; left: 4%; width: 18px; animation-delay: 1.1s; }
+	.sparkles span:nth-child(4) { bottom: 10%; right: 18%; animation-delay: 1.4s; }
+	.sparkles span:nth-child(5) { top: 44%; right: 0; width: 16px; animation-delay: 1.7s; }
+	@keyframes twinkle {
+		0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+		50% { opacity: 1; transform: scale(1) rotate(45deg); }
+	}
 	@keyframes pop {
 		from { opacity: 0; transform: scale(0.4) translateY(30px); }
 		to { opacity: 1; transform: scale(1) translateY(0); }
@@ -1052,9 +1080,13 @@
 		.ball,
 		.burst,
 		.sprite,
+		.sparkles span,
 		.end-message.headline,
 		.problem.shake {
 			animation: none;
+		}
+		.sparkles span {
+			opacity: 1;
 		}
 	}
 
