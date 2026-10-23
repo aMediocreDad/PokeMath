@@ -15,9 +15,12 @@
 
 	let code = $state('');
 	let response = $state('');
+	/** The code worked: the answer shows in green. */
+	let responseGood = $state(false);
 	let fireworks = $state(0);
 
 	async function checkCode() {
+		responseGood = false;
 		const trimmed = code.trim();
 		if (!trimmed) {
 			response = 'Skriv inn en kode først.';
@@ -47,7 +50,8 @@
 		}
 		localStorage.setItem(storageKey, '1');
 		applyPrize(data.prize);
-		response = '🎉 Koden ble brukt!';
+		response = 'Koden ble brukt!';
+		responseGood = true;
 		code = '';
 	}
 
@@ -158,7 +162,7 @@
 			/>
 			<button type="button" class="pm-button" onclick={checkCode}>Aktiver</button>
 		</form>
-		<p id="response" class:good={response.startsWith('🎉')} aria-live="polite">{response}</p>
+		<p id="response" class:good={responseGood} aria-live="polite">{response}</p>
 	</section>
 	<!-- Each fireworks code adds three more, as on the legacy page. -->
 	{#each { length: fireworks }, i (i)}

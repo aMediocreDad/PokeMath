@@ -68,24 +68,24 @@ export function checkNewMilestones(cells, celebrated) {
  * @returns {{ text: string, strong?: boolean, pot?: boolean, note?: string }}
  */
 export function freeSpacePrize(settings, playerCount, totalCatches) {
-	if (settings.prizeSecret) return { text: '🔒 Hemmelig premie' };
+	if (settings.prizeSecret) return { text: 'Hemmelig premie' };
 	switch (settings.prizeType || 'random') {
 		case 'coins':
-			return { text: `💰 ${(BINGO_COINS[settings.difficulty ?? ''] || 10000).toLocaleString('no-NO')} mynter`, strong: true };
+			return { text: `${(BINGO_COINS[settings.difficulty ?? ''] || 10000).toLocaleString('no-NO')} mynter`, strong: true };
 		case 'participation_coins':
 			return { text: `${(2000 * playerCount + 50 * totalCatches).toLocaleString('no-NO')} mynter`, strong: true, pot: true, note: '2 000/elev + 50/fangst' };
 		case 'per_catch_coins':
-			return { text: '💰 50 mynter/fangst', strong: true };
+			return { text: '50 mynter per fangst', strong: true };
 		case 'legendary':
-			return { text: '❓ Tilfeldig Legendarisk' };
+			return { text: 'Tilfeldig legendarisk' };
 		case 'mythic':
-			return { text: '❓ Tilfeldig Mytisk' };
+			return { text: 'Tilfeldig mytisk' };
 		case 'shiny':
 			return { text: '✨ Ukjent Shiny Pokémon' };
 		case 'stardust':
-			return { text: '✨ Stardust ×1' };
+			return { text: 'Stardust ×1' };
 		default:
-			return { text: '❓ Tilfeldig premie' };
+			return { text: 'Tilfeldig premie' };
 	}
 }
 
@@ -93,16 +93,16 @@ export function freeSpacePrize(settings, playerCount, totalCatches) {
  * What the prize modal shows when the full board is locked (showPrizeModal()).
  * @param {any} prize  one prize, or a list (three shiny Pokémon)
  * @param {number} eligibleCount
- * @returns {{ emoji?: string, sprites?: string[], title: string, sub: string }}
+ * @returns {{ image?: string, sprites?: string[], title: string, sub: string }}
  */
 export function prizeSummary(prize, eligibleCount) {
 	const list = Array.isArray(prize) ? prize : [prize];
 	const first = list[0] || {};
 	if (first.type === 'coins')
-		return { emoji: '💰', title: 'Premie: ' + nok(first.amount) + ' mynter', sub: eligibleCount + ' deltakere som fanget minst én Pokémon får mynter!' };
+		return { image: '/images/coinbag.svg', title: 'Premie: ' + nok(first.amount) + ' mynter', sub: eligibleCount + ' deltakere som fanget minst én Pokémon får mynter!' };
 	if (first.type === 'participation_coins')
 		return {
-			emoji: '🏦',
+			image: '/images/coinbag.svg',
 			title: 'Deltakelses-premie: ' + nok(first.pot || 0) + ' mynter i potten',
 			sub: 'Alle ' + eligibleCount + ' deltakere deler potten basert på hvor mye de deltok!'
 		};
@@ -110,14 +110,15 @@ export function prizeSummary(prize, eligibleCount) {
 		/** @param {any} p */
 		const isShiny = (p) => p.shiny || p.entry?.startsWith('S');
 		const allShiny = list.every(isShiny);
-		const label = allShiny ? `✨ ${list.length} Shiny Pokémon` : first.legendary ? '⭐ Legendarisk Pokémon' : '🌟 Mytisk Pokémon';
+		const label = allShiny ? `✨ ${list.length} Shiny Pokémon` : first.legendary ? 'Legendarisk Pokémon' : 'Mytisk Pokémon';
 		return {
 			sprites: list.map((p) => `/images/pokemon/${isShiny(p) ? 'shiny' : 'normal'}/${p.pokedexId}.webp`),
 			title: 'Premie: ' + label,
 			sub: eligibleCount + ' deltakere som fanget minst én Pokémon får ' + (list.length > 1 ? list.length + ' stk!' : 'denne pokemonen!')
 		};
 	}
-	return { emoji: '🎁', title: 'Premie!', sub: eligibleCount + ' deltakere får premie!' };
+	if (first.type === 'stardust') return { image: '/images/stardust.png', title: 'Premie: Stardust', sub: eligibleCount + ' deltakere får stardust!' };
+	return { title: 'Premie!', sub: eligibleCount + ' deltakere får premie!' };
 }
 
 /**

@@ -127,7 +127,7 @@
 
 {#if showCookieNotice}
 	<div class="sheet" id="cookie-container" role="dialog" aria-labelledby="cookie-title">
-		<h2 id="cookie-title">🔒 Slik lagrer PokéMath</h2>
+		<h2 id="cookie-title">Slik lagrer PokéMath</h2>
 		<p>
 			Spillet ditt lagres i nettleseren og i skyen, så du kan spille videre på en annen enhet. En informasjonskapsel
 			(cookie) husker at du er logget inn. Det er ingen reklame og ingen sporing.
@@ -220,8 +220,8 @@
 			<!-- Phones hide the badge shortcut in the bar, so the menu offers it instead. -->
 			<a href="/badges.html" class="phone-only">Merker</a>
 			<hr />
-			<a href="/bingo_join.html" id="menuJoinBingo">🎲 Bli med i klassespill</a>
-			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">🧑‍🏫 Lærersiden</a>{/if}
+			<a href="/bingo_join.html" id="menuJoinBingo">Bli med i klassespill</a>
+			{#if me.teacher}<a href="/lærer/index.html" id="menuTeacher">Lærersiden</a>{/if}
 			<hr />
 			<a href="/saveandload.html">Lagre / Last inn</a>
 			<a href="/faq.html">Spørsmål og svar</a>

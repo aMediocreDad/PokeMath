@@ -70,7 +70,7 @@
 			const kind =
 				prize.source === 'admin' || prize.source === 'easter'
 					? shiny ? 'Shiny ' : ''
-					: shiny ? '✨ Shiny ' : prize.legendary ? '⭐ Legendarisk ' : '🌟 Mytisk ';
+					: shiny ? '✨ Shiny ' : prize.legendary ? 'Legendarisk ' : 'Mytisk ';
 			return {
 				image: `/images/pokemon/${shiny ? 'shiny' : 'normal'}/${imageId}.webp`,
 				plainImage: false,
@@ -83,7 +83,7 @@
 			return {
 				image: '/images/stardust.png',
 				plainImage: true,
-				lines: [prize.source === 'admin' ? 'Gave fra admin:' : 'Bingo-premie!', '✨ Stardust ×' + (Number(prize.amount) || 1)],
+				lines: [prize.source === 'admin' ? 'Gave fra admin:' : 'Bingo-premie!', 'Stardust ×' + (Number(prize.amount) || 1)],
 				small: ''
 			};
 		}

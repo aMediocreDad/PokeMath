@@ -539,7 +539,7 @@
 			},
 			onGame: (game) => {
 				const was = classGame?.state.phase;
-				if (game.kind === 'raid' && was !== 'won' && game.state.phase === 'won') toast(`Dere klarte det! ${raidBoss} er beseiret 🎉`);
+				if (game.kind === 'raid' && was !== 'won' && game.state.phase === 'won') toast(`Dere klarte det! ${raidBoss} er beseiret!`);
 				if (was === 'lobby' && game.state.phase !== 'lobby') toast(game.kind === 'raid' ? 'Raidet har startet!' : 'Bingoen har startet!');
 				classGame = game;
 			},

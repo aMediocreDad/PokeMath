@@ -12,6 +12,7 @@
 	import CodeChip from '#lib/classgame/CodeChip.svelte';
 	import GameControls from '#lib/classgame/GameControls.svelte';
 	import PlayerMenu from '#lib/classgame/PlayerMenu.svelte';
+	import Icon from '#lib/Icon.svelte';
 	import {
 		DIFF_NO,
 		catchPrefix,
@@ -323,7 +324,7 @@
 			const ids = m.indices.map((i) => cells[i]?.cellId).filter(Boolean);
 			flashing = new Set([...flashing, ...ids]);
 			setTimeout(() => (flashing = new Set([...flashing].filter((id) => !ids.includes(id)))), 1200);
-			events = [...events, { ts: Date.now(), name: '🏆', pokemonName: m.label, matched: true }];
+			events = [...events, { ts: Date.now(), name: 'Bingo', pokemonName: m.label, matched: true }];
 			showToast('match', [[{ t: m.label, b: true }]]);
 			if (m.type === 'full') {
 				// The server ends the game with the prize by itself; it shows once the confetti has had a moment.
@@ -572,7 +573,7 @@
 
 	<div class="controls">
 		<GameControls
-			primary={{ id: 'giveNowBtn', label: locked ? 'Premien er delt ut' : '🎁 Del ut premien nå', onclick: giveNow, disabled: locked }}
+			primary={{ id: 'giveNowBtn', label: locked ? 'Premien er delt ut' : 'Del ut premien nå', onclick: giveNow, disabled: locked }}
 			newLabel="Nytt brett"
 			endLabel="Avslutt bingo"
 			onNew={newGame}
@@ -581,7 +582,7 @@
 		/>
 		<div class="group" role="group" aria-label="Visning">
 			<button id="toggleLog" class="pm-button small secondary" onclick={() => (logVisible = !logVisible)}>{logVisible ? 'Skjul logg' : 'Vis logg'}</button>
-			<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}>{muted ? '🔇 Lyd av' : '🔊 Lyd på'}</button>
+			<button id="muteBtn" class="pm-button small secondary" aria-pressed={muted} onclick={toggleMute}><Icon name={muted ? 'speakerSlash' : 'speakerHigh'} />{muted ? 'Lyd av' : 'Lyd på'}</button>
 			<span class="size-control">
 				<label for="cellSizeSlider">Størrelse</label>
 				<input
@@ -608,10 +609,10 @@
 				<span id="playerCount" class="badge">{connectedCount}/{players.length}</span>
 			</div>
 			<div class="sort" role="group" aria-label="Sorter elever">
-				<button id="sortJoinBtn" aria-pressed={sortMode === 'joined'} onclick={() => (sortMode = 'joined')} title="Etter tilkobling">⏱</button>
+				<button id="sortJoinBtn" aria-pressed={sortMode === 'joined'} onclick={() => (sortMode = 'joined')} title="Etter tilkobling"><Icon name="clock" label="Etter tilkobling" /></button>
 				<button id="sortAlphaBtn" aria-pressed={sortMode === 'alpha'} onclick={() => (sortMode = 'alpha')}>A–Å</button>
-				<button id="sortCatchBtn" aria-pressed={sortMode === 'catches'} onclick={() => (sortMode = 'catches')} title="Flest fangster">🎯</button>
-				<button id="toggleCatchesBtn" class="eye" onclick={() => (showCatches = !showCatches)}>👁 {showCatches ? 'Skjul' : 'Vis'}</button>
+				<button id="sortCatchBtn" aria-pressed={sortMode === 'catches'} onclick={() => (sortMode = 'catches')} title="Flest fangster"><Icon name="ranking" label="Flest fangster" /></button>
+				<button id="toggleCatchesBtn" class="eye" onclick={() => (showCatches = !showCatches)}><Icon name={showCatches ? 'eyeSlash' : 'eye'} /> {showCatches ? 'Skjul' : 'Vis'}</button>
 			</div>
 			<div id="players">
 				{#each sortedPlayers as p, i (p.uuid ?? i)}
@@ -760,12 +761,12 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div id="prizeModal" class="overlay dark" onclick={(e) => e.target === e.currentTarget && (prize = null)}>
 		<div class="prize-box" role="dialog" aria-modal="true" aria-labelledby="prize-title">
-			{#if prize.emoji}
-				<div class="prize-emoji">{prize.emoji}</div>
+			{#if prize.image}
+				<img class="prize-image" src={prize.image} alt="" width="96" height="96" />
 			{:else if prize.sprites}
 				<div class="prize-sprites">{#each prize.sprites as src, i (i)}<img {src} alt="" width="80" height="80" />{/each}</div>
 			{/if}
-			<h2 id="prize-title">🏆 Bingo fullført!</h2>
+			<h2 id="prize-title">Bingo fullført!</h2>
 			<h3>{prize.title}</h3>
 			<p>{prize.sub}</p>
 			<button class="pm-button" onclick={() => (prize = null)}>OK</button>
@@ -1293,9 +1294,10 @@
 	.prize-box {
 		width: min(520px, 100%);
 	}
-	.prize-emoji {
-		font-size: 80px;
-		line-height: 1.1;
+	.prize-image {
+		width: 96px;
+		height: 96px;
+		object-fit: contain;
 	}
 	.prize-sprites img {
 		margin: 4px;

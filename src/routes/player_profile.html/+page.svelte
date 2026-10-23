@@ -290,7 +290,7 @@
 					{cloud.savedAt ? `Lagret i skyen ${new Date(cloud.savedAt).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}
 				</p>
 				<div class="login-actions">
-					{#if me.teacher}<a class="pm-button small" href="/lærer/index.html">🧑‍🏫 Til lærersiden</a>{/if}
+					{#if me.teacher}<a class="pm-button small" href="/lærer/index.html">Til lærersiden</a>{/if}
 					<button class="pm-button small secondary" onclick={logOut}>Logg ut</button>
 				</div>
 			{:else}

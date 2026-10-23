@@ -76,7 +76,7 @@
 		weekSeed = Math.floor((Date.now() - 3 * 24 * 60 * 60 * 1000) / WEEK);
 	});
 	const iconSections = $derived([
-		{ id: 'exclusiveIconSection', gridId: 'exclusiveIconGrid', title: '✨ Eksklusive karakterer', note: 'Kun via koder og premier',
+		{ id: 'exclusiveIconSection', gridId: 'exclusiveIconGrid', title: 'Eksklusive karakterer', note: 'Kun via koder og premier',
 			items: ICON_ITEMS.filter((i) => i.price === -1 && player.boughtPlayerIcons.includes(i.id)) },
 		{ id: '', gridId: 'weeklyIconGrid', title: 'Ukentlig utvalg', note: 'Bytter hver mandag',
 			items: seededShuffle(ICON_ITEMS.filter((i) => i.price > 5000), weekSeed).slice(0, 10) },

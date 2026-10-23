@@ -7,6 +7,7 @@
 	import { code6, codeFromUrl, isUuidLike } from '#lib/bingo.js';
 	import { generateUUID } from '#lib/uuid.js';
 	import QrScanner from '#lib/QrScanner.svelte';
+	import Icon from '#lib/Icon.svelte';
 
 	let code = $state('');
 	let student = $state('Ash');
@@ -154,7 +155,7 @@
 
 <div class="main pm-page join">
 	<section class="join-card pm-surface">
-		<p class="kicker">🎲 Klassespill</p>
+		<p class="kicker">Klassespill</p>
 		{#if joined}
 			<h1 class="pm-title">Du er med!</h1>
 			<p class="lead">Du er med i spillet <b id="joinedCode">{joined}</b>. Spill som vanlig: det du gjør, teller for klassen.</p>
@@ -189,7 +190,7 @@
 			</form>
 			<p class="hint">6 tegn, bokstaver og tall.</p>
 			{#if canScan}
-				<button id="scanBtn" class="pm-button secondary scan" type="button" disabled={joining} onclick={scan}>📷 Skann QR-kode</button>
+				<button id="scanBtn" class="pm-button secondary scan" type="button" disabled={joining} onclick={scan}><Icon name="camera" />Skann QR-kode</button>
 			{/if}
 		{/if}
 		<p id="status" class="status {status.kind}" role="status">{status.msg}</p>
@@ -219,7 +220,7 @@
 {#if warning}
 	<div id="browser-warning" class="backdrop">
 		<div class="warning pm-surface" role="dialog" aria-labelledby="bw-title">
-			<div class="lock" aria-hidden="true">🔒</div>
+			<div class="lock"><Icon name="lock" size="40px" /></div>
 			<h2 id="bw-title">{warning.title}</h2>
 			<p id="bw-body">{warning.body}</p>
 			{#if warning.canOpen}

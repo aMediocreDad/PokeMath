@@ -28,21 +28,19 @@
 
 	/**
 	 * The games a teacher starts for the class. `resume` is the running game, if any.
-	 * @typedef {{ id: string, icon: string, name: string, about: string, start: string, resume?: { href: string, label: string } }} Game
+	 * @typedef {{ id: string, name: string, about: string, start: string, resume?: { href: string, label: string } }} Game
 	 */
 	/** @type {Game[]} */
 	const games = $derived([
 		{
 			id: 'bingo',
-			icon: '🎲',
 			name: 'PokéBingo',
-			about: 'Barna fanger Pokémon som passer på bingobrettet ditt. Første rad vinner.',
+			about: 'Barna fanger Pokémon som passer på bingobrettet. Hver hele rad gir mynter, og fullt brett gir premien.',
 			start: '/lærer/bingo_host.html',
 			resume: savedBingoCode.length === 6 ? { href: '/lærer/bingo_host.html', label: `Fortsett bingo ${savedBingoCode}` } : undefined
 		},
 		{
 			id: 'raid',
-			icon: '⚔️',
 			name: 'Raid',
 			about: 'Hele klassen kjemper sammen mot én stor Pokémon. Hvert riktige svar er ett treff, og alle fanger den til slutt.',
 			start: '/lærer/raid.html',
@@ -252,7 +250,7 @@
 					teacher_visible: true
 				})
 			});
-			createStatus = { msg: '✅ Kode lagret!', kind: 'good' };
+			createStatus = { msg: 'Kode lagret!', kind: 'good' };
 			tc = { ...tc, code: '', label: '', value: '', image: '' };
 		} catch (e) {
 			createStatus = { msg: /** @type {Error} */ (e).message, kind: 'bad' };
@@ -285,7 +283,7 @@
 		<div class="games">
 			{#each games as game (game.id)}
 				<section class="panel game" id="game-{game.id}">
-					<h3><span aria-hidden="true">{game.icon}</span> {game.name}</h3>
+					<h3>{game.name}</h3>
 					<p class="muted">{game.about}</p>
 					<div class="actions">
 						<!-- A new game with other settings starts from the running one ("Nye innstillinger"). -->
@@ -301,7 +299,7 @@
 
 		<h2 class="section-title">Barn og koder</h2>
 		<section class="panel" id="kidsPanel">
-			<h2>👧 Innlogging for barn</h2>
+			<h2>Innlogging for barn</h2>
 			<p class="muted">
 				Gi hvert barn en egen kode. Med koden logger barnet inn og får sin egen lagring. Koden vises bare én gang, så skriv
 				den ned.
@@ -333,14 +331,14 @@
 		</section>
 
 		<section class="panel" id="codesSection">
-			<h2>🔑 Hemmelige koder</h2>
+			<h2>Hemmelige koder</h2>
 			<p class="muted">
 				Koder gir mynter, Pokémon eller en melding. Barna skriver dem inn på siden for
 				<a href="/redeem.html">hemmelige koder</a>.
 			</p>
 			<div class="actions">
 				<button class="pm-button small secondary" id="showCodesBtn" aria-expanded={codesOpen} onclick={toggleCodes}>{codesOpen ? 'Skjul kodene' : 'Se kodene'}</button>
-				<button class="pm-button small secondary" id="showCreateCodeBtn" aria-expanded={createOpen} onclick={() => (createOpen = !createOpen)}>{createOpen ? 'Avbryt' : '➕ Lag kode'}</button>
+				<button class="pm-button small secondary" id="showCreateCodeBtn" aria-expanded={createOpen} onclick={() => (createOpen = !createOpen)}>{createOpen ? 'Avbryt' : 'Lag kode'}</button>
 			</div>
 			{#if createOpen}
 				<div class="sub" id="createCodePanel">
