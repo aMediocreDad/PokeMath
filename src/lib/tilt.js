@@ -108,6 +108,7 @@ export async function setTilt(on) {
 	if (on && needsAsking()) {
 		const answer = await /** @type {any} */ (DeviceOrientationEvent).requestPermission().catch(() => 'denied');
 		if (answer !== 'granted') on = false;
+		else refused = false;
 	}
 	if (on) localStorage.setItem(TILT_KEY, 'on');
 	else localStorage.removeItem(TILT_KEY);
@@ -116,27 +117,36 @@ export async function setTilt(on) {
 	return on;
 }
 
-// Safari forgets the answer when the page is opened again, and then sends no tilt without saying
-// so; it can only be asked again inside a tap. So while the tilt is on and none is coming, the next
-// tap anywhere asks. A tap is click or touchend: WebKit does not count pointerdown or touchstart.
-// Asking again when the answer is still yes shows nothing.
+// Safari forgets the answer when the page is opened again (the Home Screen app on every launch), and
+// then sends no tilt without saying so; it can only be asked again inside a tap. So while the tilt
+// is on and none is coming, the next tap on a card that follows it asks: a tap on the search field
+// or a button should not bring up Safari's question. A Cancel stops the asking until the page is
+// opened again. A tap is click or touchend: WebKit does not count pointerdown or touchstart. Asking
+// again when the answer is still yes shows nothing.
 const TAPS = ['click', 'touchend'];
 let armed = false;
+let refused = false;
+
+/** Whether a tap landed on a card that follows the tilt: a layer, or the window it sits in. */
+const onCard = (/** @type {Event} */ e) =>
+	e.target instanceof Node && [...layers].some((layer) => layer.contains(/** @type {Node} */ (e.target)) || !!layer.parentElement?.contains(/** @type {Node} */ (e.target)));
 /** Whether no tilt has come this load, or none for a second. */
 const quiet = () => lastEvent === 0 || performance.now() - lastEvent > 1000;
 
 function armAsking() {
-	if (armed || !listening || !needsAsking()) return;
+	if (armed || refused || !listening || !needsAsking()) return;
 	armed = true;
 	for (const type of TAPS) addEventListener(type, askAgain, { capture: true, passive: true });
 }
 
-function askAgain() {
+/** @param {Event} e */
+function askAgain(e) {
+	if (!onCard(e)) return;
 	armed = false;
 	for (const type of TAPS) removeEventListener(type, askAgain, { capture: true });
 	if (!listening || !quiet()) return;
 	/** @type {any} */ (DeviceOrientationEvent).requestPermission().then(
-		(/** @type {string} */ answer) => answer === 'granted' || armAsking(),
+		(/** @type {string} */ answer) => answer === 'granted' || (refused = true),
 		() => armAsking()
 	);
 }
