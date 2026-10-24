@@ -251,6 +251,12 @@ const doorsReady = async (page) => (await page.locator('.door.ready .num').allIn
 // ---- the spring event ------------------------------------------------------------------------
 const EASTER = '/easter.html';
 const bar = (page, n) => page.locator('.bars').nth(n);
+// The counts count up over 600 ms from the first animation frame, which a headless browser in a
+// container can hold back for seconds: wait for the count rather than for a fixed time.
+const countIs = (page, n, text) =>
+	page
+		.waitForFunction(([n, text]) => document.querySelectorAll('.bars .count')[n]?.textContent?.replace(/\s+/g, ' ').trim() === text, [n, text], { timeout: 10000 })
+		.catch(() => {});
 const countOf = (page, n, state) => bar(page, n).locator(`.item.${state}`).count();
 const fakeGlobal = (page, total, milestones = []) =>
 	page.route('**/api/easter/global', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ total, milestones }) }));
@@ -268,6 +274,7 @@ const closeLootbox = async (page) => {
 	await visit(page, `${EASTER}?date=2026-04-20`, { easterYear: '2026', easterCaught: '175', easterClaimed: '[0]', easterLocalTs: JSON.stringify({ 1: Date.UTC(2026, 3, 18, 12, 0) }) });
 	await page.waitForSelector('.item');
 	await sleep(900);
+	await countIs(page, 0, '175 / 500');
 	check('the countdown runs to the end of April', /Avsluttes om:\s*10d/.test(await page.locator('#easterCountdown').innerText()), await page.locator('#easterCountdown').innerText());
 	check('this device: 175 / 500', (await bar(page, 0).locator('.count').innerText()) === '175 / 500', await bar(page, 0).locator('.count').innerText());
 	check('this device: one taken, two eggs, seven shut', (await countOf(page, 0, 'claimed')) === 1 && (await countOf(page, 0, 'reached')) === 2 && (await countOf(page, 0, 'locked')) === 7);
@@ -299,6 +306,8 @@ const closeLootbox = async (page) => {
 	await visit(page, `${EASTER}?date=2026-04-20`);
 	await page.waitForSelector('.item');
 	await sleep(1200);
+	await page.waitForFunction(() => !/–/.test(document.querySelectorAll('.bars .count')[1]?.textContent ?? '–'), undefined, { timeout: 10000 }).catch(() => {});
+	await sleep(1500);
 	check('everyone: 300 000 / 1 500 000', (await bar(page, 1).locator('.count').innerText()).replace(/\s/g, ' ') === '300 000 / 1 500 000', await bar(page, 1).locator('.count').innerText());
 	check('everyone: two eggs, eight shut', (await countOf(page, 1, 'reached')) === 2 && (await countOf(page, 1, 'locked')) === 8);
 	check('everyone: the steps are 150k, 300k ... 1,5M', (await bar(page, 1).locator('.threshold').allInnerTexts()).join(' ') === '150k 300k 450k 600k 750k 900k 1,05M 1,2M 1,35M 1,5M', (await bar(page, 1).locator('.threshold').allInnerTexts()).join(' '));
@@ -329,11 +338,17 @@ const closeLootbox = async (page) => {
 }
 
 {
-	// The Worker's real counter, with no mock: a catch counts, and the page shows the count.
+	// The Worker's real counter, with no mock: a catch from a known player counts (one a second per
+	// login), and the page shows the count.
 	const { ctx, page } = await device();
 	const total = async () => (await (await fetch(BASE + '/api/easter/global')).json()).total;
+	const uuid = crypto.randomUUID();
+	const { token } = await (await fetch(`${BASE}/validate-user?uuid=${uuid}`)).json();
 	const before = await total();
-	for (let i = 0; i < 2; i++) await fetch(BASE + '/api/easter/catch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+	for (let i = 0; i < 2; i++) {
+		if (i) await sleep(1100);
+		await fetch(BASE + '/api/easter/catch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uuid, token }) });
+	}
 	const after = await total();
 	check('two catches raise the Worker\'s count by two', after === before + 2, `${before} -> ${after}`);
 	await visit(page, `${EASTER}?date=2026-04-20`);
@@ -361,6 +376,7 @@ const closeLootbox = async (page) => {
 	await fakeGlobal(page, 0);
 	await visit(page, `${EASTER}?date=2026-10-24`, { easterYear: '2026', easterCaught: '60' });
 	await page.waitForSelector('.item');
+	await page.waitForFunction(() => document.querySelector('#easterCountdown')?.textContent?.trim() === 'Eventet er avsluttet.', undefined, { timeout: 10000 }).catch(() => {});
 	check('24 October: the event is over, the egg is still there', (await page.locator('#easterCountdown').innerText()) === 'Eventet er avsluttet.' && (await countOf(page, 0, 'reached')) === 1);
 	await bar(page, 0).locator('.item.reached button').click();
 	await page.waitForSelector('#bingo-lootbox-overlay');
