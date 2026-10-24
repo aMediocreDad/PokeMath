@@ -1,6 +1,7 @@
 // Badges ("Merker"), stored in localStorage under 'badges' exactly as static/global.js stores them.
 // Every update re-reads the stored list first, so a legacy page writing in between is not lost.
 import { notify } from '#lib/toast.svelte.js';
+import { writeItem } from '#lib/storage.js';
 
 const defaultAchievements = {
 	version: '1.0',
@@ -60,7 +61,7 @@ function read() {
 /** What global.js does when it loads: store the (possibly default) badges. */
 export function loadAchievements() {
 	const achievements = read();
-	localStorage.setItem('badges', JSON.stringify(achievements));
+	writeItem('badges', JSON.stringify(achievements));
 	return achievements;
 }
 
@@ -78,7 +79,7 @@ export function incrementProgress(id, amount = 1) {
 		achievement.achieved = true;
 		notify(`/images/badges/${achievement.id}.png`, `Merke Låst Opp: ${achievement.name}`);
 	}
-	localStorage.setItem('badges', JSON.stringify(achievements));
+	writeItem('badges', JSON.stringify(achievements));
 }
 
 /** Badge ids for "Fang 250 <type>-type pokemon". */

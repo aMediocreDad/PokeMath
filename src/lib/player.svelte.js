@@ -4,7 +4,7 @@
 // and saveAll() in static/global.js, so legacy and Svelte pages can be used side by side.
 // One difference: a change is written straight away, and only the keys it touches are written,
 // instead of everything at the end of a round.
-import { getStorageArray, getStorageInt, getStorageString } from '#lib/storage.js';
+import { getStorageArray, getStorageInt, getStorageString, writeItem } from '#lib/storage.js';
 import { maybeSaveBackup } from '#lib/idbBackup.js';
 
 /** How saveAll() writes each field. */
@@ -107,7 +107,7 @@ class Player {
 		const username = getStorageString('username');
 		if (!username || username.length > 22) {
 			this.username = 'Ash';
-			localStorage.setItem('username', 'Ash');
+			writeItem('username', 'Ash');
 		} else {
 			this.username = username;
 		}
@@ -138,7 +138,7 @@ class Player {
 		if (!this.loaded) return this.load();
 		for (const field of fields) {
 			for (const [key, value] of Object.entries(writers[field](this))) {
-				localStorage.setItem(key, value);
+				writeItem(key, value);
 			}
 		}
 		maybeSaveBackup();
@@ -190,7 +190,7 @@ function cleanupCorruptedData() {
 	for (const key of ['pokemonlist', 'boughtPlayerIcons']) {
 		const raw = localStorage.getItem(key);
 		if (raw && (raw.includes('"') || raw.includes('%22'))) {
-			localStorage.setItem(key, raw.replace(/%22/g, '"').replace(/"/g, '').split('|').join('|'));
+			writeItem(key, raw.replace(/%22/g, '"').replace(/"/g, '').split('|').join('|'));
 		}
 	}
 }

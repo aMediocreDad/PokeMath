@@ -17,8 +17,9 @@
 
 import { deleteBackup } from '#lib/idbBackup.js';
 import { forgetMe, loadMe, me } from '#lib/me.svelte.js';
-import { DEVICE_KEYS, saveData as snapshot } from '#lib/storage.js';
+import { DEVICE_KEYS, replaceSaveData, saveData as snapshot, writeItem } from '#lib/storage.js';
 import { ask } from '#lib/ask.svelte.js';
+import { toast } from '#lib/toast.svelte.js';
 
 const META = 'pm-cloud';
 const UPLOAD_EVERY = 60_000;
@@ -64,7 +65,7 @@ function readMeta() {
 
 /** Replaces the note, and always records the current player as the owner. */
 function writeMeta(/** @type {Meta} */ meta) {
-	localStorage.setItem(META, JSON.stringify({ ...meta, owner: me.id }));
+	writeItem(META, JSON.stringify({ ...meta, owner: me.id }));
 }
 
 /** Remove the save from this device (everything but this module's own note). */
@@ -73,10 +74,15 @@ function clearSave() {
 	for (const key of DEVICE_KEYS) if (key !== META) localStorage.removeItem(key);
 }
 
-/** Replace this device's save with the cloud copy, and start the page over with it. */
+/**
+ * Replace this device's save with the cloud copy, and start the page over with it. When the
+ * device cannot hold it, the save stays as it was.
+ */
 export function useCloud(/** @type {CloudCopy} */ copy) {
-	for (const key of Object.keys(snapshot())) if (!(key in copy.data)) localStorage.removeItem(key);
-	for (const [key, value] of Object.entries(copy.data)) localStorage.setItem(key, value);
+	if (!replaceSaveData(copy.data)) {
+		toast('Fikk ikke hentet lagringen fra skyen, for det er ikke plass på enheten. Ingenting er endret.', { bad: true });
+		return;
+	}
 	writeMeta({ hash: fingerprint(copy.data), base: copy.updatedAt });
 	location.reload();
 }

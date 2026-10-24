@@ -2,6 +2,7 @@
 // Ported from addSpecificToPokedex() in static/pokestuff.js.
 import { player } from '#lib/player.svelte.js';
 import { trackEvent } from '#lib/track.js';
+import { writeItem } from '#lib/storage.js';
 
 /** @param {string} entry  As stored, e.g. "N150" or "S25". */
 export function giveSpecificPokemon(entry) {
@@ -17,13 +18,13 @@ export function giveSpecificPokemon(entry) {
 export function countEventCatch() {
 	const year = new Date().getFullYear();
 	if (parseInt(localStorage.getItem('easterYear') || '0') !== year) {
-		localStorage.setItem('easterYear', String(year));
-		localStorage.setItem('easterCaught', '0');
-		localStorage.setItem('easterClaimed', '[]');
-		localStorage.setItem('easterLocalTs', '{}');
+		writeItem('easterYear', String(year));
+		writeItem('easterCaught', '0');
+		writeItem('easterClaimed', '[]');
+		writeItem('easterLocalTs', '{}');
 	}
 	const caught = parseInt(localStorage.getItem('easterCaught') || '0') + 1;
-	localStorage.setItem('easterCaught', String(caught));
+	writeItem('easterCaught', String(caught));
 	// Remember when each block of 50 was reached.
 	const segment = Math.floor(caught / 50);
 	if (caught % 50 === 0 && segment >= 1 && segment <= 10) {
@@ -31,7 +32,7 @@ export function countEventCatch() {
 			const reached = JSON.parse(localStorage.getItem('easterLocalTs') || '{}');
 			if (!reached[segment]) {
 				reached[segment] = Date.now();
-				localStorage.setItem('easterLocalTs', JSON.stringify(reached));
+				writeItem('easterLocalTs', JSON.stringify(reached));
 			}
 		} catch {
 			// A broken value is left as it is, as before.

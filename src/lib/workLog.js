@@ -1,5 +1,6 @@
 // The "Arbeidsoversikt" (work overview): solved problems per day and stage, stored under
 // 'mathProblems' as { "YYYY-MM-DD": { [stage]: count } }. Ported from static/math.js.
+import { writeItem } from '#lib/storage.js';
 
 function today() {
 	const d = new Date();
@@ -8,7 +9,13 @@ function today() {
 
 /** @returns {Record<string, Record<string, number>>} */
 function read() {
-	return JSON.parse(localStorage.getItem('mathProblems') || '{}');
+	try {
+		const data = JSON.parse(localStorage.getItem('mathProblems') || '{}');
+		return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+	} catch {
+		// A broken value counts as nothing logged yet.
+		return {};
+	}
 }
 
 /**
@@ -20,7 +27,7 @@ export function logSolved(stage) {
 	const date = today();
 	data[date] ??= {};
 	data[date][stage] = (data[date][stage] || 0) + 1;
-	localStorage.setItem('mathProblems', JSON.stringify(data));
+	writeItem('mathProblems', JSON.stringify(data));
 }
 
 /**
@@ -72,7 +79,7 @@ export function workOverview() {
 		const [year, month] = day.split('-').map(Number);
 		if (isOlderThanOneMonth(year, month)) delete data[day];
 	}
-	localStorage.setItem('mathProblems', JSON.stringify(data));
+	writeItem('mathProblems', JSON.stringify(data));
 
 	return levels;
 }

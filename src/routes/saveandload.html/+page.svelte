@@ -40,6 +40,10 @@
 				toast(`Filen har ${result.incoming} Pokémon, men du har allerede ${result.current} her. Ingenting ble overskrevet.`, { bad: true });
 				return;
 			}
+			if (result.failed) {
+				toast('Fikk ikke lest inn filen, for det er ikke plass på enheten. Ingenting ble endret.', { bad: true });
+				return;
+			}
 			player.load();
 			loadAchievements();
 			announceRestore();
