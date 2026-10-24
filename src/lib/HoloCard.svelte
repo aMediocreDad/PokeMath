@@ -41,6 +41,8 @@
 		['Speed', [pokemon.base_spd]]
 	]);
 	const holo = $derived(shiny && !locked);
+	/** The picture's address from the site root, for the shine's mask: CSS would read a relative one against the wrong base. */
+	const artUrl = $derived(image.startsWith('/') ? image : `/${image}`);
 	// A shiny's picture, like a Shiny Vault card: gold four-point sparkles and soft streaks of
 	// coloured light behind the Pokémon. Sparkles: x and y of the centre in %, size in % of the
 	// window's width, and depth, how far it drifts as the card turns. Streaks shine out from the
@@ -122,7 +124,7 @@
 				<span class="hp"><small>HP</small>{locked ? '??' : pokemon.base_hp}</span>
 				<span class="energy">{#each types as type (type)}<TypeIcon {type} />{/each}</span>
 			</header>
-			<div class="window">
+			<div class="window" style:--art="url({artUrl})">
 				{#if holo}
 					<span class="vault" aria-hidden="true">
 						{#each STREAKS as [angle, shift], i (i)}<span class="streak" style:--angle="{angle}deg" style:--shift={shift}></span>{/each}
@@ -135,7 +137,9 @@
 				</Aura>
 				{#if holo}
 					<span class="etch" aria-hidden="true"></span>
-					<span class="etch-light" aria-hidden="true"><span class="bands with"></span><span class="bands against"></span></span>
+					<span class="ground-shine" aria-hidden="true"></span>
+					<span class="shine with" aria-hidden="true"></span>
+					<span class="shine against" aria-hidden="true"></span>
 					<span class="sheen" aria-hidden="true"></span>
 				{/if}
 			</div>
@@ -380,7 +384,7 @@
 	/* A shiny's picture, like a Shiny Vault card: a white ground engraved with a faint zig-zag,
 	   gold four-point sparkles and soft coloured streaks behind the Pokémon, and over everything
 	   a fine etching of rings in gold and pearl that shift as the card turns. A soft band of light
-	   crosses with the turn, and rainbow bands flash through the rings while the card is turned.
+	   crosses with the turn, and rainbow shine flashes through the rings while the card is turned.
 	   Everything takes its place from the turn (--ax, --ay), so it moves with the card wherever
 	   the pointer is. */
 	.holo .window {
@@ -396,49 +400,123 @@
 		inset: 0;
 		pointer-events: none;
 	}
-	/* The light catching the foil: a soft white-gold band, and in the etched rings two sets of
-	   rainbow bands with white-hot middles, one set travelling with the turn and one, at a crossing
-	   angle, against it. They are layers three times the window's size that slide with transform,
-	   so no edge of them ever crosses the picture; the rings cut them into fine lines, as on real
-	   foil. At rest they are faint, and they light up the further the card is turned. */
-	.sheen,
-	.bands {
+	/* The light catching the foil. Two shine layers, the way holo effects for trading cards are
+	   commonly built (after poke-holo.simey.me; no code taken): a dark pattern of diagonal bands
+	   with narrow bright stripes, given colour by a rainbow blended in as hue, pushed with contrast
+	   and saturation, then colour-dodged onto the picture. The dark parts leave the picture alone
+	   and the bright stripes blow out into saturated colour. The rainbow slides with the turn up
+	   and down and the bands across it; the second layer runs the other way, so the bands cross.
+	   The etched rings cut both into fine lines. Positions stay within 0–100% of tiles larger
+	   than the window, so no tile edge ever shows. At rest they are dim; turned, they flare. */
+	.shine {
+		--t: min(1, var(--ax) * var(--ax) + var(--ay) * var(--ay));
+		--bx: calc(50% - var(--ax) * 50%);
+		--by: calc(50% - var(--ay) * 50%);
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background-image:
+			repeating-linear-gradient(
+				0deg,
+				oklch(0.74 0.2 15) 0%,
+				oklch(0.86 0.16 85) 4%,
+				oklch(0.8 0.19 150) 8%,
+				oklch(0.72 0.15 225) 12%,
+				oklch(0.66 0.2 300) 16%,
+				oklch(0.74 0.2 15) 20%
+			),
+			repeating-linear-gradient(
+				128deg,
+				oklch(0.18 0.04 265) 0%,
+				oklch(0.66 0.03 205) 3.6%,
+				oklch(0.8 0.06 200) 4.4%,
+				oklch(0.66 0.03 205) 5.2%,
+				oklch(0.18 0.04 265) 9%,
+				oklch(0.18 0.04 265) 11.5%
+			);
+		background-size: 200% 600%, 300% 100%;
+		background-position: 0% var(--by), clamp(0%, calc(var(--bx) + var(--by) * 0.2), 100%) 0%;
+		background-blend-mode: hue;
+		/* Cut to the rings and to the Pokémon itself: the picture's own transparency is the mask.
+		   The padding matches the picture's, so the outline lines up. */
+		padding: 4%;
+		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px), var(--art);
+		-webkit-mask-size: auto, contain;
+		-webkit-mask-repeat: repeat, no-repeat;
+		-webkit-mask-position: 0 0, center;
+		-webkit-mask-origin: border-box, content-box;
+		-webkit-mask-composite: source-in;
+		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px), var(--art);
+		mask-size: auto, contain;
+		mask-repeat: repeat, no-repeat;
+		mask-position: 0 0, center;
+		mask-origin: border-box, content-box;
+		mask-composite: intersect;
+		mix-blend-mode: color-dodge;
+		filter: brightness(calc(0.6 + var(--t) * 0.6)) contrast(1.4) saturate(2.2);
+	}
+	.shine.against {
+		background-size: 200% 400%, 220% 100%;
+		background-position: 0% calc(100% - var(--by)), clamp(0%, calc(100% - var(--bx) - var(--by) * 0.2), 100%) 0%;
+		filter: brightness(calc(0.5 + var(--t) * 0.5)) contrast(1.5) saturate(1.6);
+	}
+	/* On the white ground colour-dodge has nothing to brighten, so there the shine is painted:
+	   two sets of saturated rainbow bands with white-hot middles, crossing as they travel, cut to
+	   the rings and to everything outside the Pokémon. */
+	.ground-shine {
+		--t: min(1, var(--ax) * var(--ax) + var(--ay) * var(--ay));
+		--bx: calc(50% - var(--ax) * 50%);
+		--by: calc(50% - var(--ay) * 50%);
+		position: absolute;
+		inset: 0;
+		padding: 4%;
+		pointer-events: none;
+		background-image:
+			repeating-linear-gradient(
+				120deg,
+				transparent 0 3.5em,
+				oklch(0.66 0.26 25 / 0.8) 3.9em,
+				oklch(0.84 0.19 90) 4.3em,
+				oklch(1 0 0) 4.6em,
+				oklch(0.74 0.23 150) 4.9em,
+				oklch(0.6 0.23 245 / 0.8) 5.3em,
+				transparent 5.7em 11em
+			),
+			repeating-linear-gradient(
+				55deg,
+				transparent 0 4.5em,
+				oklch(0.6 0.23 300 / 0.7) 4.9em,
+				oklch(0.72 0.22 200) 5.3em,
+				oklch(1 0 0) 5.6em,
+				oklch(0.84 0.19 90) 5.9em,
+				oklch(0.66 0.26 25 / 0.7) 6.3em,
+				transparent 6.7em 13em
+			);
+		background-size: 300% 300%, 300% 300%;
+		background-position: var(--bx) var(--by), calc(100% - var(--bx)) calc(100% - var(--by));
+		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px), var(--art);
+		-webkit-mask-size: auto, contain;
+		-webkit-mask-repeat: repeat, no-repeat;
+		-webkit-mask-position: 0 0, center;
+		-webkit-mask-origin: border-box, content-box;
+		-webkit-mask-composite: source-out;
+		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px), var(--art);
+		mask-size: auto, contain;
+		mask-repeat: repeat, no-repeat;
+		mask-position: 0 0, center;
+		mask-origin: border-box, content-box;
+		mask-composite: subtract;
+		opacity: calc(0.08 + var(--t) * 0.9);
+	}
+	/* A soft white-gold band of light on top, three times the window's size and slid with
+	   transform. */
+	.sheen {
 		position: absolute;
 		top: -100%;
 		left: -100%;
 		width: 300%;
 		height: 300%;
 		pointer-events: none;
-	}
-	.etch-light {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
-		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
-		opacity: calc(0.08 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 1.1);
-	}
-	.bands {
-		background: repeating-linear-gradient(
-			var(--angle),
-			transparent 0 4em,
-			oklch(0.66 0.26 25 / 0.8) 4.4em,
-			oklch(0.82 0.2 90) 4.8em,
-			oklch(1 0 0) 5.1em,
-			oklch(0.72 0.24 150) 5.4em,
-			oklch(0.6 0.23 245 / 0.8) 5.8em,
-			transparent 6.2em 12em
-		);
-	}
-	.bands.with {
-		--angle: 115deg;
-		transform: translate(calc(var(--ax) * -14%), calc(var(--ay) * -10%));
-	}
-	.bands.against {
-		--angle: 60deg;
-		opacity: 0.6;
-		transform: translate(calc(var(--ax) * 14%), calc(var(--ay) * 10%));
 	}
 	.sheen {
 		background: linear-gradient(
@@ -541,7 +619,7 @@
 	/* The light on the card: a soft spot that follows the turn, brightest when turned furthest. It
 	   sits over the whole card, frame and all. The light shines straight at the card, so like a
 	   reflection in a tilted mirror it moves the opposite way to the turn: turn the right edge
-	   away and the light slides left. The band of light and the rainbow bands do the same. */
+	   away and the light slides left. The band of light and the shine do the same. */
 	.glare {
 		position: absolute;
 		inset: 0;
