@@ -8,6 +8,7 @@
 // the field bingo's player list already shows, and the damage they did as damage.
 
 import { HP_PER_CHILD, RAID_BOSSES, damageFor, raidHp } from '../src/lib/raidConfig.js';
+import { MAX_PAID_ANSWERS, paidCount, playerOf } from './players.js';
 
 /** A child's hits closer together than this are dropped: nobody answers that fast. */
 const MIN_HIT_GAP = 1000;
@@ -50,8 +51,10 @@ export function startRaid(room) {
  * @param {any} room @param {string} uuid @param {number} now @param {unknown} [value] @param {unknown} [stage]
  */
 export function hit(room, uuid, now, value, stage) {
-	const player = room.players[uuid];
+	const player = playerOf(room, uuid);
 	if (room.phase !== 'fight' || !player || now - (player.lastHit || 0) < MIN_HIT_GAP) return 0;
+	// The answer and its level come from the child's page, so a made-up one cannot do more than
+	// damageFor allows: the level is clamped to 1-5 and one hit to MAX_HIT.
 	const damage = Math.min(room.hp, damageFor(value, stage));
 	player.lastHit = now;
 	player.catchCount += 1;
@@ -65,9 +68,12 @@ export function hit(room, uuid, now, value, stage) {
 	return damage;
 }
 
-/** What a child gets: the boss when it was beaten, and coins for every hit either way. @param {any} room @param {any} player */
+/**
+ * What a child gets: the boss when it was beaten, and coins for every hit either way (up to what a
+ * child can play, MAX_PAID_ANSWERS). @param {any} room @param {any} player
+ */
 export function raidPrizes(room, player) {
-	const coins = { type: 'coins', amount: 25 * player.catchCount + (room.phase === 'won' ? 1000 : 0), source: 'raid' };
+	const coins = { type: 'coins', amount: 25 * paidCount(player.catchCount, MAX_PAID_ANSWERS) + (room.phase === 'won' ? 1000 : 0), source: 'raid' };
 	if (room.phase !== 'won') return [coins];
 	const shiny = Math.random() < SHINY_CHANCE;
 	return [{ type: 'pokemon', pokedexId: room.bossId, entry: `${shiny ? 'S' : 'N'}${room.bossId}`, shiny, legendary: true, source: 'raid' }, coins];

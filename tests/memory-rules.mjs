@@ -17,6 +17,7 @@ check('no answers in the lobby', !answer(room, 'a', 10_000));
 startMemory(room);
 check('a turn costs one answer per child', room.turnCost === 3 && room.turns === 1);
 check('an unknown child does not count', !answer(room, 'zz', 10_000));
+check('"__proto__" and "constructor" are no children', !answer(room, '__proto__', 10_000) && !answer(room, 'constructor', 10_000) && !('lastHit' in Object.prototype) && room.pool === 0);
 check('an answer counts', answer(room, 'a', 10_000) && room.pool === 1);
 check('a second answer within a second does not', !answer(room, 'a', 10_500));
 
