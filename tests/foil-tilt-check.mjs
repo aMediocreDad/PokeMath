@@ -201,7 +201,7 @@ for (const [name, device] of [["ipad", devices["iPad (gen 7)"]], ["ipad-landscap
   const page = await context.newPage();
   await page.goto(BASE + "/pokemath.html");
   await page.waitForSelector(`${CARD} .foil`);
-  const still = () => page.locator(`${CARD} .rainbow`).evaluate((el) => getComputedStyle(el).transform + " " + el.getAnimations().length);
+  const still = () => page.locator(`${CARD} .bands`).evaluate((el) => getComputedStyle(el).transform + " " + el.getAnimations().length);
   const before = await still();
   await tiltTo(page, 40, 0); await tiltTo(page, 40, 15); await page.waitForTimeout(300);
   await page.locator(`${CARD} .art`).hover().catch(() => {});

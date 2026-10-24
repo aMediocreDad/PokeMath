@@ -2,8 +2,8 @@
 	// One Pokémon card, used under the game and in the Pokédex. Shiny, legendary and mythic cards
 	// get a coloured edge and a badge beside the types, so the rarity does not depend on colour
 	// alone. Shiny
-	// cards are foiled like trading cards: a rainbow foil behind the Pokémon, a glare sweeping over
-	// it, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
+	// cards are foiled like trading cards: a near-white ground, a holo shine and a glare sweeping
+	// over the Pokémon, and a rainbow edge. Each card starts the sweep at its own moment, so a row of shinies
 	// does not flash in unison. Legendaries and mythics stand in an Aura. A `locked` card is one the
 	// all-species Pokédex has not seen caught: a shadow with no name, like the dex in the games.
 	// With `onselect` a tap picks the card instead of opening the viewer (the Pokédex's split view).
@@ -141,16 +141,16 @@
 		background-repeat: no-repeat;
 	}
 	.shiny .art {
-		background-color: oklch(0.94 0.05 90);
+		background: radial-gradient(circle at 50% 55%, oklch(0.995 0.002 260), oklch(0.96 0.005 260) 60%, oklch(0.93 0.008 260));
 	}
 	/* Quiet cards: a still wash in the art, in the colours of what the full card shows. */
 	.quiet.shiny .art {
 		background: linear-gradient(
 			115deg,
-			oklch(0.93 0.06 85),
-			oklch(0.91 0.06 350),
-			oklch(0.92 0.05 250),
-			oklch(0.93 0.06 160)
+			oklch(0.98 0.015 85),
+			oklch(0.975 0.015 350),
+			oklch(0.975 0.015 250),
+			oklch(0.98 0.015 160)
 		);
 	}
 	.quiet.legendary:not(.shiny) .art {
