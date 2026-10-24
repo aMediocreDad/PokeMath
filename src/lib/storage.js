@@ -31,7 +31,7 @@ export function getStorageArray(key, splitter) {
 export const DEVICE_KEYS = new Set([
 	'pm-cloud', 'pm-round', 'teacherSession', 'teacherBingoCode', 'teacherRaidCode', 'bingoJoinedCode', 'bingoCode',
 	'__pm_bw__', 'storageNoticeSeen', 'backupReminder', 'alertDismissed', 'bingoMuted', 'dexBarsCollapsed', 'foilTilt', 'dexMode',
-	'teacherMemoryCode'
+	'teacherMemoryCode', 'teacherRaidChoice', 'teacherMemoryChoice', 'teacherBingoSettings'
 ]);
 
 /** The player's save: every key in localStorage but the device's own. @returns {Record<string, string>} */
