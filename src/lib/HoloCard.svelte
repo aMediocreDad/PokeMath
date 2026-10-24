@@ -389,14 +389,13 @@
 		background: oklch(0.9 0.01 265);
 	}
 
-	/* A shiny's picture, like a Shiny Vault card. Printed in it: a near-white ground etched with faint
-	   rings like a fingerprint, gold four-point sparkles and flat stars, and rays from the Pokémon. Over it, the
+	/* A shiny's picture, like a Shiny Vault card. Printed in it: a near-white ground printed with a faint maze, gold four-point sparkles and flat stars, and rays from the Pokémon. Over it, the
 	   shine. The real card's ground is silver; this one is whiter by choice, which leaves the
 	   colour-dodged shine less to brighten, so it is gentler on the ground than on the Pokémon. */
 	.holo .window {
 		background:
-			repeating-radial-gradient(circle at 50% 55%, oklch(0.72 0.02 260 / 0.14) 0 1px, transparent 1px 4px) padding-box,
-			radial-gradient(circle at 50% 55%, oklch(0.995 0.002 260), oklch(0.96 0.005 260) 60%, oklch(0.92 0.008 260)) padding-box,
+			url('./assets/holo/maze.svg') center / 7% padding-box,
+			radial-gradient(circle at 50% 55%, oklch(0.995 0.008 85), oklch(0.97 0.015 82) 60%, oklch(0.94 0.02 80)) padding-box,
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 	}
 	.vault {
@@ -471,7 +470,7 @@
 		rotate: var(--angle);
 	}
 	/* The shine, the way holo trading-card effects are commonly built (the technique after
-	   poke-holo.simey.me; no code taken). One layer stacks four patterns: a fine etched texture,
+	   poke-holo.simey.me; no code taken). One layer stacks four patterns: fine etched rings round the Pokémon,
 	   a rainbow of vertical sun pillars, dark diagonal bands with one bright stripe, and a soft
 	   darkening round the light. Blended into each other (soft-light, hue, hard-light) they make
 	   coloured stripes on dark; contrast and saturation push them, and the layer is colour-dodged
@@ -490,7 +489,7 @@
 		--rainbow: oklch(0.8 0.18 25), oklch(0.9 0.16 100), oklch(0.88 0.18 140), oklch(0.9 0.12 195), oklch(0.78 0.15 270),
 			oklch(0.76 0.19 320);
 		background-image:
-			repeating-radial-gradient(circle at 50% 55%, oklch(0.95 0 0) 0 0.8px, oklch(0.4 0 0) 0.8px 2.6px),
+			repeating-radial-gradient(circle at 50% 55%, oklch(0.95 0 0) 0 0.6px, oklch(0.4 0 0) 0.6px 2px),
 			repeating-linear-gradient(0deg, var(--rainbow), oklch(0.8 0.18 25) 32%),
 			repeating-linear-gradient(
 				130deg,

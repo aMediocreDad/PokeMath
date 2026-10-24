@@ -116,7 +116,7 @@
 	/* The shine, the way holo trading cards are commonly built (the technique after
 	   poke-holo.simey.me's shiny rare; no code taken). Bottom to top: a soft darkening round the
 	   light, dark diagonal bands with one pale stripe each (hard-light), a slow rainbow of vertical
-	   sun pillars (hue) and a fine etched texture (soft-light). Together they make coloured stripes
+	   sun pillars (hue) and fine etched rings round the Pokémon (soft-light). Together they make coloured stripes
 	   on dark; colour-dodged onto the window, dark leaves it alone, the white ground stays white,
 	   and the Pokémon lights up in colour. */
 	.shine {
@@ -165,7 +165,7 @@
 	.grain {
 		inset: 0;
 		mix-blend-mode: soft-light;
-		background: repeating-radial-gradient(circle at 50% 55%, oklch(0.8 0 0) 0 0.8px, oklch(0.55 0 0) 0.8px 2.6px);
+		background: repeating-radial-gradient(circle at 50% 55%, oklch(0.8 0 0) 0 0.6px, oklch(0.55 0 0) 0.6px 2px);
 	}
 
 	/* The glare: a soft round light where the light falls. */

@@ -141,7 +141,9 @@
 		background-repeat: no-repeat;
 	}
 	.shiny .art {
-		background: radial-gradient(circle at 50% 55%, oklch(0.995 0.002 260), oklch(0.96 0.005 260) 60%, oklch(0.93 0.008 260));
+		background:
+			url('./assets/holo/maze.svg') center / 14%,
+			radial-gradient(circle at 50% 55%, oklch(0.995 0.008 85), oklch(0.97 0.015 82) 60%, oklch(0.94 0.02 80));
 	}
 	/* Quiet cards: a still wash in the art, in the colours of what the full card shows. */
 	.quiet.shiny .art {
