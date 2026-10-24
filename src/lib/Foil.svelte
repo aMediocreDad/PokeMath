@@ -9,7 +9,7 @@
 	// sideways across it. A finger on a Pokédex card is left alone, as the card is a link. With the
 	// tilt switched on in the profile (tilt.js), tilting the iPad or phone moves it instead. A foil
 	// in a fixed overlay, like a bingo prize, never scrolls, so it keeps drifting.
-	import { followTilt, askAgainForTilt } from '#lib/tilt.js';
+	import { followTilt } from '#lib/tilt.js';
 
 	/** @type {{ on?: boolean, phase?: string, children: import('svelte').Snippet }} */
 	let { on = true, phase = '0s', children } = $props();
@@ -53,8 +53,7 @@
 			pointer = { x: across(e.clientX, box.left, box.width), y: across(e.clientY, box.top, box.height) };
 		};
 		const leave = () => (pointer = null);
-		const ask = () => !link && askAgainForTilt();
-		const events = /** @type {const} */ ([['pointermove', move], ['pointerleave', leave], ['pointercancel', leave], ['click', ask]]);
+		const events = /** @type {const} */ ([['pointermove', move], ['pointerleave', leave], ['pointercancel', leave]]);
 		for (const [type, f] of events) windowEl.addEventListener(type, /** @type {EventListener} */ (f));
 		return () => {
 			unfollow.forEach((f) => f());

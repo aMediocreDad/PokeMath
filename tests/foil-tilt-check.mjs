@@ -1,7 +1,8 @@
 // The shiny foil following the card: scrolling it up the screen by default, a mouse across it on
 // desktop, a finger dragged across a bingo prize, the tilt (faked deviceorientation events) only
 // once switched on in the profile, Safari's question asked by that switch, a bingo prize drifting
-// as before, and the foil left alone under reduced motion.
+// as before, Safari asked again by the first tap after the page is reopened, and the foil left
+// alone under reduced motion. The foiled cards are the game page's recent catches.
 // Usage: node foil-tilt-check.mjs [base] [outdir]. tests/foil-tilt-serve-check.sh builds this
 // checkout and serves it on :3126.
 import { createRequire } from "module";
@@ -26,10 +27,13 @@ let failures = 0;
 const check = (ok, what) => { console.log(`${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) failures++; };
 const shift = (page, sel) => page.locator(sel).first().evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).m41);
 const drifting = (page, sel) => page.locator(sel).first().evaluate((el) => el.getAnimations().some((a) => /sweep/.test(a.animationName)));
+// A burst of events, as a held device sends them about 60 times a second: the tilt is smoothed.
 const tiltTo = (page, beta, gamma) => page.evaluate(([beta, gamma]) => {
-  const e = new Event("deviceorientation");
-  Object.defineProperties(e, { beta: { value: beta }, gamma: { value: gamma }, alpha: { value: 0 } });
-  window.dispatchEvent(e);
+  for (let i = 0; i < 30; i++) {
+    const e = new Event("deviceorientation");
+    Object.defineProperties(e, { beta: { value: beta }, gamma: { value: gamma }, alpha: { value: 0 } });
+    window.dispatchEvent(e);
+  }
 }, [beta, gamma]);
 // Tilt from rest to the left, then to the right; returns how far the glare moved between them,
 // either way: headless WebKit calls a portrait iPad turned, so side to side may land on either axis.
@@ -68,7 +72,7 @@ const browser = muteAudio(await webkit.launch());
 {
   const context = await open(devices["iPhone 13"], "no-preference");
   const page = await context.newPage();
-  await page.goto(BASE + "/dex.html");
+  await page.goto(BASE + "/pokemath.html");
   await page.waitForSelector(`${CARD} .foil`);
   const supported = await page.evaluate(() => CSS.supports("animation-timeline: view()"));
   console.log("     this WebKit ties animations to scrolling:", supported);
@@ -97,7 +101,7 @@ const browser = muteAudio(await webkit.launch());
 {
   const context = await open({ viewport: { width: 1280, height: 900 } }, "no-preference");
   const page = await context.newPage();
-  await page.goto(BASE + "/dex.html");
+  await page.goto(BASE + "/pokemath.html");
   await page.waitForSelector(`${CARD} .foil`);
   const art = page.locator(`${CARD} .art`);
   await art.scrollIntoViewIfNeeded();
@@ -131,12 +135,22 @@ for (const [name, device] of [["ipad", devices["iPad (gen 7)"]], ["ipad-landscap
   check(await toggle.isChecked() && await page.evaluate(() => localStorage.foilTilt === "on" && sessionStorage.asked === "1"), `${name}: switching it on asks Safari once and keeps it on`);
   await page.locator("#tiltSwitch").screenshot({ path: `${OUT}${name}-switch.png` });
   await page.locator("section", { has: page.locator("#tiltSwitch") }).screenshot({ path: `${OUT}${name}-panel.png` });
-  await page.goto(BASE + "/dex.html");
+  await page.goto(BASE + "/pokemath.html");
   await page.waitForSelector(`${CARD} .foil`);
   const [a, b] = await tiltLeftRight(page);
   console.log(`     ${name} foil shift`, Math.round(a), "→", Math.round(b));
   check(Math.abs(b - a) > 20, `${name}: foil follows the tilt`);
-  check(await page.evaluate(() => sessionStorage.asked) === "1", `${name}: the Pokédex does not ask again`);
+  check(await page.evaluate(() => sessionStorage.asked) === "1", `${name}: the game page does not ask again`);
+  // Opened again, Safari has forgotten the answer and sends nothing: the next tap anywhere asks.
+  await page.reload();
+  await page.waitForSelector(`${CARD} .foil`);
+  await page.waitForTimeout(300);
+  await page.locator("h2", { hasText: "Siste fangster" }).click();
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => sessionStorage.asked) === "2", `${name}: a tap after reopening asks Safari again (${await page.evaluate(() => sessionStorage.asked)})`);
+  await page.locator("h2", { hasText: "Siste fangster" }).click();
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => sessionStorage.asked) === "2", `${name}: and only once, while the tilt is coming`);
   await context.close();
 }
 
@@ -185,7 +199,7 @@ for (const [name, device] of [["ipad", devices["iPad (gen 7)"]], ["ipad-landscap
 {
   const context = await open(devices["iPad (gen 7)"], "reduce", { foilTilt: "on" });
   const page = await context.newPage();
-  await page.goto(BASE + "/dex.html");
+  await page.goto(BASE + "/pokemath.html");
   await page.waitForSelector(`${CARD} .foil`);
   const still = () => page.locator(`${CARD} .rainbow`).evaluate((el) => getComputedStyle(el).transform + " " + el.getAnimations().length);
   const before = await still();
