@@ -124,7 +124,7 @@
 				{#if holo}
 					<span class="vault" aria-hidden="true">
 						{#each STREAKS as [x, y, angle, hue], i (i)}<span class="streak" style:--x="{x}%" style:--y="{y}%" style:--angle="{angle}deg" style:--hue={hue}></span>{/each}
-						{#each STARS as [x, y, size, depth], i (i)}<span class="star" style:--x="{x}%" style:--y="{y}%" style:--size="{size}%" style:--depth={depth}></span>{/each}
+						{#each STARS as [x, y, size, depth], i (i)}<span class="star" style:--x={x} style:--y={y} style:--size="{size}%" style:--depth={depth}></span>{/each}
 					</span>
 				{/if}
 				<Aura kind={locked ? '' : rarity}>
@@ -132,6 +132,7 @@
 				</Aura>
 				{#if holo}
 					<span class="etch" aria-hidden="true"></span>
+					<span class="etch-light" aria-hidden="true"></span>
 					<span class="sheen" aria-hidden="true"></span>
 					<span class="pearl" aria-hidden="true"></span>
 				{/if}
@@ -180,6 +181,9 @@
 		/* Turned by the hand (--px, --py) or else the device's tilt (--tilt, --tilt-y). */
 		--ax: var(--px, var(--tilt, 0));
 		--ay: var(--py, var(--tilt-y, 0));
+		/* Where the light falls on the picture, in % from its top-left: against the turn. */
+		--lx: calc(50 - var(--ax) * 45);
+		--ly: calc(50 - var(--ay) * 45);
 		position: relative;
 		aspect-ratio: 63 / 88;
 		padding: 4.2%;
@@ -394,6 +398,31 @@
 	   falls. Both are layers three times the window's size that slide with transform as the card
 	   turns, so no edge of them ever crosses the picture. The pearl shows only while the card is
 	   turned, the more the further; at rest it is gone. */
+	/* Where the light falls, the etched rings flash in full rainbow, as real foil does: the same
+	   rings as .etch, cut down to a soft spot round the light. */
+	.etch-light {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		background: conic-gradient(
+			from calc(var(--ax) * 90deg) at 50% 55%,
+			oklch(0.72 0.2 25),
+			oklch(0.82 0.17 90),
+			oklch(0.75 0.19 150),
+			oklch(0.68 0.17 240),
+			oklch(0.66 0.2 310),
+			oklch(0.72 0.2 25)
+		);
+		-webkit-mask-image:
+			repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px),
+			radial-gradient(circle at calc(var(--lx) * 1%) calc(var(--ly) * 1%), black, transparent 40%);
+		-webkit-mask-composite: source-in;
+		mask-image:
+			repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px),
+			radial-gradient(circle at calc(var(--lx) * 1%) calc(var(--ly) * 1%), black, transparent 40%);
+		mask-composite: intersect;
+		opacity: calc(0.15 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.85);
+	}
 	.sheen,
 	.pearl {
 		position: absolute;
@@ -437,13 +466,18 @@
 	.vault {
 		overflow: hidden;
 	}
+	/* A sparkle flares as the light passes over it: --glint is 1 with the light on it and falls to
+	   0 about half the picture away. Where abs() is missing (before iOS 15.4) it stays at rest. */
 	.star {
+		--glint: 0;
+		--glint: clamp(0, 1 - (abs(var(--x) - var(--lx)) + abs(var(--y) - var(--ly))) / 55, 1);
 		position: absolute;
-		left: var(--x);
-		top: var(--y);
+		left: calc(var(--x) * 1%);
+		top: calc(var(--y) * 1%);
 		width: var(--size);
 		aspect-ratio: 1;
 		translate: calc(-50% + var(--ax) * var(--depth) * -8px) calc(-50% + var(--ay) * var(--depth) * -8px);
+		scale: calc(0.8 + var(--glint) * 0.55);
 	}
 	/* The glow, and the star itself as thin rays drawn on top. */
 	.star::before,
@@ -453,9 +487,10 @@
 		inset: 0;
 	}
 	.star::before {
-		inset: 15%;
+		inset: 5%;
 		border-radius: 50%;
-		background: radial-gradient(closest-side, oklch(0.92 0.15 95 / 0.8), oklch(0.85 0.15 85 / 0) 100%);
+		background: radial-gradient(closest-side, oklch(1 0.05 95 / 0.95), oklch(0.92 0.15 95 / 0.6) 35%, oklch(0.85 0.15 85 / 0) 100%);
+		opacity: calc(0.35 + var(--glint) * 0.65);
 	}
 	.star::after {
 		background: radial-gradient(closest-side, oklch(1 0.02 95), oklch(0.88 0.17 92) 45%, oklch(0.8 0.16 80) 100%);
