@@ -10,7 +10,6 @@ pokemon.csv
 # ── Sensitive / environment ───────────────────────────────────────────────────
 .env
 .env.*
-!.env.example
 
 # ── Server runtime ────────────────────────────────────────────────────────────
 node_modules/
