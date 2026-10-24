@@ -3,8 +3,9 @@
 	// egg's bar; tapping a full bar gives a spooky Pokémon or a Halloween form. Progress is
 	// stored under the he-* keys, and starts over each year.
 	import { onMount } from 'svelte';
-	import { getStorageInt } from '#lib/storage.js';
+	import { getStorageInt, writeItem } from '#lib/storage.js';
 	import { pickEventForm, pickForm } from '#lib/game/pokemon.js';
+	import { toast } from '#lib/toast.svelte.js';
 
 	/** @type {{ stage: string | number, onCatch: (form: string | null) => void }} */
 	let { stage, onCatch } = $props();
@@ -29,11 +30,11 @@
 	});
 
 	function save() {
-		if (!isNaN(eggId)) localStorage.setItem('he-eggid', JSON.stringify(eggId));
-		if (!isNaN(eggNeeded)) localStorage.setItem('he-eggneeded', JSON.stringify(eggNeeded));
-		if (!isNaN(eggSolved)) localStorage.setItem('he-eggsolved', JSON.stringify(eggSolved));
-		if (!isNaN(eggStatus)) localStorage.setItem('he-eggstatus', JSON.stringify(eggStatus));
-		localStorage.setItem('he-year', JSON.stringify(new Date().getFullYear()));
+		if (!isNaN(eggId)) writeItem('he-eggid', JSON.stringify(eggId));
+		if (!isNaN(eggNeeded)) writeItem('he-eggneeded', JSON.stringify(eggNeeded));
+		if (!isNaN(eggSolved)) writeItem('he-eggsolved', JSON.stringify(eggSolved));
+		if (!isNaN(eggStatus)) writeItem('he-eggstatus', JSON.stringify(eggStatus));
+		writeItem('he-year', JSON.stringify(new Date().getFullYear()));
 	}
 
 	/** Called by the game on every win (progressEvent()). */
@@ -44,12 +45,17 @@
 
 	function capture() {
 		if (!full) return;
+		/** @type {string | null} */
+		let form;
 		if (Math.random() > 0.7) {
-			onCatch(pickEventForm('H'));
+			form = pickEventForm('H');
+			// No event form to give (the Pokémon may not have loaded yet): keep the full egg for the next tap.
+			if (form === null) return toast('Egget er ikke helt klart ennå. Prøv igjen om et øyeblikk.');
 		} else {
 			const id = SPOOKY[Math.floor(Math.random() * SPOOKY.length)];
-			onCatch(pickForm(id, stage));
+			form = pickForm(id, stage);
 		}
+		onCatch(form);
 		eggStatus = 0;
 		eggNeeded++;
 		if (eggNeeded > 25) eggNeeded = 5;

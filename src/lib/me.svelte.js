@@ -51,3 +51,15 @@ export function forgetMe() {
 		// Nothing was cached.
 	}
 }
+
+/**
+ * Ask the server who is logged in now, past what this tab cached: the cookie is shared by every
+ * tab, so another login in this one (or in another) leaves the cached id out of date. Leaves `me`
+ * empty when the server cannot be asked.
+ */
+export function refreshMe() {
+	forgetMe();
+	Object.assign(me, { id: '', name: '', kind: '', email: '', teacher: false });
+	loading = null;
+	return loadMe();
+}

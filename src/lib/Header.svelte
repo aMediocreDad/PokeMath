@@ -6,8 +6,8 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
-	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
-	import { acceptedOldNotice, setLegacySaveFlag, writeSaveData } from '#lib/storage.js';
+	import { cloud, useCloud, keepDevice, decideLater, logOut, deleteEverything } from '#lib/cloudSave.svelte.js';
+	import { acceptedOldNotice, replaceSaveData, setLegacySaveFlag } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 	import { ask } from '#lib/ask.svelte.js';
 	import { toast } from '#lib/toast.svelte.js';
@@ -54,7 +54,7 @@
 		const backupCount = countPokemon(found.data.pokemonlist);
 		const currentCount = countPokemon(localStorage.getItem('pokemonlist'));
 		if (backupCount < currentCount && !(await ask(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`, { ok: 'Gjenopprett' }))) return;
-		writeSaveData(found.data);
+		if (!replaceSaveData(found.data)) return toast('Fikk ikke hentet backupen, for det er ikke plass på enheten. Ingenting er endret.', { bad: true });
 		restore = null;
 		location.reload();
 	}
@@ -82,10 +82,8 @@
 	}
 
 	async function resetPrompt() {
-		if (!(await ask('Er du sikker på at du vil slette alle Pokémon og poeng? Det kan ikke angres.', { ok: 'Slett alt' }))) return;
-		localStorage.clear();
-		sessionStorage.clear();
-		location.reload();
+		if (!(await ask('Er du sikker på at du vil slette alle Pokémon og poeng, også kopien i skyen? Det kan ikke angres.', { ok: 'Slett alt' }))) return;
+		await deleteEverything();
 	}
 
 	// The menu and the trainer card open on a tap (they only opened on hover before), and close

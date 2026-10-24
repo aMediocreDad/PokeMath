@@ -2,10 +2,11 @@
 //
 // Current format: every localStorage key as JSON, base64-encoded with btoa(). The keys that belong
 // to the device (DEVICE_KEYS, like the cloud-save note and a teacher's login) are left out, and
-// skipped when an older file that has them is restored. The JSON is encoded as UTF-8 first, so a
-// name with an emoji in it can be saved; files from the legacy page are read either way.
+// skipped when an older file that has them is restored. A restored file replaces the save. The
+// JSON is encoded as UTF-8 first, so a name with an emoji in it can be saved; files from the
+// legacy page are read either way.
 // Old format: base64 of "state|...*SPLIT*shop|...*SPLIT*xmas*SPLIT*badges*SPLIT*codes".
-import { saveData, writeSaveData } from '#lib/storage.js';
+import { replaceSaveData, saveData } from '#lib/storage.js';
 
 /** base64 of the UTF-8 bytes: btoa() alone throws on anything past Latin-1. */
 const encode = (/** @type {string} */ text) => btoa(unescape(encodeURIComponent(text)));
@@ -38,19 +39,21 @@ export function createBackup(username) {
 }
 
 /**
- * Restore a backup in the current format. Throws if the file is not that format.
+ * Restore a backup in the current format. Throws if the file is not that format. The file replaces
+ * the save: what it lacks is removed, the device's own keys stay, and when the device cannot hold
+ * it the save stays as it was (`failed`).
  * @param {string} contents
  */
 export function restoreBackup(contents) {
 	const data = JSON.parse(decode(contents));
+	if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Not a save file.');
 	// Most Pokémon wins (live saveandload.js, 2026-10): a file with fewer Pokémon than this device
 	// has is not loaded.
 	const count = (/** @type {string | null | undefined} */ list) => (list || '').split('|').filter((p) => p.trim()).length;
 	const incoming = count(data.pokemonlist);
 	const current = count(localStorage.getItem('pokemonlist'));
-	if (incoming < current) return { refused: true, incoming, current };
-	writeSaveData(data);
-	return { refused: false, incoming, current };
+	if (incoming < current) return { refused: true, failed: false, incoming, current };
+	return { refused: false, failed: !replaceSaveData(data), incoming, current };
 }
 
 /**

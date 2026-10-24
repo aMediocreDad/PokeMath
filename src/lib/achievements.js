@@ -1,6 +1,7 @@
 // Badges ("Merker"), stored in localStorage under 'badges' exactly as static/global.js stores them.
 // Every update re-reads the stored list first, so a legacy page writing in between is not lost.
 import { notify } from '#lib/toast.svelte.js';
+import { writeItem } from '#lib/storage.js';
 
 const defaultAchievements = {
 	version: '1.0',
@@ -45,7 +46,13 @@ const defaultAchievements = {
 
 /** @returns {Achievements} */
 function read() {
-	const stored = JSON.parse(localStorage.getItem('badges') ?? 'null') || JSON.parse(JSON.stringify(defaultAchievements));
+	let stored = null;
+	try {
+		stored = JSON.parse(localStorage.getItem('badges') ?? 'null');
+	} catch {
+		// A broken value counts as no badges yet, as when nothing is stored.
+	}
+	if (!Array.isArray(stored?.badges)) stored = JSON.parse(JSON.stringify(defaultAchievements));
 	// global.js "migrates" 1.0 to 1.1 on every page load; keep writing the same version.
 	if (stored.version === '1.0') stored.version = '1.1';
 	return stored;
@@ -54,7 +61,7 @@ function read() {
 /** What global.js does when it loads: store the (possibly default) badges. */
 export function loadAchievements() {
 	const achievements = read();
-	localStorage.setItem('badges', JSON.stringify(achievements));
+	writeItem('badges', JSON.stringify(achievements));
 	return achievements;
 }
 
@@ -72,7 +79,7 @@ export function incrementProgress(id, amount = 1) {
 		achievement.achieved = true;
 		notify(`/images/badges/${achievement.id}.png`, `Merke Låst Opp: ${achievement.name}`);
 	}
-	localStorage.setItem('badges', JSON.stringify(achievements));
+	writeItem('badges', JSON.stringify(achievements));
 }
 
 /** Badge ids for "Fang 250 <type>-type pokemon". */

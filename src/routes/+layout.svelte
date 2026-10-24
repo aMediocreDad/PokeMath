@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import Header from '#lib/Header.svelte';
@@ -22,8 +22,8 @@
 	// Teacher pages are "bare": no player header or save, as on the legacy site.
 	const bare = $derived(!!page.data.bare);
 
-	onMount(() => {
-		if (page.data.bare) return;
+	/** Read the save and start the cloud copy and the downloads, for the player's pages. */
+	function startPlayer() {
 		player.load();
 		loadAchievements();
 		loadMe();
@@ -39,7 +39,19 @@
 			clearTimeout(idTimer);
 			stopCloud();
 		};
+	}
+
+	/** @type {(() => void) | null} Set once the player's side has started. */
+	let stopPlayer = null;
+
+	// The first page can be a teacher page, and the router then reaches a player page (the teacher
+	// page links to /redeem.html and /bingo_join.html) without loading the layout again. So this
+	// starts the first time the app is on a page that is not bare, not only when the layout mounts.
+	$effect(() => {
+		if (bare || stopPlayer) return;
+		stopPlayer = untrack(startPlayer);
 	});
+	onMount(() => () => stopPlayer?.());
 
 	// Once per page view, including navigation between Svelte pages.
 	afterNavigate(({ to }) => {

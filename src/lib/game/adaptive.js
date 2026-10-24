@@ -3,6 +3,7 @@
 // level (1–5). Fast correct answers add points, wrong ones take them away, and the problems for
 // an operation get bigger as its level rises. Multiplication unlocks once addition and
 // subtraction reach level 2, division once multiplication does.
+import { writeItem } from '#lib/storage.js';
 
 /** @typedef {'add' | 'sub' | 'mul' | 'div'} OpKey */
 /** @typedef {Record<OpKey, number>} PerOp */
@@ -46,8 +47,8 @@ export function createAdaptive() {
 	}
 
 	function save() {
-		localStorage.setItem('adaptiveSkills', JSON.stringify(skills));
-		localStorage.setItem('adaptivePoints', JSON.stringify(points));
+		writeItem('adaptiveSkills', JSON.stringify(skills));
+		writeItem('adaptivePoints', JSON.stringify(points));
 	}
 
 	/** The level coins, catches and the work log use: the average level, rounded up. */
