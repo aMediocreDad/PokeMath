@@ -82,7 +82,7 @@
 					<p class="number">#{variant ? `${id}-${form}` : id}</p>
 					<svelte:element this={compact ? 'h2' : 'h1'} class="name">{unlocked ? shown.name : '???'}</svelte:element>
 					{@render types(shown.types)}
-					{#if unlocked && rarity}<p class="rarity {rarity}">{rarity === 'legendary' ? 'Legendarisk' : 'Mytisk'}</p>{/if}
+					{#if unlocked && rarity}<p class="rarity {rarity}"><span lang="en">{rarity === 'legendary' ? 'Legendary' : 'Mythical'}</span></p>{/if}
 					{#if !unlocked}<p class="locked-note">Fang denne Pokémonen for å se mer om den.</p>{/if}
 				</div>
 				<div class="hero-extra">
