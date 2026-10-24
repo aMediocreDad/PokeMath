@@ -393,15 +393,15 @@
 		background: oklch(0.9 0.01 265);
 	}
 
-	/* A shiny's picture, like a Shiny Vault card. Printed in it: a pale silver ground with a faint
+	/* A shiny's picture, like a Shiny Vault card. Printed in it: a near-white ground with a faint
 	   zig-zag, gold four-point sparkles and flat stars, and rays from the Pokémon. Over it, the
-	   shine. Silver rather than white, as on the real card: the shine is colour-dodged, and a
-	   white ground would have nothing left to brighten. */
+	   shine. The real card's ground is silver; this one is whiter by choice, which leaves the
+	   colour-dodged shine less to brighten, so it is gentler on the ground than on the Pokémon. */
 	.holo .window {
 		background:
 			repeating-linear-gradient(60deg, oklch(0.72 0.02 260 / 0.1) 0 1px, transparent 1px 5px) padding-box,
 			repeating-linear-gradient(-60deg, oklch(0.72 0.02 260 / 0.1) 0 1px, transparent 1px 5px) padding-box,
-			radial-gradient(circle at 50% 55%, oklch(0.97 0.004 260), oklch(0.9 0.008 260) 60%, oklch(0.84 0.012 260)) padding-box,
+			radial-gradient(circle at 50% 55%, oklch(0.995 0.002 260), oklch(0.96 0.005 260) 60%, oklch(0.92 0.008 260)) padding-box,
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 	}
 	.vault {
@@ -552,10 +552,10 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		background: radial-gradient(farthest-corner circle at var(--mx) var(--my), oklch(1 0 0), oklch(0.72 0.01 330) 150%);
+		background: radial-gradient(farthest-corner circle at var(--mx) var(--my), oklch(1 0 0), oklch(0.68 0.01 330) 150%);
 		mix-blend-mode: multiply;
 		filter: brightness(1.15) saturate(0.7);
-		opacity: calc(var(--o) * var(--fc) * 0.6);
+		opacity: calc(var(--o) * var(--fc) * 0.72);
 		pointer-events: none;
 	}
 
