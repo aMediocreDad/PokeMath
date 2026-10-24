@@ -43,10 +43,12 @@
 	const holo = $derived(shiny && !locked);
 	// A shiny's picture, like a Shiny Vault card: gold four-point sparkles and soft streaks of
 	// coloured light behind the Pokémon. Sparkles: x and y of the centre in %, size in % of the
-	// window's width, and depth, how far it drifts as the card turns. Streaks: start in %, angle
-	// and hue.
+	// window's width, and depth, how far it drifts as the card turns. Streaks shine out from the
+	// Pokémon in the middle, all in one pink-to-green gradient: angle, and a shift of its hues.
 	const STARS = [[16, 22, 20, 1], [84, 18, 13, 0.6], [80, 70, 22, 1.2], [22, 78, 12, 0.7], [56, 10, 9, 0.4], [92, 46, 8, 0.5], [8, 50, 7, 0.4]];
-	const STREAKS = [[-10, 30, 18, 20], [60, 85, -24, 60], [55, 15, 28, 340], [-5, 75, -12, 30]];
+	const STREAKS = [[-150, 0], [-32, 25], [18, -15], [158, 10], [-100, -25], [118, 20]];
+	/** Flat yellow five-point stars, as printed between the sparkles: x, y in %, size in %. */
+	const FLAT_STARS = [[44, 8, 7], [12, 64, 8], [70, 90, 6]];
 
 	/** @type {HTMLElement | undefined} */
 	let card = $state();
@@ -123,7 +125,8 @@
 			<div class="window">
 				{#if holo}
 					<span class="vault" aria-hidden="true">
-						{#each STREAKS as [x, y, angle, hue], i (i)}<span class="streak" style:--x="{x}%" style:--y="{y}%" style:--angle="{angle}deg" style:--hue={hue}></span>{/each}
+						{#each STREAKS as [angle, shift], i (i)}<span class="streak" style:--angle="{angle}deg" style:--shift={shift}></span>{/each}
+						{#each FLAT_STARS as [x, y, size], i (i)}<span class="flat-star" style:--x="{x}%" style:--y="{y}%" style:--size="{size}%"></span>{/each}
 						{#each STARS as [x, y, size, depth], i (i)}<span class="star" style:--x={x} style:--y={y} style:--size="{size}%" style:--depth={depth}></span>{/each}
 					</span>
 				{/if}
@@ -132,9 +135,8 @@
 				</Aura>
 				{#if holo}
 					<span class="etch" aria-hidden="true"></span>
-					<span class="etch-light" aria-hidden="true"></span>
+					<span class="etch-light" aria-hidden="true"><span class="bands with"></span><span class="bands against"></span></span>
 					<span class="sheen" aria-hidden="true"></span>
-					<span class="pearl" aria-hidden="true"></span>
 				{/if}
 			</div>
 			<p class="strip">
@@ -378,7 +380,7 @@
 	/* A shiny's picture, like a Shiny Vault card: a white ground engraved with a faint zig-zag,
 	   gold four-point sparkles and soft coloured streaks behind the Pokémon, and over everything
 	   a fine etching of rings in gold and pearl that shift as the card turns. A soft band of light
-	   crosses with the turn, with a pearly glow where the light falls while the card is turned.
+	   crosses with the turn, and rainbow bands flash through the rings while the card is turned.
 	   Everything takes its place from the turn (--ax, --ay), so it moves with the card wherever
 	   the pointer is. */
 	.holo .window {
@@ -394,43 +396,49 @@
 		inset: 0;
 		pointer-events: none;
 	}
-	/* The light catching the foil: a soft white-gold band, and a pearly glow where the light
-	   falls. Both are layers three times the window's size that slide with transform as the card
-	   turns, so no edge of them ever crosses the picture. The pearl shows only while the card is
-	   turned, the more the further; at rest it is gone. */
-	/* Where the light falls, the etched rings flash in full rainbow, as real foil does: the same
-	   rings as .etch, cut down to a soft spot round the light. */
-	.etch-light {
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		background: conic-gradient(
-			from calc(var(--ax) * 90deg) at 50% 55%,
-			oklch(0.72 0.2 25),
-			oklch(0.82 0.17 90),
-			oklch(0.75 0.19 150),
-			oklch(0.68 0.17 240),
-			oklch(0.66 0.2 310),
-			oklch(0.72 0.2 25)
-		);
-		-webkit-mask-image:
-			repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px),
-			radial-gradient(circle at calc(var(--lx) * 1%) calc(var(--ly) * 1%), black, transparent 40%);
-		-webkit-mask-composite: source-in;
-		mask-image:
-			repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px),
-			radial-gradient(circle at calc(var(--lx) * 1%) calc(var(--ly) * 1%), black, transparent 40%);
-		mask-composite: intersect;
-		opacity: calc(0.15 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.85);
-	}
+	/* The light catching the foil: a soft white-gold band, and in the etched rings two sets of
+	   rainbow bands with white-hot middles, one set travelling with the turn and one, at a crossing
+	   angle, against it. They are layers three times the window's size that slide with transform,
+	   so no edge of them ever crosses the picture; the rings cut them into fine lines, as on real
+	   foil. At rest they are faint, and they light up the further the card is turned. */
 	.sheen,
-	.pearl {
+	.bands {
 		position: absolute;
 		top: -100%;
 		left: -100%;
 		width: 300%;
 		height: 300%;
 		pointer-events: none;
+	}
+	.etch-light {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
+		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
+		opacity: calc(0.08 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 1.1);
+	}
+	.bands {
+		background: repeating-linear-gradient(
+			var(--angle),
+			transparent 0 4em,
+			oklch(0.66 0.26 25 / 0.8) 4.4em,
+			oklch(0.82 0.2 90) 4.8em,
+			oklch(1 0 0) 5.1em,
+			oklch(0.72 0.24 150) 5.4em,
+			oklch(0.6 0.23 245 / 0.8) 5.8em,
+			transparent 6.2em 12em
+		);
+	}
+	.bands.with {
+		--angle: 115deg;
+		transform: translate(calc(var(--ax) * -14%), calc(var(--ay) * -10%));
+	}
+	.bands.against {
+		--angle: 60deg;
+		opacity: 0.6;
+		transform: translate(calc(var(--ax) * 14%), calc(var(--ay) * 10%));
 	}
 	.sheen {
 		background: linear-gradient(
@@ -445,23 +453,6 @@
 		mix-blend-mode: screen;
 		opacity: calc(0.45 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
 		transform: translate(calc(-12% - var(--ax) * 18%), calc(-8% - var(--ay) * 12%));
-	}
-	/* Pearl: a white centre with faint pastel rings round it, like light on mother-of-pearl. It
-	   sits where the glare does on the card. Pastels over white show only as plain paint, so it is
-	   not blended, and it is kept faint. */
-	.pearl {
-		background: radial-gradient(
-			circle at 50% 50%,
-			oklch(1 0 0 / 0.4),
-			oklch(0.94 0.05 340 / 0.3) 4%,
-			oklch(0.95 0.05 80 / 0.26) 7%,
-			oklch(0.95 0.05 165 / 0.24) 10%,
-			oklch(0.94 0.05 250 / 0.2) 13%,
-			oklch(0.94 0.05 300 / 0.12) 16%,
-			transparent 21%
-		);
-		opacity: calc((var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 1.2);
-		transform: translate(calc(var(--ax) * -15%), calc(var(--ay) * -15%));
 	}
 	.vault {
 		overflow: hidden;
@@ -487,26 +478,47 @@
 		inset: 0;
 	}
 	.star::before {
-		inset: 5%;
+		inset: -30%;
 		border-radius: 50%;
-		background: radial-gradient(closest-side, oklch(1 0.05 95 / 0.95), oklch(0.92 0.15 95 / 0.6) 35%, oklch(0.85 0.15 85 / 0) 100%);
-		opacity: calc(0.35 + var(--glint) * 0.65);
+		background: radial-gradient(closest-side, oklch(1 0 0), oklch(0.97 0.08 95 / 0.95) 12%, oklch(0.88 0.17 90 / 0.7) 32%, oklch(0.85 0.17 85 / 0) 100%);
+		opacity: calc(0.45 + var(--glint) * 0.55);
 	}
 	.star::after {
-		background: radial-gradient(closest-side, oklch(1 0.02 95), oklch(0.88 0.17 92) 45%, oklch(0.8 0.16 80) 100%);
+		background: radial-gradient(closest-side, oklch(1 0 0) 20%, oklch(0.9 0.19 92) 55%, oklch(0.8 0.18 78) 100%);
 		clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%);
 	}
-	.streak {
+	.flat-star {
 		position: absolute;
 		left: var(--x);
 		top: var(--y);
-		width: 75%;
-		height: 3%;
+		width: var(--size);
+		aspect-ratio: 1;
+		translate: -50% -50%;
+		background: oklch(0.89 0.18 98);
+		clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+	}
+	/* A ray from the Pokémon at the middle out past the window's edge, clear where it starts so it
+	   seems to come from behind the Pokémon. */
+	.streak {
+		position: absolute;
+		left: 50%;
+		top: 55%;
+		width: 80%;
+		height: 2.4%;
 		border-radius: 50%;
-		background: linear-gradient(90deg, transparent, oklch(0.75 0.15 var(--hue) / 0.75) 45%, oklch(0.9 0.08 var(--hue) / 0.9) 55%, transparent);
-		filter: blur(1px);
+		background: linear-gradient(
+			90deg,
+			transparent 18%,
+			oklch(0.7 0.21 calc(350 + var(--shift)) / 0.9) 32%,
+			oklch(0.76 0.19 calc(40 + var(--shift))) 47%,
+			oklch(0.86 0.17 calc(95 + var(--shift))) 62%,
+			oklch(0.78 0.19 calc(150 + var(--shift)) / 0.8) 78%,
+			transparent
+		);
+		filter: blur(0.5px);
+		transform-origin: 0 50%;
+		translate: calc(var(--ax) * -5px) calc(-50% + var(--ay) * -5px);
 		rotate: var(--angle);
-		translate: calc(var(--ax) * -5px) calc(var(--ay) * -5px);
 	}
 	/* Fine rings, centred on the Pokémon, cut out of a rainbow that slides with the turn. */
 	.etch {
@@ -529,7 +541,7 @@
 	/* The light on the card: a soft spot that follows the turn, brightest when turned furthest. It
 	   sits over the whole card, frame and all. The light shines straight at the card, so like a
 	   reflection in a tilted mirror it moves the opposite way to the turn: turn the right edge
-	   away and the light slides left. The band of light and the pearl do the same. */
+	   away and the light slides left. The band of light and the rainbow bands do the same. */
 	.glare {
 		position: absolute;
 		inset: 0;
