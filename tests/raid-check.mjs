@@ -3,6 +3,7 @@
 // both children catch it. Run against tests/serve-worker.sh. Usage: node tests/raid-check.mjs [outdir]
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 import { damageFor } from '../src/lib/raidConfig.js';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
@@ -19,7 +20,7 @@ const browser = muteAudio(await webkit.launch());
 const hostCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const host = await hostCtx.newPage();
 host.on('pageerror', (e) => console.log('host pageerror', e.message));
-host.on('dialog', (d) => d.accept());
+await acceptAsks(host);
 
 await host.goto(BASE + '/lærer/index.html');
 await host.locator('#start-raid').click();

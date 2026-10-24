@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import Header from '#lib/Header.svelte';
 	import Toaster from '#lib/Toaster.svelte';
+	import AskDialog from '#lib/AskDialog.svelte';
 	import { player } from '#lib/player.svelte.js';
 	import { loadAchievements } from '#lib/achievements.js';
 	import { trackEvent } from '#lib/track.js';
@@ -50,6 +51,7 @@
 	<div id="header"><Header /></div>
 {/if}
 <Toaster />
+<AskDialog />
 {#if !bare}
 	<OfflineProgress />
 {/if}

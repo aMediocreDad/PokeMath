@@ -3,6 +3,7 @@
 // tests/serve-worker.sh. Usage: node tests/class-game-shots.mjs <outdir>
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:3123';
@@ -11,7 +12,7 @@ const OUT = process.argv[2] || '.';
 const browser = muteAudio(await webkit.launch());
 for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { viewport: { width: 1280, height: 800 } }]]) {
 	const page = await (await browser.newContext(options)).newPage();
-	page.on('dialog', (d) => d.accept());
+	await acceptAsks(page);
 	const overflow = async (name) => {
 		const px = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 		console.log(px > 0 ? 'FAIL' : 'PASS', `${name} (${size}) fits`, px > 0 ? `${px}px too wide` : '');

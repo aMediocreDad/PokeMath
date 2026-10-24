@@ -21,6 +21,9 @@ serves the old in-memory mock in `dev/` instead.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
 - `cloud-save-check.mjs`: two devices on one login, and two children on one iPad; progress
   moves over, and an empty, smaller or someone else's save never replaces one without a choice.
+- `dialog-shots.mjs [outdir]`: the backup reminder, an in-page question and the import
+  message fit a 320 px phone, an iPhone and a desktop, and no native dialog opens. Checks that
+  only need to get past a question answer yes with `acceptAsks` from `ask.mjs`.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
   touch checks per page. Stale since the redesign, against the mock as much as the Worker:

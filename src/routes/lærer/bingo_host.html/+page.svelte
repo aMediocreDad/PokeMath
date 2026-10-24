@@ -13,6 +13,7 @@
 	import GameControls from '#lib/classgame/GameControls.svelte';
 	import PlayerMenu from '#lib/classgame/PlayerMenu.svelte';
 	import Icon from '#lib/Icon.svelte';
+	import { ask } from '#lib/ask.svelte.js';
 	import {
 		DIFF_NO,
 		catchPrefix,
@@ -246,8 +247,8 @@
 		});
 	}
 
-	function newGame() {
-		if (currentCode && !confirm('Lage et nytt brett med de samme innstillingene?\n\nDet gamle brettet avsluttes, og elevene må koble til med den nye koden.')) return;
+	async function newGame() {
+		if (currentCode && !(await ask('Lage et nytt brett med de samme innstillingene?\n\nDet gamle brettet avsluttes, og elevene må koble til med den nye koden.', { ok: 'Nytt brett' }))) return;
 		const oldCode = localStorage.getItem('teacherBingoCode');
 		localStorage.removeItem('teacherBingoCode');
 		if (oldCode && ws?.readyState === WebSocket.OPEN) {
@@ -276,21 +277,21 @@
 	}
 
 	/** End the game with the prize now, for when the lesson runs out before the board is full. */
-	function giveNow() {
-		if (!currentCode || locked || !confirm('Dele ut premien nå? Bingoen stopper, og alle som har fanget minst én Pokémon får premien.')) return;
+	async function giveNow() {
+		if (!currentCode || locked || !(await ask('Dele ut premien nå? Bingoen stopper, og alle som har fanget minst én Pokémon får premien.', { ok: 'Del ut' }))) return;
 		send({ type: 'hostLockLobby', code: currentCode });
 	}
 
-	function endGame() {
-		if (!currentCode || !confirm('Avslutte bingoen? Alle elevene kobles fra.')) return;
+	async function endGame() {
+		if (!currentCode || !(await ask('Avslutte bingoen? Alle elevene kobles fra.', { ok: 'Avslutt' }))) return;
 		endLobby();
 		goto('/lærer/index.html');
 	}
 
 	/** Back to the setup. In the waiting room this is "Avbryt". */
-	function backToSettings() {
+	async function backToSettings() {
 		const question = phase === 'lobby' ? (players.length ? 'Avbryte bingoen? Elevene kobles fra.' : '') : 'Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.';
-		if (question && !confirm(question)) return;
+		if (question && !(await ask(question))) return;
 		if (currentCode) endLobby();
 	}
 
@@ -299,9 +300,9 @@
 	}
 
 	/** @param {Cell} cell */
-	function toggleCell(cell) {
+	async function toggleCell(cell) {
 		if (cell.free || pressShown) return;
-		if (cell.marked && !confirm(`Fjerne godkjenning for "${cell.task?.name || cell.cellId}"?`)) return;
+		if (cell.marked && !(await ask(`Fjerne godkjenning for «${cell.task?.name || cell.cellId}»?`, { ok: 'Fjern' }))) return;
 		send({ type: 'hostMarkCell', code: currentCode, cellId: cell.cellId, mark: !cell.marked });
 	}
 

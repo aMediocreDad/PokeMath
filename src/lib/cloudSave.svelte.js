@@ -18,6 +18,7 @@
 import { deleteBackup } from '#lib/idbBackup.js';
 import { forgetMe, loadMe, me } from '#lib/me.svelte.js';
 import { DEVICE_KEYS, saveData as snapshot } from '#lib/storage.js';
+import { ask } from '#lib/ask.svelte.js';
 
 const META = 'pm-cloud';
 const UPLOAD_EVERY = 60_000;
@@ -135,7 +136,7 @@ async function upload(always = false) {
 export async function logOut() {
 	const meta = readMeta();
 	const saved = meta.owner !== me.id || fingerprint(snapshot()) === meta.hash || (ready && (await upload()));
-	if (!saved && !confirm('Fikk ikke lagret i skyen. Logge ut likevel? Det du har gjort siden sist, blir borte.')) return;
+	if (!saved && !(await ask('Fikk ikke lagret i skyen. Logge ut likevel? Det du har gjort siden sist, blir borte.', { ok: 'Logg ut' }))) return;
 	clearSave();
 	localStorage.removeItem(META);
 	await deleteBackup();

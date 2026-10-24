@@ -1,7 +1,7 @@
 <script>
 	import { player } from '#lib/player.svelte.js';
 	import { loadAchievements } from '#lib/achievements.js';
-	import { toast, notify } from '#lib/toast.svelte.js';
+	import { toast } from '#lib/toast.svelte.js';
 	import { createBackup, parseOldBackup, restoreBackup } from '#lib/backup.js';
 	import { syncNow } from '#lib/cloudSave.svelte.js';
 
@@ -12,10 +12,7 @@
 	}
 
 	function announceRestore() {
-		notify(
-			'/images/up-arrow.png',
-			`Dataen har blitt lastet inn! Bruker: ${player.username} med ${player.caught} Pokémon`
-		);
+		toast(`Lastet inn ${player.username} med ${player.caught} Pokémon.`);
 	}
 
 	function download() {
@@ -40,7 +37,7 @@
 		try {
 			const result = restoreBackup(contents);
 			if (result.refused) {
-				alert(`Filen har ${result.incoming} Pokémon, men du har allerede ${result.current} her. Ingen data ble overskrevet – du beholder versjonen med flest Pokémon.`);
+				toast(`Filen har ${result.incoming} Pokémon, men du har allerede ${result.current} her. Ingenting ble overskrevet.`, { bad: true });
 				return;
 			}
 			player.load();
@@ -50,10 +47,10 @@
 		} catch (error) {
 			console.warn('Prøver å laste inn dataen din med en gammel versjon...', error);
 			try {
-				if (restoreOldBackup(contents)) alert('Dataen din ble lastet inn ved bruk av den gamle versjonen!');
+				restoreOldBackup(contents);
 			} catch (oldError) {
 				console.error('Error restoring LocalStorage data:', oldError);
-				alert('Det oppstod en feil når vi prøvde å laste inn dataen din... Kontakt PokeMorten og send inn filen din!');
+				toast('Klarte ikke å lese filen. Kontakt PokeMorten og send inn filen din!', { bad: true });
 			}
 		}
 	}
@@ -72,7 +69,7 @@
 		const { state, shop } = backup;
 		const incoming = list(state.pkmnList).length;
 		if (incoming < player.pkmnList.length) {
-			alert(`Filen har ${incoming} Pokémon, men du har allerede ${player.pkmnList.length} her. Ingen data ble overskrevet – du beholder versjonen med flest Pokémon.`);
+			toast(`Filen har ${incoming} Pokémon, men du har allerede ${player.pkmnList.length} her. Ingenting ble overskrevet.`, { bad: true });
 			return false;
 		}
 
@@ -103,7 +100,6 @@
 		player.saveAll();
 		player.load();
 		loadAchievements();
-		toast('Dataen din har blitt lastet inn!');
 		announceRestore();
 		snoozeReminderThreeDays();
 		syncNow();

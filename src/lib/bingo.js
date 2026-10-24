@@ -4,6 +4,7 @@
 // claims prizes.
 import { goto } from '$app/navigation';
 import { player } from '#lib/player.svelte.js';
+import { toast } from '#lib/toast.svelte.js';
 import { generateUUID, getOrCreateUUID } from '#lib/uuid.js';
 
 /** @param {string | null | undefined} s */
@@ -252,7 +253,7 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDam
 				forgetCode();
 				ws?.close();
 				const kicked = msg.type === 'kicked';
-				alert(kicked ? 'Du ble kastet ut av bingo-sesjonen av læreren.' : 'Læreren har bedt deg endre navn. Gå til profilen din for å oppdatere det.');
+				toast(kicked ? 'Du ble kastet ut av bingo-sesjonen av læreren.' : 'Læreren har bedt deg endre navn. Gå til profilen din for å oppdatere det.', { bad: true });
 				goto(kicked ? '/' : '/player_profile.html');
 			} else if (msg.type === 'nameChanged') {
 				localStorage.setItem('username', msg.name);

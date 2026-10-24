@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import TeacherPage from '#lib/TeacherPage.svelte';
 	import { apiJson, authHeaders, ensureTeacher } from '#lib/teacher.js';
+	import { ask } from '#lib/ask.svelte.js';
 
 	/** @typedef {{ msg: string, kind?: 'good' | 'bad' | '' }} Status */
 	/** @type {Status} */ const NONE = { msg: '' };
@@ -93,7 +94,7 @@
 
 	/** @param {Kid} kid */
 	async function newKidCode(kid) {
-		if (!confirm(`Lage en ny kode for ${kid.name}? Den gamle slutter å virke, og ${kid.name} blir logget ut overalt.`)) return;
+		if (!(await ask(`Lage en ny kode for ${kid.name}? Den gamle slutter å virke, og ${kid.name} blir logget ut overalt.`, { ok: 'Ny kode' }))) return;
 		try {
 			shownCode = { name: kid.name, code: (await apiJson(`/teacher/kids/${kid.id}/code`, { method: 'POST' })).code };
 		} catch (e) {
@@ -103,8 +104,8 @@
 
 	/** @param {Kid} kid */
 	async function removeKid(kid) {
-		if (!confirm(`Fjerne ${kid.name}? Koden slutter å virke.`)) return;
-		const dropSave = confirm(`Slette ${kid.name}s lagring i skyen også? Trykk Avbryt for å beholde den.`);
+		if (!(await ask(`Fjerne ${kid.name}? Koden slutter å virke.`, { ok: 'Fjern' }))) return;
+		const dropSave = await ask(`Slette ${kid.name}s lagring i skyen også?`, { ok: 'Slett lagringen', cancel: 'Behold den' });
 		try {
 			await apiJson(`/teacher/kids/${kid.id}${dropSave ? '?save=delete' : ''}`, { method: 'DELETE' });
 			if (shownCode?.name === kid.name) shownCode = null;
