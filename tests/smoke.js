@@ -80,9 +80,14 @@ async function assertSilent(c, type, label) {
   assert(r1.body.ok && r1.body.prize.type === "coins", "redeem known code");
   const r2 = await post("/redeem", { code: "tull" });
   assert(r2.body.ok === false && r2.body.message, "redeem unknown code");
-  await post("/api/easter/catch", { uuid });
+  assert((await post("/api/easter/catch", { uuid })).status === 401, "easter catch without a token -> 401");
+  assert((await post("/api/easter/catch", { uuid, token: "nope" })).status === 401, "easter catch with a bad token -> 401");
+  assert((await post("/api/easter/catch", { uuid, token: v1.body.token })).body.total === 1, "easter catch with the player's token counts");
   const eg = await j("/api/easter/global");
   assert(eg.body.total === 1 && Array.isArray(eg.body.milestones), "easter counter");
+  const eager = await post("/api/easter/catch", { uuid, token: v1.body.token });
+  assert(eager.status === 429 && eager.body.ok === false && (await j("/api/easter/global")).body.total === 1, "a second catch within a second is refused and not counted");
+  assert((await post("/api/easter/catch", { uuid, token: v1.body.token }, { "x-dev-email": "elev@test.no" })).body.total === 2, "the limit is per login: someone else's catch counts");
   const ping = await fetch(BASE + "/math-ping", { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } });
   assert(ping.status === 204, "math-ping");
 

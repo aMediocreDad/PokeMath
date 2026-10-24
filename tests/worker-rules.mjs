@@ -4,6 +4,7 @@
 import { createServer } from 'http';
 import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 import { accessEmail } from '../worker/auth.js';
+import { eventName } from '../worker/core.js';
 import { cappedBody } from '../worker/http.js';
 import { origin } from '../worker/login.js';
 
@@ -26,6 +27,13 @@ check('another /64 is another bucket', from('2001:db8:1:3::1') === '2001:db8:1:3
 check('IPv6 in capitals counts with the same /64', from('2001:DB8:1:2::1') === '2001:db8:1:2::/64');
 check('the loopback and the unspecified address stay in their /64', from('::1') === '0:0:0:0::/64' && from('::') === '0:0:0:0::/64');
 check('a ::ffff: look-alike with other leading groups is IPv6', from('1::ffff:10.1.1.1') === '1:0:0:0::/64' && from('::1:ffff:a01:101') === '0:0:0:0::/64');
+
+// The spring event restarts on 1 January, Oslo time. 2026's counter was made before the year
+// was part of the name and keeps the plain one.
+check('2026 keeps the original name', eventName(new Date('2026-04-05T12:00:00Z')) === 'easter' && eventName(new Date('2026-10-24T08:00:00Z')) === 'easter');
+check('the last second of 2026 in Oslo is 2026', eventName(new Date('2026-12-31T22:59:59Z')) === 'easter');
+check('the first second of 2027 in Oslo is 2027', eventName(new Date('2026-12-31T23:00:00Z')) === 'easter-2027');
+check('every later year has its own counter', eventName(new Date('2027-04-10T12:00:00Z')) === 'easter-2027' && eventName(new Date('2028-04-16T12:00:00Z')) === 'easter-2028');
 
 // Access signs with RS256; a token another algorithm signed is not Access's, whatever key it names.
 const rs = await generateKeyPair('RS256', { extractable: true });

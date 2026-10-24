@@ -7,6 +7,19 @@ const EVENT = 'easter';
 const MILESTONE_STEP = 250_000;
 /** The state of one player's stats is a few KB (a compressed list of Pokémon and some numbers). */
 const MAX_STATS_BYTES = 64 * 1024;
+/** One catch per login per second counts for the spring event. */
+const CATCH_INTERVAL = 1000;
+
+/**
+ * The spring event's counter and milestones are named for the year, so each year starts at zero.
+ * The year is Oslo's, so it turns at midnight there. 2026 keeps the plain name, the one its
+ * counter was made under.
+ * @param {Date} [now]
+ */
+export function eventName(now = new Date()) {
+	const year = Number(new Intl.DateTimeFormat('en', { timeZone: 'Europe/Oslo', year: 'numeric' }).format(now));
+	return year === 2026 ? EVENT : `${EVENT}-${year}`;
+}
 
 /**
  * Whether the browser's id and token are a pair this server handed out.
@@ -80,23 +93,35 @@ export async function route(url, request, env, who) {
 	}
 
 	if (method === 'GET' && pathname === '/api/easter/global') {
+		const event = eventName();
 		const [total, milestones] = await db.batch([
-			db.prepare('SELECT value FROM counters WHERE name = ?').bind(EVENT),
-			db.prepare('SELECT segment, reached_at FROM event_milestones WHERE event = ? ORDER BY segment').bind(EVENT),
+			db.prepare('SELECT value FROM counters WHERE name = ?').bind(event),
+			db.prepare('SELECT segment, reached_at FROM event_milestones WHERE event = ? ORDER BY segment').bind(event),
 		]);
 		return json({ total: total.results[0]?.value ?? 0, milestones: milestones.results });
 	}
 
 	if (method === 'POST' && pathname === '/api/easter/catch') {
+		const { uuid, token } = await body(request);
+		if (!(await knownPlayer(env, uuid, token))) return json({ error: 'Ugyldig token' }, 401);
+		// One catch a second per login. The row holds when the login's last catch counted, and the
+		// update only goes through when that was long enough ago, so a burst cannot slip past.
+		const now = Date.now();
+		const turn = await db
+			.prepare('INSERT INTO counters (name, value) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET value = excluded.value WHERE value <= ? RETURNING value')
+			.bind(`catch-at:${who.id}`, now, now - CATCH_INTERVAL)
+			.first();
+		if (!turn) return json({ ok: false, message: 'For fort. Vent litt.' }, 429);
+		const event = eventName();
 		const row = await db
 			.prepare('INSERT INTO counters (name, value) VALUES (?, 1) ON CONFLICT (name) DO UPDATE SET value = value + 1 RETURNING value')
-			.bind(EVENT)
+			.bind(event)
 			.first();
 		const total = Number(row?.value ?? 0);
 		if (total % MILESTONE_STEP === 0) {
 			await db
 				.prepare('INSERT OR IGNORE INTO event_milestones (event, segment, reached_at) VALUES (?, ?, ?)')
-				.bind(EVENT, total / MILESTONE_STEP, new Date().toISOString())
+				.bind(event, total / MILESTONE_STEP, new Date().toISOString())
 				.run();
 		}
 		return json({ ok: true, total });
