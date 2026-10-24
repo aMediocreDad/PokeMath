@@ -24,6 +24,10 @@ serves the old in-memory mock in `dev/` instead.
 - `dialog-shots.mjs [outdir]`: the backup reminder, an in-page question and the import
   message fit a 320 px phone, an iPhone and a desktop, and no native dialog opens. Checks that
   only need to get past a question answer yes with `acceptAsks` from `ask.mjs`.
+- `foil-card-shots.mjs [base] [outdir]`, `rarity-holo-shots.mjs [base] [outdir]`: the shiny foil, the
+  trading card, and the legendary and mythic holo, against a static build
+  (`python3 -m http.server 3124 --directory build`). The second also checks that the holo
+  stands still until the mouse moves it.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
   touch checks per page. Stale since the redesign, against the mock as much as the Worker:

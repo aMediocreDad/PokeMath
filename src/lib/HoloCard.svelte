@@ -465,6 +465,8 @@
 			transparent
 		);
 		filter: blur(0.5px);
+		/* Present but quiet, so the Pokémon stays the first thing seen. */
+		opacity: 0.55;
 		transform-origin: 0 50%;
 		translate: calc(var(--ax) * -5px) calc(-50% + var(--ay) * -5px);
 		rotate: var(--angle);
