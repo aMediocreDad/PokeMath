@@ -7,6 +7,17 @@ image fallback. `PORT=3125` serves on another port, for a second checkout runnin
 first; the class game checks then take `BASE=http://localhost:3125`. `tests/serve-build.sh`
 serves the old in-memory mock in `dev/` instead.
 
+Where a browser cannot launch (Claude's sandbox), run the checks in a Playwright container,
+with the Worker served on the Mac as usual. `tests/pod-run.sh` forwards the container's
+`localhost:<port>` to the Mac (so pages keep a localhost host, which the local login shortcuts
+need), then runs each named script against it; `3123:3132` listens on 3123 for the scripts that
+hardcode it. Under the sandbox the Worker cannot fetch live images, so copy the mirror into
+`static/` and serve with `MIRROR_ONLY=1` when a check needs pictures:
+
+```
+pod run --rm --ipc=host -v "$PWD":/repo -w /repo mcr.microsoft.com/playwright:v1.58.0-noble bash tests/pod-run.sh 3132 save-guards-check.mjs
+```
+
 `playwright-core` is pinned to the version whose WebKit build is already installed locally;
 `npx playwright-core install webkit` fetches it on a new machine.
 

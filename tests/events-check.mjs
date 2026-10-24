@@ -414,6 +414,8 @@ const closeLootbox = async (page) => {
 	await fakeGlobal(page, 0);
 	await visit(page, `${EASTER}?date=2027-04-10`, { easterYear: '2026', easterCaught: '400', easterClaimed: '[0,1,2]', easterGlobalClaimed: '[0,1]', easterExtraClaimed: '[0]' });
 	await page.waitForSelector('.item');
+	// .item is in the prerendered page already; the year starts over once the page's code runs.
+	await page.waitForFunction(() => localStorage.getItem('easterYear') === '2027', undefined, { timeout: 10000 }).catch(() => {});
 	const kept = async () => [await get(page, 'easterYear'), await get(page, 'easterCaught'), await get(page, 'easterClaimed'), await get(page, 'easterGlobalClaimed'), await get(page, 'easterExtraClaimed')].join(' ');
 	check('a new year: this device starts at 0 with no prize taken', (await bar(page, 0).locator('.count').innerText()) === '0 / 500' && (await countOf(page, 0, 'claimed')) === 0, await kept());
 	check('a new year: the save is this year\'s, with no global or bonus prize taken', (await kept()) === '2027 0 [] [] []', await kept());
