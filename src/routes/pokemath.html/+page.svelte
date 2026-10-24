@@ -111,8 +111,6 @@
 			field?.blur();
 		}
 	});
-	/** @type {{ message: string, position: string } | null} */
-	let adminPopup = $state(null);
 
 	const progress = $derived(score / winScore);
 
@@ -530,8 +528,6 @@
 		trackEvent('/track-stage', { stage: params.get('stage') || (params.get('custom') ? 'custom' : 'unknown') });
 
 		bingoCode = storedBingoCode();
-		/** @type {ReturnType<typeof setTimeout> | undefined} */
-		let popupTimer;
 		bingo = startBingo({
 			onPrizes: applyBingoPrizes,
 			onCodeChange: (code) => {
@@ -548,18 +544,12 @@
 				if (was === 'lobby' && game.state.phase !== 'lobby') toast({ raid: 'Raidet har startet!', memory: 'Memory har startet!', bingo: 'Bingoen har startet!' }[game.kind]);
 				classGame = game;
 			},
-			onDamage: (damage) => (lastHit = { damage, id: (lastHit?.id ?? 0) + 1 }),
-			onAdminPopup: (message, duration, position) => {
-				adminPopup = { message, position };
-				clearTimeout(popupTimer);
-				popupTimer = setTimeout(() => (adminPopup = null), duration * 1000);
-			}
+			onDamage: (damage) => (lastHit = { damage, id: (lastHit?.id ?? 0) + 1 })
 		});
 
 		return () => {
 			bingo?.stop();
 			bingo = undefined;
-			clearTimeout(popupTimer);
 			clearInterval(pingTimer);
 			clearTimeout(cheatTimer);
 			layout.cheater = false;
@@ -721,10 +711,6 @@
 			field?.focus();
 		}}
 	/>
-{/if}
-
-{#if adminPopup}
-	<div id="bingo-admin-popup" class="pos-{adminPopup.position || 'top-center'}">{adminPopup.message}</div>
 {/if}
 
 <style>
@@ -1124,31 +1110,6 @@
 			opacity: 1;
 		}
 	}
-
-	/* The message a PokeMorten admin can push to every player in a bingo game. */
-	#bingo-admin-popup {
-		position: fixed;
-		z-index: 99999;
-		background: #1f2a44;
-		color: #fff;
-		padding: 20px 32px;
-		border-radius: 16px;
-		font-size: 1.6em;
-		font-weight: 700;
-		box-shadow: 0 8px 36px rgba(0, 0, 0, 0.55);
-		max-width: 600px;
-		text-align: center;
-		pointer-events: none;
-		top: 16px;
-		left: 50%;
-		transform: translateX(-50%);
-	}
-	.pos-top-left { left: 16px; transform: none; }
-	.pos-top-right { left: auto; right: 16px; transform: none; }
-	.pos-center { top: 50%; transform: translate(-50%, -50%); }
-	.pos-bottom-left { top: auto; bottom: 16px; left: 16px; transform: none; }
-	.pos-bottom-center { top: auto; bottom: 16px; }
-	.pos-bottom-right { top: auto; bottom: 16px; left: auto; right: 16px; transform: none; }
 
 	.problem.upside-down {
 		transform: rotate(180deg);
