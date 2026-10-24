@@ -102,17 +102,7 @@ export function replaceSaveData(data) {
 	}
 }
 
-/** Whether the old cookie notice was accepted: it set cookies=true, setLegacySaveFlag() sets cookies=saved. */
+/** Whether the old cookie notice was accepted: it set cookies=true. */
 export function acceptedOldNotice() {
 	return document.cookie.split(';').some((c) => c.trim() === 'cookies=true');
-}
-
-/**
- * The legacy pages (static/global.js) save only when a cookie named 'cookies' exists. Saving is
- * needed for the game to work at all, so it never waits for a tap on the notice. Every page load
- * sets the flag again, since Safari drops cookies set from page script after seven days.
- */
-export function setLegacySaveFlag() {
-	const expires = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toUTCString();
-	document.cookie = `cookies=saved;expires=${expires};path=/;SameSite=Lax`;
 }

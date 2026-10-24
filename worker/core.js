@@ -4,7 +4,8 @@ import { isTeacher } from './auth.js';
 import { body, cappedBody, json, log, randomHex } from './http.js';
 
 const EVENT = 'easter';
-const MILESTONE_STEP = 250_000;
+/** A tenth of the event page's site-wide goal (1 500 000), one prize each, as on the live site. */
+const MILESTONE_STEP = 150_000;
 /** A stats upload is a compressed list of Pokémon and some numbers: about 56 KB with every form, normal and shiny. */
 const MAX_STATS_BYTES = 256 * 1024;
 /** One catch per login per second counts for the spring event. */
@@ -130,11 +131,6 @@ export async function route(url, request, env, who) {
 	// Fire-and-forget: the client never reads the response.
 	if (method === 'POST' && ['/math-ping', '/track-page', '/track-stage', '/track-catch'].includes(pathname)) {
 		return new Response(null, { status: 204 });
-	}
-
-	// Only the dead host button on the old bingo.html calls this.
-	if (method === 'POST' && pathname === '/create-board') {
-		return json({ error: 'Bruk lærersiden for å starte bingo.' }, 410);
 	}
 
 	return null;

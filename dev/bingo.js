@@ -274,9 +274,6 @@ function register(app) {
     pendingPrizes.delete(req.query.uuid);
     res.json({ ok: true, prizes });
   });
-
-  // Only the dead host button on bingo.html calls this.
-  app.post("/create-board", (req, res) => res.status(410).json({ error: "Bruk lærersiden for å starte bingo." }));
 }
 
 function attach(server, log) {
