@@ -186,7 +186,9 @@ async function assertSilent(c, type, label) {
   const claim = await j(`/bingo/claim-prizes?uuid=${uuid}`);
   assert(claim.body.prizes.length === 1 && claim.body.prizes[0].amount === 50000, "player claims prize");
   const again = await j(`/bingo/claim-prizes?uuid=${uuid}`);
-  assert(again.body.prizes.length === 0, "prize is claimed only once");
+  assert(again.body.prizes.length === 1 && again.body.prizes[0].id === claim.body.prizes[0].id, "reading a prize does not take it");
+  await post(`/bingo/claim-prizes?uuid=${uuid}`, { ids: [claim.body.prizes[0].id] });
+  assert((await j(`/bingo/claim-prizes?uuid=${uuid}`)).body.prizes.length === 0, "prize is claimed only once");
 
   host.send({ type: "hostEndLobby", teacherSession: token, code: created.code });
   await player.next("ended");
