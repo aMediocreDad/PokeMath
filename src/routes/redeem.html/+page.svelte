@@ -18,8 +18,11 @@
 	/** The code worked: the answer shows in green. */
 	let responseGood = $state(false);
 	let fireworks = $state(0);
+	/** A code is being checked: a second tap meanwhile would send it again and give the prize twice. */
+	let busy = $state(false);
 
 	async function checkCode() {
+		if (busy) return;
 		responseGood = false;
 		const trimmed = code.trim();
 		if (!trimmed) {
@@ -31,28 +34,35 @@
 			response = 'Du har allerede brukt denne koden!';
 			return;
 		}
+		busy = true;
 		response = 'Sjekker koden …';
-		let data;
 		try {
-			const r = await fetch('/redeem', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ code: trimmed })
-			});
-			data = await r.json();
-		} catch {
-			response = 'Nettverksfeil - sjekk internettforbindelsen og prøv igjen.';
-			return;
+			let data;
+			try {
+				const r = await fetch('/redeem', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ code: trimmed })
+				});
+				data = await r.json();
+			} catch {
+				response = 'Nettverksfeil - sjekk internettforbindelsen og prøv igjen.';
+				return;
+			}
+			if (!data.ok) {
+				// Used by this login on another device: remember it here too, so it is not sent again.
+				if (data.used) localStorage.setItem(storageKey, '1');
+				response = data.message || 'Ugyldig kode!';
+				return;
+			}
+			localStorage.setItem(storageKey, '1');
+			applyPrize(data.prize);
+			response = 'Koden ble brukt!';
+			responseGood = true;
+			code = '';
+		} finally {
+			busy = false;
 		}
-		if (!data.ok) {
-			response = data.message || 'Ugyldig kode!';
-			return;
-		}
-		localStorage.setItem(storageKey, '1');
-		applyPrize(data.prize);
-		response = 'Koden ble brukt!';
-		responseGood = true;
-		code = '';
 	}
 
 	/** @param {number[]} list */
@@ -160,7 +170,7 @@
 					}
 				}}
 			/>
-			<button type="button" class="pm-button" onclick={checkCode}>Aktiver</button>
+			<button type="button" class="pm-button" class:disabled={busy} onclick={checkCode}>Aktiver</button>
 		</form>
 		<p id="response" class:good={responseGood} aria-live="polite">{response}</p>
 	</section>
