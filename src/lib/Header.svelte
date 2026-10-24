@@ -7,7 +7,7 @@
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
 	import { cloud, useCloud, keepDevice, decideLater, logOut, deleteEverything } from '#lib/cloudSave.svelte.js';
-	import { acceptedOldNotice, replaceSaveData, setLegacySaveFlag } from '#lib/storage.js';
+	import { acceptedOldNotice, replaceSaveData } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 	import { ask } from '#lib/ask.svelte.js';
 	import { toast } from '#lib/toast.svelte.js';
@@ -26,7 +26,6 @@
 		// Whoever tapped the old cookie notice has read about the storage already.
 		if (acceptedOldNotice()) localStorage.setItem(NOTICE_SEEN, '1');
 		showCookieNotice = localStorage.getItem(NOTICE_SEEN) === null;
-		setLegacySaveFlag();
 		saveMissing = localStorage.getItem('pokemonlist') === null;
 	});
 

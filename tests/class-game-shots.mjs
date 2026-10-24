@@ -17,6 +17,14 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 		const px = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 		console.log(px > 0 ? 'FAIL' : 'PASS', `${name} (${size}) fits`, px > 0 ? `${px}px too wide` : '');
 	};
+	// Avbryt waits for the server to end the game and may then leave the page; a goto before that
+	// races the late navigation.
+	const cancel = async () => {
+		const from = page.url();
+		await page.click('#cancelGameBtn');
+		await page.waitForURL((url) => url.href !== from, { timeout: 3000 }).catch(() => {});
+		await page.waitForLoadState();
+	};
 	await page.goto(BASE + '/lærer/index.html');
 	await page.locator('#game-memory').waitFor();
 	await page.screenshot({ path: `${OUT}/teacher-games-${size}.png`, fullPage: true });
@@ -30,7 +38,7 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 	await page.waitForTimeout(500);
 	await page.screenshot({ path: `${OUT}/bingo-lobby-${size}.png`, fullPage: true });
 	await overflow('bingo waiting room');
-	await page.click('#cancelGameBtn');
+	await cancel();
 	await page.goto(BASE + '/lærer/raid.html');
 	await page.locator('#raidSetup').waitFor();
 	await page.screenshot({ path: `${OUT}/raid-setup-${size}.png`, fullPage: true });
@@ -40,7 +48,7 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 	await page.waitForTimeout(500);
 	await page.screenshot({ path: `${OUT}/raid-lobby-${size}.png`, fullPage: true });
 	await overflow('raid waiting room');
-	await page.click('#cancelGameBtn');
+	await cancel();
 	await page.goto(BASE + '/lærer/memory.html');
 	await page.locator('#memorySetup').waitFor();
 	await page.screenshot({ path: `${OUT}/memory-setup-${size}.png`, fullPage: true });
@@ -50,7 +58,7 @@ for (const [size, options] of [['phone', devices['iPhone 13']], ['desktop', { vi
 	await page.waitForTimeout(500);
 	await page.screenshot({ path: `${OUT}/memory-lobby-${size}.png`, fullPage: true });
 	await overflow('memory waiting room');
-	await page.click('#cancelGameBtn');
+	await cancel();
 	await page.goto(BASE + '/bingo_join.html');
 	await page.locator('#code').waitFor();
 	await page.screenshot({ path: `${OUT}/join-${size}.png`, fullPage: true });

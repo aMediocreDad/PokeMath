@@ -57,7 +57,7 @@ async function assertSilent(c, type, label) {
 
 (async () => {
   // Static pages and assets
-  for (const p of ["/", "/pokemath.html", "/l%C3%A6rer/index.html", "/header.html"]) {
+  for (const p of ["/", "/pokemath.html", "/l%C3%A6rer/index.html", "/christmas.html", "/easter.html"]) {
     const r = await fetch(BASE + p);
     assert(r.status === 200, `GET ${p} -> ${r.status}`);
   }
