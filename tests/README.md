@@ -18,6 +18,18 @@ serves the old in-memory mock in `dev/` instead.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
 - `raid-check.mjs [outdir]`, `memory-check.mjs [outdir]`: a whole raid or memory game, from
   the teacher's setup to the children's prizes, with screenshots.
+- `events-rules.mjs`: the Christmas calendar's doors and save, the spring event's prizes, save and
+  yearly start-over, and the `?date=` clock, without a server.
+- `events-check.mjs`: `christmas.html` and `easter.html` on faked dates (`?date=2026-12-10`,
+  honoured on localhost only). Christmas: a door opens on its day and not before, pays once,
+  stays opened after a reload, and the last door gives the shinies and fireworks. Easter: the
+  countdown, an egg opened on this device's bar and on everyone's (`/api/easter/global` is
+  answered by hand for the totals, the real endpoints are checked by their increase), the bonus
+  goals, and the Worker being down. Phone and desktop get a layout check. Every case has its own
+  profile and login. `BASE` is where the Worker serves (default :3123), for instance
+  `BASE=http://localhost:3134 node tests/events-check.mjs`. It posts two catches to the Worker's
+  Easter counter, and `smoke.js` expects that counter at 1 on a fresh database: restart the server
+  without `--keep` before running `smoke.js` after it.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
 - `problems-rules.mjs`: the game's setup in `src/lib/game/problems.js` without a server: a custom level
   with no operation, and how custom multiplication and division are rated.
