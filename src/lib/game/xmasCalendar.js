@@ -122,14 +122,16 @@ export function forgetFutureDoors(storage, today) {
 }
 
 /**
- * Whether the saved year is `year`; if not, it becomes `year`.
+ * The calendar belongs to one year: with another year saved, or none, it starts over, with no door
+ * opened and `year` saved. The legacy page did this door by door and so only got door 1 right.
  * @param {Store} storage
  * @param {number} year
- * @returns {boolean} true when the calendar starts over.
+ * @returns {boolean} true when the calendar started over.
  */
 export function startYear(storage, year) {
 	const saved = parseInt(String(storage.getItem('xmasYear') ?? '').replace(/^"+|"+$/g, ''));
 	if (saved === year) return false;
 	storage.setItem('xmasYear', JSON.stringify(year));
+	storage.setItem('xmasOpened', '[]');
 	return true;
 }

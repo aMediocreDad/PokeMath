@@ -69,7 +69,7 @@ const doorsReady = async (page) => (await page.locator('.door.ready .num').allIn
 
 	await doorByText(page, 14).click({ force: true });
 	await sleep(300);
-	check('a door before its day does nothing', (await money(page)) === 0 && (await get(page, 'xmasOpened')) === null, `money ${await money(page)}`);
+	check('a door before its day does nothing', (await money(page)) === 0 && (await get(page, 'xmasOpened')) === '[]', `money ${await money(page)}`);
 
 	await doorByText(page, 5).click();
 	await sleep(300);
@@ -140,6 +140,23 @@ const doorsReady = async (page) => (await page.locator('.door.ready .num').allIn
 	await doorByText(page, 2).click();
 	await sleep(300);
 	check('the plain array is written back', (await get(page, 'xmasOpened')) === '[1,3,2]', await get(page, 'xmasOpened'));
+	await ctx.close();
+}
+
+{
+	// A new year: last year's doors are all shut again, not just door 1.
+	const { ctx, page } = await device();
+	await visit(page, `${XMAS}?date=2026-12-10`, { xmasYear: '2025', xmasOpened: '[1,2,3,4,5]', money: '700' });
+	await page.waitForSelector('.door');
+	check('a new year: no door is shown opened', (await count(page, '.door.opened')) === 0, (await page.locator('.door.opened .num').allInnerTexts()).join());
+	check('a new year: the save starts over', (await get(page, 'xmasYear')) === '2026' && (await get(page, 'xmasOpened')) === '[]', `${await get(page, 'xmasYear')} ${await get(page, 'xmasOpened')}`);
+	await doorByText(page, 1).click();
+	await doorByText(page, 2).click();
+	await sleep(300);
+	check('a new year: doors 1 and 2 open and pay again', (await money(page)) === 2700 && (await get(page, 'xmasOpened')) === '[1,2]', `${await money(page)} ${await get(page, 'xmasOpened')}`);
+	await reload(page);
+	await page.waitForSelector('.door');
+	check('a new year: only the doors opened this year stay opened', (await page.locator('.door.opened .num').allInnerTexts()).map(Number).sort((a, b) => a - b).join() === '1,2');
 	await ctx.close();
 }
 

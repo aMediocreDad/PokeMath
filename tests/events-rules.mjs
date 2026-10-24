@@ -1,7 +1,7 @@
 // The Christmas calendar's and the spring event's rules (src/lib/game/xmasCalendar.js, eventClock.js,
 // springEvent.js) without a browser. Usage: node tests/events-rules.mjs
 import { fakeTime } from '../src/lib/game/eventClock.js';
-import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, forgetFutureDoors } from '../src/lib/game/xmasCalendar.js';
+import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, forgetFutureDoors, startYear } from '../src/lib/game/xmasCalendar.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -50,6 +50,20 @@ check('only doors 1-24, once each', readOpened(store({ xmasOpened: '[1,1,0,25,"7
 	const clean = store({ xmasOpened: '"[1,3]"' });
 	forgetFutureDoors(clean, 24);
 	check('nothing to forget, nothing written', clean.data.get('xmasOpened') === '"[1,3]"');
+}
+
+// ---- a new year ----------------------------------------------------------------------------------
+{
+	const old = store({ xmasYear: '2025', xmasOpened: '[1,2,3,5,24]' });
+	check('a new year starts over', startYear(old, 2026) && old.data.get('xmasYear') === '2026');
+	check('a new year opens no door, not even door 1 of the old ones', old.data.get('xmasOpened') === '[]' && readOpened(old).length === 0, old.data.get('xmasOpened'));
+	const same = store({ xmasYear: '2026', xmasOpened: '[1,2]' });
+	check('the same year keeps its doors', !startYear(same, 2026) && same.data.get('xmasOpened') === '[1,2]');
+	const quoted = store({ xmasYear: '"2026"', xmasOpened: '"[1,2]"' });
+	check('a year kept in quotes (a restored backup) is the same year', !startYear(quoted, 2026) && quoted.data.get('xmasOpened') === '"[1,2]"');
+	const none = store({ xmasOpened: '[4]' });
+	check('doors with no year saved start over too', startYear(none, 2026) && none.data.get('xmasOpened') === '[]');
+	check('the year is checked once: asking again changes nothing', !startYear(old, 2026) && old.data.get('xmasOpened') === '[]');
 }
 
 process.exit(failed ? 1 : 0);

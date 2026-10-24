@@ -53,16 +53,9 @@
 			dateText = date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
 			const now = { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
 			if (now.month === 11) {
+				startYear(localStorage, now.year);
 				forgetFutureDoors(localStorage, now.day);
-				/** @type {number[]} */
-				const shown = [];
-				// The year is checked door by door, and the save read again for each, as the legacy page did.
-				for (let day = 1; day <= 24; day++) {
-					let current = readOpened(localStorage);
-					if (startYear(localStorage, now.year)) current = [];
-					if (current.includes(day) && day <= now.day) shown.push(day);
-				}
-				opened = shown;
+				opened = readOpened(localStorage);
 			}
 			today = now;
 		})();
