@@ -19,11 +19,21 @@ serves the old in-memory mock in `dev/` instead.
 - `raid-check.mjs [outdir]`, `memory-check.mjs [outdir]`: a whole raid or memory game, from
   the teacher's setup to the children's prizes, with screenshots.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
+- `problems-rules.mjs`: the game's setup in `src/lib/game/problems.js` without a server: a custom level
+  with no operation, and how custom multiplication and division are rated.
+- `save-guards-check.mjs`: the save's guards at the page: a teacher page as the first page, the
+  IndexedDB copy, a login that changes under a tab, "Slett alt", a code tapped twice, a backup file
+  that replaces the save, a full storage, and the adaptive level's clock. It puts the session's id on
+  `/api/save` answers and answers `DELETE /api/save` itself (`page.route`), so it runs whether the Worker
+  has them or not.
 - `cloud-save-check.mjs`: two devices on one login, and two children on one iPad; progress
   moves over, and an empty, smaller or someone else's save never replaces one without a choice.
 - `dialog-shots.mjs [outdir]`: the backup reminder, an in-page question and the import
   message fit a 320 px phone, an iPhone and a desktop, and no native dialog opens. Checks that
   only need to get past a question answer yes with `acceptAsks` from `ask.mjs`.
+- `offline-check.mjs [outdir]`: the service worker and the picture download, then a round offline, and a
+  stored picture a week old being checked against the server. Chromium, and `BASE=...` for another port.
+  The Worker needs the live-site image fallback, so start it where it can reach pokemath.online.
 - `foil-card-shots.mjs [base] [outdir]`, `rarity-holo-shots.mjs [base] [outdir]`: the shiny foil, the
   trading card, and the legendary and mythic holo, against a static build
   (`python3 -m http.server 3124 --directory build`). The second also checks that the holo
