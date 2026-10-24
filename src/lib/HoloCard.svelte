@@ -133,6 +133,7 @@
 				{#if holo}
 					<span class="etch" aria-hidden="true"></span>
 					<span class="sheen" aria-hidden="true"></span>
+					<span class="pearl" aria-hidden="true"></span>
 				{/if}
 			</div>
 			<p class="strip">
@@ -373,8 +374,9 @@
 	/* A shiny's picture, like a Shiny Vault card: a white ground engraved with a faint zig-zag,
 	   gold four-point sparkles and soft coloured streaks behind the Pokémon, and over everything
 	   a fine etching of rings in gold and pearl that shift as the card turns. A soft band of light
-	   crosses with the turn. Everything takes its place from the turn (--ax, --ay), so it moves
-	   with the card wherever the pointer is. */
+	   crosses with the turn, with a pearly glow where the light falls while the card is turned.
+	   Everything takes its place from the turn (--ax, --ay), so it moves with the card wherever
+	   the pointer is. */
 	.holo .window {
 		background:
 			repeating-linear-gradient(60deg, oklch(0.75 0.04 85 / 0.09) 0 1px, transparent 1px 5px) padding-box,
@@ -383,11 +385,54 @@
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 	}
 	.vault,
-	.etch,
-	.sheen {
+	.etch {
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
+	}
+	/* The light catching the foil: a soft white-gold band, and a pearly glow where the light
+	   falls. Both are layers three times the window's size that slide with transform as the card
+	   turns, so no edge of them ever crosses the picture. The pearl shows only while the card is
+	   turned, the more the further; at rest it is gone. */
+	.sheen,
+	.pearl {
+		position: absolute;
+		top: -100%;
+		left: -100%;
+		width: 300%;
+		height: 300%;
+		pointer-events: none;
+	}
+	.sheen {
+		background: linear-gradient(
+			115deg,
+			transparent 40%,
+			oklch(0.97 0.06 90 / 0.35) 46%,
+			oklch(1 0.02 95 / 0.75) 49.5%,
+			oklch(1 0.02 95 / 0.75) 50.5%,
+			oklch(0.97 0.06 90 / 0.35) 54%,
+			transparent 60%
+		);
+		mix-blend-mode: screen;
+		opacity: calc(0.45 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
+		transform: translate(calc(-12% - var(--ax) * 18%), calc(-8% - var(--ay) * 12%));
+	}
+	/* Pearl: a white centre with faint pastel rings round it, like light on mother-of-pearl. It
+	   sits where the glare does on the card. Pastels over white show only as plain paint, so it is
+	   not blended, and it is kept faint. */
+	.pearl {
+		background: radial-gradient(
+			circle at 50% 50%,
+			oklch(1 0 0 / 0.4),
+			oklch(0.94 0.05 340 / 0.3) 4%,
+			oklch(0.95 0.05 80 / 0.26) 7%,
+			oklch(0.95 0.05 165 / 0.24) 10%,
+			oklch(0.94 0.05 250 / 0.2) 13%,
+			oklch(0.94 0.05 300 / 0.12) 16%,
+			transparent 21%
+		);
+		opacity: calc((var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 1.2);
+		transform: translate(calc(var(--ax) * -15%), calc(var(--ay) * -15%));
 	}
 	.vault {
 		overflow: hidden;
@@ -439,36 +484,23 @@
 				oklch(0.86 0.12 85),
 				oklch(0.92 0.1 95)
 			)
-			calc(50% + var(--ax) * 60%) calc(50% + var(--ay) * 40%) / 300% 300%;
+			calc(50% - var(--ax) * 45%) calc(50% - var(--ay) * 40%) / 300% 300% no-repeat;
 		-webkit-mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
 		mask-image: repeating-radial-gradient(circle at 50% 55%, black 0 0.8px, transparent 0.8px 2.6px);
 		mix-blend-mode: overlay;
 		opacity: calc(0.55 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
 	}
-	/* The light catching the foil: a bright white-gold band with a softer gold glow around it. */
-	.sheen {
-		background: linear-gradient(
-				115deg,
-				transparent 30%,
-				oklch(0.95 0.08 90 / 0.35) 42%,
-				oklch(1 0.03 95 / 0.8) 48%,
-				oklch(1 0.03 95 / 0.8) 52%,
-				oklch(0.95 0.08 90 / 0.35) 58%,
-				transparent 70%
-			)
-			calc(30% + var(--ax) * 70%) calc(30% + var(--ay) * 50%) / 250% 250%;
-		mix-blend-mode: screen;
-		opacity: calc(0.45 + (var(--ax) * var(--ax) + var(--ay) * var(--ay)) * 0.4);
-	}
 
 	/* The light on the card: a soft spot that follows the turn, brightest when turned furthest. It
-	   sits over the whole card, frame and all. */
+	   sits over the whole card, frame and all. The light shines straight at the card, so like a
+	   reflection in a tilted mirror it moves the opposite way to the turn: turn the right edge
+	   away and the light slides left. The band of light and the pearl do the same. */
 	.glare {
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
 		background: radial-gradient(
-			farthest-corner circle at calc(50% + var(--ax) * 45%) calc(50% + var(--ay) * 45%),
+			farthest-corner circle at calc(50% - var(--ax) * 45%) calc(50% - var(--ay) * 45%),
 			oklch(1 0 0 / 0.55),
 			oklch(1 0 0 / 0.12) 30%,
 			oklch(0 0 0 / 0.12) 85%
