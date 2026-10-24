@@ -134,6 +134,8 @@ class Player {
 	 * @param {...Field} fields
 	 */
 	save(...fields) {
+		// Never write the defaults over the real save: a store that was not read has only those.
+		if (!this.loaded) return this.load();
 		for (const field of fields) {
 			for (const [key, value] of Object.entries(writers[field](this))) {
 				localStorage.setItem(key, value);
@@ -149,6 +151,7 @@ class Player {
 
 	/** @param {number} amount */
 	addMoney(amount) {
+		this.#ready();
 		this.money += amount;
 		this.save('money');
 		this.#animate('+' + amount);
@@ -156,9 +159,15 @@ class Player {
 
 	/** @param {number} amount */
 	spendMoney(amount) {
+		this.#ready();
 		this.money -= amount;
 		this.save('money');
 		this.#animate('-' + amount);
+	}
+
+	/** Read the save first, so a change adds to what is stored and not to the defaults. */
+	#ready() {
+		if (!this.loaded) this.load();
 	}
 
 	/** @param {string} delta */
@@ -170,6 +179,7 @@ class Player {
 
 	/** @param {string} entry */
 	addPokemon(entry) {
+		this.#ready();
 		this.pkmnList.push(entry);
 		this.save('pkmnList');
 	}
