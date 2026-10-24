@@ -1,7 +1,7 @@
 // The Christmas calendar's and the spring event's rules (src/lib/game/xmasCalendar.js, eventClock.js,
 // springEvent.js) without a browser. Usage: node tests/events-rules.mjs
 import { fakeTime } from '../src/lib/game/eventClock.js';
-import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, forgetFutureDoors, startYear } from '../src/lib/game/xmasCalendar.js';
+import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, startYear } from '../src/lib/game/xmasCalendar.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -43,13 +43,6 @@ check('only doors 1-24, once each', readOpened(store({ xmasOpened: '[1,1,0,25,"7
 	const save = store({ xmasOpened: '"[1,3]"' });
 	check('a door is recorded as a plain JSON array', recordOpened(save, 5) && save.data.get('xmasOpened') === '[1,3,5]');
 	check('a door already opened is not recorded, so not paid, again', !recordOpened(save, 3) && save.data.get('xmasOpened') === '[1,3,5]');
-}
-{
-	const save = store({ xmasOpened: '[1,3,5,12]' });
-	check('doors after today are forgotten and written back', forgetFutureDoors(save, 5).join() === '1,3,5' && save.data.get('xmasOpened') === '[1,3,5]');
-	const clean = store({ xmasOpened: '"[1,3]"' });
-	forgetFutureDoors(clean, 24);
-	check('nothing to forget, nothing written', clean.data.get('xmasOpened') === '"[1,3]"');
 }
 
 // ---- a new year ----------------------------------------------------------------------------------

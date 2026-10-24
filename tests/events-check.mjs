@@ -123,6 +123,30 @@ const doorsReady = async (page) => (await page.locator('.door.ready .num').allIn
 }
 
 {
+	// No ?date=: the device's clock decides, and no other site is asked for the time.
+	const { ctx, page, outside } = await device();
+	await ctx.clock.install({ time: new Date(2026, 11, 7, 10, 0) });
+	await visit(page, XMAS);
+	await page.waitForSelector('.door, .not-yet');
+	check("the device's clock decides: 7 December lights doors 1-7", (await doorsReady(page)).join() === '1,2,3,4,5,6,7', (await doorsReady(page)).join());
+	check('no request leaves the site for the date', outside.length === 0, outside.join(' '));
+	await ctx.close();
+}
+
+{
+	// The clock moves back and forth: doors opened stay opened, and nothing is paid twice.
+	const { ctx, page } = await device();
+	await visit(page, `${XMAS}?date=2026-12-06`, { xmasYear: '2026', xmasOpened: '[1,5,12]' });
+	await page.waitForSelector('.door');
+	check('an earlier day: only the doors up to it show as opened', (await page.locator('.door.opened .num').allInnerTexts()).map(Number).sort((a, b) => a - b).join() === '1,5');
+	check('an earlier day: the save keeps door 12', (await get(page, 'xmasOpened')) === '[1,5,12]', await get(page, 'xmasOpened'));
+	await page.goto(BASE + `${XMAS}?date=2026-12-12`);
+	await page.waitForSelector('.door');
+	check('back on the 12th: door 12 is opened, and not paid again', (await doorByText(page, 12).evaluate((el) => el.classList.contains('opened'))) && (await money(page)) === 0);
+	await ctx.close();
+}
+
+{
 	// Outside December there is no calendar.
 	const { ctx, page } = await device();
 	await visit(page, `${XMAS}?date=2026-10-24`);

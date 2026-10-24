@@ -16,7 +16,6 @@
 		doorReward,
 		readOpened,
 		recordOpened,
-		forgetFutureDoors,
 		startYear
 	} from '#lib/game/xmasCalendar.js';
 	import Fireworks from '#lib/Fireworks.svelte';
@@ -24,56 +23,38 @@
 	/** Null until the page has mounted: the prerendered page does not know the date. */
 	let today = $state(/** @type {{ year: number, month: number, day: number } | null} */ (null));
 	let dateText = $state('');
-	/** The doors shown as opened. */
+	/** The doors opened this year, as the save has them. */
 	let opened = $state(/** @type {number[]} */ ([]));
 
 	const december = $derived(today?.month === 11);
-	const allOpened = $derived(opened.length > 23);
-
-	/** The date from timeapi.io (Oslo time), as the legacy page asked; the device's clock when that fails. */
-	async function dateFromApi() {
-		try {
-			const response = await fetch('https://timeapi.io/api/time/current/zone?timeZone=Europe%2FOslo');
-			if (!response.ok) throw new Error('Network response was not ok');
-			return new Date((await response.json()).dateTime);
-		} catch {
-			return new Date();
-		}
-	}
+	/** Doors of a day yet to come stay in the save, but do not show: a clock set back changes nothing. */
+	const shown = $derived(opened.filter((day) => today && day <= today.day));
+	const allOpened = $derived(shown.length > 23);
 
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
 	let bonusTimer;
 
 	onMount(() => {
-		let gone = false;
-		(async () => {
-			const clock = eventClock();
-			const date = clock.fake ? new Date(clock.now()) : await dateFromApi();
-			if (gone) return;
-			dateText = date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
-			const now = { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
-			if (now.month === 11) {
-				startYear(localStorage, now.year);
-				forgetFutureDoors(localStorage, now.day);
-				opened = readOpened(localStorage);
-			}
-			today = now;
-		})();
-		return () => {
-			gone = true;
-			clearTimeout(bonusTimer);
-		};
+		const date = new Date(eventClock().now());
+		dateText = date.toLocaleDateString('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
+		const now = { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
+		if (now.month === 11) {
+			startYear(localStorage, now.year);
+			opened = readOpened(localStorage);
+		}
+		today = now;
+		return () => clearTimeout(bonusTimer);
 	});
 
 	/** @param {number} day */
 	function stateOf(day) {
-		if (opened.includes(day)) return 'opened';
+		if (shown.includes(day)) return 'opened';
 		return today && day <= today.day ? 'ready' : 'locked';
 	}
 
 	/** @param {number} day */
 	function openDoor(day) {
-		if (!today || day > today.day || opened.includes(day)) return;
+		if (!today || day > today.day || shown.includes(day)) return;
 		// The door is written down before it pays, so that a second tap cannot pay again.
 		if (!recordOpened(localStorage, day)) return;
 		opened = [...opened, day];

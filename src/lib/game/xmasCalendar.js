@@ -110,18 +110,6 @@ export function recordOpened(storage, day) {
 }
 
 /**
- * Doors from an earlier day than today stay as they were, but ones after today are forgotten.
- * @param {Store} storage
- * @param {number} today  Day of the month.
- */
-export function forgetFutureDoors(storage, today) {
-	const opened = readOpened(storage);
-	const kept = opened.filter((day) => day <= today);
-	if (kept.length !== opened.length) storage.setItem('xmasOpened', JSON.stringify(kept));
-	return kept;
-}
-
-/**
  * The calendar belongs to one year: with another year saved, or none, it starts over, with no door
  * opened and `year` saved. The legacy page did this door by door and so only got door 1 right.
  * @param {Store} storage
