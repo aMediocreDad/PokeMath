@@ -14,9 +14,12 @@
 // can never overwrite what was played elsewhere: it is checked again instead.
 // A device holding someone else's save (two children, one iPad) never uploads it: it takes the
 // new player's cloud copy, or starts them afresh. Logging out uploads, then clears the device.
+// Every answer from /api/save names the login it belongs to. A tab keeps who it thinks is logged
+// in, and the cookie is shared by every tab, so when the two differ nothing is compared or
+// uploaded: the tab asks again who it is, and carries on as a new owner.
 
 import { deleteBackup } from '#lib/idbBackup.js';
-import { forgetMe, loadMe, me } from '#lib/me.svelte.js';
+import { forgetMe, loadMe, me, refreshMe } from '#lib/me.svelte.js';
 import { DEVICE_KEYS, replaceSaveData, saveData as snapshot, writeItem } from '#lib/storage.js';
 import { ask } from '#lib/ask.svelte.js';
 import { toast } from '#lib/toast.svelte.js';
@@ -68,10 +71,14 @@ function writeMeta(/** @type {Meta} */ meta) {
 	writeItem(META, JSON.stringify({ ...meta, owner: me.id }));
 }
 
-/** Remove the save from this device (everything but this module's own note). */
-function clearSave() {
+/**
+ * Remove the save from this device (everything but this module's own note), and the IndexedDB
+ * copy with it: the next player on this device must not be offered this one's.
+ */
+async function clearSave() {
 	for (const key of Object.keys(snapshot())) localStorage.removeItem(key);
 	for (const key of DEVICE_KEYS) if (key !== META) localStorage.removeItem(key);
+	await deleteBackup();
 }
 
 /**
@@ -118,13 +125,16 @@ async function upload(always = false) {
 			body: JSON.stringify({ data, base: meta.base ?? null })
 		});
 		if (res.status === 409) {
+			const answer = await res.json();
+			if (await loginChanged(answer.id)) return false;
 			// The cloud copy changed since this device last saw it: decide again, as on a page load.
 			ready = false;
-			await reconcile((await res.json()).save);
+			await reconcile(answer.save);
 			return ready && readMeta().hash === hash;
 		}
 		if (!res.ok) return false;
-		const { updatedAt } = await res.json();
+		const { updatedAt, id } = await res.json();
+		if (await loginChanged(id)) return false;
 		writeMeta({ hash, base: updatedAt });
 		cloud.savedAt = updatedAt;
 		return true;
@@ -143,9 +153,8 @@ export async function logOut() {
 	const meta = readMeta();
 	const saved = meta.owner !== me.id || fingerprint(snapshot()) === meta.hash || (ready && (await upload()));
 	if (!saved && !(await ask('Fikk ikke lagret i skyen. Logge ut likevel? Det du har gjort siden sist, blir borte.', { ok: 'Logg ut' }))) return;
-	clearSave();
+	await clearSave();
 	localStorage.removeItem(META);
-	await deleteBackup();
 	forgetMe();
 	await fetch('/logout', { method: 'POST' }).catch(() => {});
 	location.href = '/login.html';
@@ -197,27 +206,48 @@ export function startCloudSave() {
 async function check() {
 	/** @type {CloudCopy | null} */
 	let copy;
+	/** @type {string | undefined} */
+	let id;
 	try {
 		const res = await fetch('/api/save');
 		if (!res.ok) return;
-		copy = (await res.json()).save;
+		({ save: copy, id } = await res.json());
 	} catch {
 		return;
 	}
 
 	await loadMe();
 	if (!me.id) return;
+	if (id && id !== me.id) {
+		// This tab has another login cached (it was logged in as someone else here, or in another tab):
+		// the save on this device is not this login's. Ask who it is now, and treat it as an owner switch.
+		ready = false;
+		await refreshMe();
+		if (me.id !== id) return;
+	}
 	const meta = readMeta();
 	// Someone else's save (the last player on this device did not log out): never upload it.
 	// Clear it with the device's own keys, like their round in progress or the class they joined,
 	// then take this player's cloud copy, or start them afresh.
 	if (meta.owner && meta.owner !== me.id) {
-		clearSave();
+		await clearSave();
 		if (copy) return useCloud(copy);
 		writeMeta({ hash: fingerprint(snapshot()) });
 		return location.reload();
 	}
 	await reconcile(copy);
+}
+
+/**
+ * Whether an answer from /api/save belongs to another login than the one this page has. If so, the
+ * save is checked afresh, as a new owner; the caller then neither reconciles nor uploads.
+ * @param {string | undefined} id
+ */
+async function loginChanged(id) {
+	if (!id || id === me.id) return false;
+	ready = false;
+	await check();
+	return true;
 }
 
 /**
