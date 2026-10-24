@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import { getStorageInt, writeItem } from '#lib/storage.js';
 	import { pickEventForm, pickForm } from '#lib/game/pokemon.js';
+	import { toast } from '#lib/toast.svelte.js';
 
 	/** @type {{ stage: string | number, onCatch: (form: string | null) => void }} */
 	let { stage, onCatch } = $props();
@@ -44,12 +45,17 @@
 
 	function capture() {
 		if (!full) return;
+		/** @type {string | null} */
+		let form;
 		if (Math.random() > 0.7) {
-			onCatch(pickEventForm('H'));
+			form = pickEventForm('H');
+			// No event form to give (the Pokémon may not have loaded yet): keep the full egg for the next tap.
+			if (form === null) return toast('Egget er ikke helt klart ennå. Prøv igjen om et øyeblikk.');
 		} else {
 			const id = SPOOKY[Math.floor(Math.random() * SPOOKY.length)];
-			onCatch(pickForm(id, stage));
+			form = pickForm(id, stage);
 		}
+		onCatch(form);
 		eggStatus = 0;
 		eggNeeded++;
 		if (eggNeeded > 25) eggNeeded = 5;
