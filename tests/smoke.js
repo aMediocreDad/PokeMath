@@ -1,5 +1,6 @@
 // End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round, a raid and a
 // memory game.
+const vm = require("vm");
 const WebSocket = require("ws");
 const BASE = process.argv[2];
 const WS = BASE.replace("http", "ws") + "/ws";
@@ -10,6 +11,13 @@ const j = async (path, opts = {}) => {
 };
 const post = (path, body, headers) => j(path, { method: "POST", body: JSON.stringify(body), headers });
 const kidHeaders = () => ({ "x-dev-anonymous": "1" });
+/** A request with a streamed body, so it carries no Content-Length and the Worker must count the bytes itself. */
+const chunked = async (path, text, headers = {}, method = "POST") => {
+  const bytes = new TextEncoder().encode(text);
+  const stream = new ReadableStream({ start(c) { for (let i = 0; i < bytes.length; i += 16384) c.enqueue(bytes.slice(i, i + 16384)); c.close(); } });
+  const r = await fetch(BASE + path, { method, body: stream, duplex: "half", headers: { "Content-Type": "application/json", ...headers } });
+  return { status: r.status, body: await r.json().catch(() => null) };
+};
 
 function client() {
   const ws = new WebSocket(WS);
@@ -72,9 +80,14 @@ async function assertSilent(c, type, label) {
   assert(r1.body.ok && r1.body.prize.type === "coins", "redeem known code");
   const r2 = await post("/redeem", { code: "tull" });
   assert(r2.body.ok === false && r2.body.message, "redeem unknown code");
-  await post("/api/easter/catch", { uuid });
+  assert((await post("/api/easter/catch", { uuid })).status === 401, "easter catch without a token -> 401");
+  assert((await post("/api/easter/catch", { uuid, token: "nope" })).status === 401, "easter catch with a bad token -> 401");
+  assert((await post("/api/easter/catch", { uuid, token: v1.body.token })).body.total === 1, "easter catch with the player's token counts");
   const eg = await j("/api/easter/global");
   assert(eg.body.total === 1 && Array.isArray(eg.body.milestones), "easter counter");
+  const eager = await post("/api/easter/catch", { uuid, token: v1.body.token });
+  assert(eager.status === 429 && eager.body.ok === false && (await j("/api/easter/global")).body.total === 1, "a second catch within a second is refused and not counted");
+  assert((await post("/api/easter/catch", { uuid, token: v1.body.token }, { "x-dev-email": "elev@test.no" })).body.total === 2, "the limit is per login: someone else's catch counts");
   const ping = await fetch(BASE + "/math-ping", { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } });
   assert(ping.status === 204, "math-ping");
 
@@ -102,6 +115,18 @@ async function assertSilent(c, type, label) {
   assert(list.body.codes.length === 1, "list codes");
   const red = await post("/redeem", { code: "klasse5b" });
   assert(red.body.ok && red.body.prize.value === "100", "teacher code is redeemable");
+
+  // A code that is not repeatable pays each login once; a repeatable one pays every time.
+  const usedMessage = "Denne koden er allerede brukt.";
+  const r1again = await post("/redeem", { code: "MYNTER" });
+  assert(r1again.status === 200 && r1again.body.ok === false && r1again.body.used === true && r1again.body.message === usedMessage, "a code this login already redeemed is used");
+  assert((await post("/redeem", { code: "klasse5b" })).body.used === true, "a teacher code is used the second time too, whatever the case");
+  const r1other = await post("/redeem", { code: "mynter" }, kid);
+  assert(r1other.body.ok && r1other.body.prize.type === "coins" && !r1other.body.used, "the same code still pays another login");
+  assert((await post("/redeem", { code: "tull" }, kid)).body.used === undefined, "an unknown code is invalid, not used");
+  assert((await post("/teacher/codes", { plaintext_code: "Gjenta", label: "Igjen", prize_type: "coins", prize_value: "5", repeatable: true }, auth)).body.ok, "create repeatable code");
+  const rep = [await post("/redeem", { code: "gjenta" }), await post("/redeem", { code: "gjenta" }), await post("/redeem", { code: "gjenta" })];
+  assert(rep.every((r) => r.body.ok && r.body.prize.value === "5"), "a repeatable code is never used up");
 
   // Bingo round
   const host = client();
@@ -443,6 +468,113 @@ async function assertSilent(c, type, label) {
   await j(`/teacher/kids/${child.body.kid.id}?save=delete`, { method: "DELETE" });
   assert((await j("/api/me", { headers: last.headers })).status === 401, "removing the child ends their sessions");
   assert((await codeLogin(fresh.body.code)).status === 401, "removed child's code stops working");
+
+  // The page to go back to after logging in may only be a path on this site, in both the Worker's
+  // redirect and the login page's own script.
+  const hostile = ["/\\evil.com", "/\t/evil.com", "//evil.com", "/.//evil.com", "/a/../..//evil.com", "https://evil.com", "javascript:alert(1)", "\\\\evil.com", "/\n/evil.com"];
+  const legit = "/l%C3%A6rer/index.html?x=1#h";
+  const redirectTo = async (next) => {
+    const r = await fetch(BASE + "/login/email?next=" + encodeURIComponent(next), { redirect: "manual" });
+    return r.status === 302 ? r.headers.get("location") : `status ${r.status}`;
+  };
+  const stuck = [];
+  for (const next of hostile) if ((await redirectTo(next)) !== "/") stuck.push(next);
+  assert(!stuck.length, "e-mail login only redirects to this site's own paths" + (stuck.length ? ` (let through: ${JSON.stringify(stuck)})` : ""));
+  assert((await redirectTo(legit)) === legit && (await redirectTo("")) === "/", "a path on this site is kept, none goes to the front page");
+  const script = (await (await fetch(BASE + "/login.html")).text()).match(/<script>([\s\S]*?)<\/script>/)[1];
+  const pageTarget = (next) => {
+    const els = {};
+    const el = (id) => (els[id] ??= { href: "", value: "", addEventListener() {}, disabled: false });
+    vm.runInNewContext(script, { location: { search: "?next=" + encodeURIComponent(next), origin: BASE, replace() {} }, document: { getElementById: el }, sessionStorage: { removeItem() {} }, URLSearchParams, URL, encodeURIComponent, fetch: async () => {} });
+    return decodeURIComponent(els.email.href.split("?next=")[1]);
+  };
+  const pageStuck = hostile.filter((next) => pageTarget(next) !== "/");
+  assert(!pageStuck.length, "the login page only goes back to this site's own paths" + (pageStuck.length ? ` (let through: ${JSON.stringify(pageStuck)})` : ""));
+  assert(pageTarget(legit) === legit && pageTarget("") === "/", "the login page keeps a path on this site");
+
+  // Cloud saves: the answers say whose save it is, a stale PUT is refused, and one can be deleted.
+  const saver = { "x-dev-email": "saver@test.no" };
+  const put = (data, extra = {}, headers = saver) => j("/api/save", { method: "PUT", headers, body: JSON.stringify({ data, ...extra }) });
+  const noSave = await j("/api/save", { headers: saver });
+  assert(noSave.status === 200 && noSave.body.save === null && noSave.body.id === "saver@test.no", "GET /api/save names the login, also with no save");
+  const firstSave = await put({ pokemonlist: "N1|N2" }, { base: null });
+  assert(firstSave.status === 200 && firstSave.body.ok && firstSave.body.pokemon === 2 && firstSave.body.id === "saver@test.no", "PUT /api/save answers with the login's id");
+  const stale = await put({ pokemonlist: "N1|N2|N3" }, { base: firstSave.body.updatedAt - 1 });
+  assert(stale.status === 409 && stale.body.id === "saver@test.no" && stale.body.save.updatedAt === firstSave.body.updatedAt, "a stale PUT is refused with the id and the newer save");
+  const shrunk = await put({ pokemonlist: "N1" });
+  assert(shrunk.status === 409 && shrunk.body.id === "saver@test.no" && shrunk.body.save.pokemon === 2, "an unversioned PUT with fewer Pokémon is refused with the id");
+  assert((await j("/api/save", { headers: saver })).body.id === "saver@test.no", "GET /api/save names the login");
+  const badBases = [["abc", "a word"], ["123", "a numeric string"], [true, "a boolean"], [{}, "an object"], [[1], "an array"]];
+  const baseAnswers = await Promise.all(badBases.map(([base]) => put({ pokemonlist: "N1|N2|N3" }, { base })));
+  assert(baseAnswers.every((r) => r.status === 400), "a base that is not a number or null is refused with 400 (" + baseAnswers.map((r) => r.status).join(", ") + ")");
+  const hugeBase = await j("/api/save", { method: "PUT", headers: saver, body: '{"data":{"pokemonlist":"N1|N2|N3"},"base":1e999}' });
+  assert(hugeBase.status === 400, "a base past what a number can hold is refused with 400");
+  assert((await j("/api/save", { headers: saver })).body.save.updatedAt === firstSave.body.updatedAt, "refused PUTs leave the save as it was");
+  const nextSave = await put({ pokemonlist: "N1|N2|N3" }, { base: firstSave.body.updatedAt });
+  assert(nextSave.status === 200 && nextSave.body.updatedAt > firstSave.body.updatedAt, "a PUT from the save the device last saw goes through");
+  const big = JSON.stringify({ data: { pokemonlist: "N".repeat(1_100_000) }, base: nextSave.body.updatedAt });
+  const bigPut = await j("/api/save", { method: "PUT", headers: saver, body: big });
+  assert(bigPut.status === 413, "a PUT over a megabyte -> 413 (declared length)");
+  const streamed = await chunked("/api/save", big, saver, "PUT");
+  assert(streamed.status === 413, "a PUT over a megabyte -> 413 (streamed, no length declared)");
+  assert((await j("/api/save", { headers: saver })).body.save.updatedAt === nextSave.body.updatedAt, "a refused big PUT leaves the save as it was");
+  const other = await put({ pokemonlist: "N7" }, { base: null }, { "x-dev-email": "other@test.no" });
+  const gone = await j("/api/save", { method: "DELETE", headers: saver });
+  assert(gone.status === 200 && gone.body.ok === true, "DELETE /api/save answers ok");
+  const afterGone = await j("/api/save", { headers: saver });
+  assert(afterGone.body.save === null && afterGone.body.id === "saver@test.no", "the deleted save is gone");
+  assert((await j("/api/save", { method: "DELETE", headers: saver })).body.ok === true, "DELETE /api/save answers ok when there was none");
+  assert(other.body.ok && (await j("/api/save", { headers: { "x-dev-email": "other@test.no" } })).body.save.pokemon === 1, "DELETE only takes the login's own save");
+
+  // Bodies are capped before they are read: a login code is tiny, a stats upload is about 56 KB at most.
+  // wrangler dev's proxy loses its connection to the Worker after an answer sent before the body was
+  // read, and the next POST on it is not retried; a GET is, so one after each takes the loss.
+  const settle = () => fetch(BASE + "/login.html").then((r) => r.text());
+  const longCode = JSON.stringify({ code: "A".repeat(2000) });
+  const longLogin = await fetch(BASE + "/login/code", { method: "POST", headers: { ...anon, "Content-Type": "application/json" }, body: longCode });
+  assert(longLogin.status === 413 && (await longLogin.json()).ok === false, "a login code body over 1 KB -> 413");
+  await settle();
+  const streamedLogin = await chunked("/login/code", longCode, anon);
+  assert(streamedLogin.status === 413, "a login code body over 1 KB -> 413 (streamed)");
+  await settle();
+  const bigStats = { uuid, token: v1.body.token, state: { username: "Test", pkmnList: ["N1x"].concat(Array(30000).fill("N10000x10")) }, shopOptions: {} };
+  const bigUpload = await post("/update-user-stats", bigStats);
+  assert(bigUpload.status === 413, `a stats upload over 256 KB -> 413 (${bigUpload.status})`);
+  await settle();
+  const streamedUpload = await chunked("/update-user-stats", JSON.stringify(bigStats));
+  assert(streamedUpload.status === 413, `a stats upload over 256 KB -> 413 (streamed, ${streamedUpload.status})`);
+  await settle();
+  assert((await post("/update-user-stats", { uuid, token: v1.body.token, state: { username: "Test", totalScore: 6 }, shopOptions: {} })).body?.success, "a normal stats upload still goes through");
+  assert((await post("/update-user-stats", { uuid, token: v1.body.token, state: { username: "Test", pkmnList: Array(8000).fill("N10000x10") }, shopOptions: {} })).body?.success, "so does one of 100 KB");
+
+  // Logging out ends the login's teacher sessions with it, and only that login's.
+  const sessionFor = async (email) => {
+    const r = await fetch(BASE + "/login/email?next=%2F", { redirect: "manual", headers: { "x-dev-email": email } });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+    return { cookie, headers: { "x-dev-email": email, Cookie: cookie } };
+  };
+  const teacherIn = await sessionFor("laerer@test.no");
+  const teacherToken = (await post("/teacher/access-login", {}, teacherIn.headers)).body.teacherSession;
+  const bearerOf = (t) => ({ Authorization: `Bearer ${t}` });
+  assert(teacherToken && (await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 200, "a teacher session made from a login works");
+  const studentIn = await sessionFor("elev@test.no");
+  await fetch(BASE + "/logout", { method: "POST", headers: studentIn.headers });
+  assert((await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 200, "someone else logging out leaves the teacher session alone");
+  await fetch(BASE + "/logout", { method: "POST", headers: teacherIn.headers });
+  assert((await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 401, "logging out ends the login's teacher sessions");
+  assert((await j("/teacher/session", { headers: auth })).status === 401, "all of the teacher's teacher sessions end, not only the one from this login");
+
+  // An IPv4-mapped IPv6 address is the IPv4 address, not a share of one /64 bucket.
+  const tryFrom = async (ip, code) => (await fetch(BASE + "/login/code", { method: "POST", headers: { ...anon, "Content-Type": "application/json", "CF-Connecting-IP": ip }, body: JSON.stringify({ code }) })).status;
+  let mappedLast = 0;
+  for (let i = 0; i < 51; i++) mappedLast = await tryFrom("::ffff:10.1.1.1", `ZZZZ-${String(2000 + i)}`);
+  assert(mappedLast === 429, "fifty-one different wrong codes lock a mapped address");
+  assert((await tryFrom("10.1.1.1", "ZZZZ-3000")) === 429, "the same address as plain IPv4 is locked too");
+  assert((await tryFrom("::FFFF:10.1.1.1", "ZZZZ-3001")) === 429, "whatever the case of the mapped form");
+  assert((await tryFrom("::ffff:10.1.1.2", "ZZZZ-3000")) === 401, "another mapped address is not locked with it");
+  let v6Last = 0;
+  for (let i = 0; i < 51; i++) v6Last = await tryFrom("2001:db8:1:2:aaaa::1", `ZZZZ-${String(4000 + i)}`);
+  assert(v6Last === 429 && (await tryFrom("2001:db8:1:2:bbbb::2", "ZZZZ-3000")) === 429 && (await tryFrom("2001:db8:1:3::1", "ZZZZ-3000")) === 401, "other IPv6 addresses are still counted per /64");
 
   // Guessing: fifty different wrong codes from one address lock it out for a quarter hour; the
   // same typo again does not count. Keep this last: the lock lasts for the rest of this server's run.
