@@ -6,7 +6,7 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
-	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
+	import { cloud, useCloud, keepDevice, decideLater, logOut, deleteEverything } from '#lib/cloudSave.svelte.js';
 	import { acceptedOldNotice, replaceSaveData, setLegacySaveFlag } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
 	import { ask } from '#lib/ask.svelte.js';
@@ -82,10 +82,8 @@
 	}
 
 	async function resetPrompt() {
-		if (!(await ask('Er du sikker på at du vil slette alle Pokémon og poeng? Det kan ikke angres.', { ok: 'Slett alt' }))) return;
-		localStorage.clear();
-		sessionStorage.clear();
-		location.reload();
+		if (!(await ask('Er du sikker på at du vil slette alle Pokémon og poeng, også kopien i skyen? Det kan ikke angres.', { ok: 'Slett alt' }))) return;
+		await deleteEverything();
 	}
 
 	// The menu and the trainer card open on a tap (they only opened on hover before), and close

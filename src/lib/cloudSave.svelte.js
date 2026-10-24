@@ -153,11 +153,44 @@ export async function logOut() {
 	const meta = readMeta();
 	const saved = meta.owner !== me.id || fingerprint(snapshot()) === meta.hash || (ready && (await upload()));
 	if (!saved && !(await ask('Fikk ikke lagret i skyen. Logge ut likevel? Det du har gjort siden sist, blir borte.', { ok: 'Logg ut' }))) return;
+	// The session ends first. Without a connection it cannot, and clearing the save then would leave
+	// the next player on this device inside this one's login.
+	try {
+		const res = await fetch('/logout', { method: 'POST' });
+		if (!res.ok) throw new Error(`/logout answered ${res.status}`);
+	} catch {
+		toast('Du må ha nett for å logge ut. Prøv igjen når du er på nett.', { bad: true });
+		return;
+	}
+	ready = false;
 	await clearSave();
 	localStorage.removeItem(META);
 	forgetMe();
-	await fetch('/logout', { method: 'POST' }).catch(() => {});
 	location.href = '/login.html';
+}
+
+/**
+ * "Slett alt": the cloud copy, then everything on this device. Without a connection nothing is
+ * deleted, because a device wiped while the cloud copy stays would only fetch it back.
+ * @returns {Promise<boolean>} whether it is all gone (the page then starts over)
+ */
+export async function deleteEverything() {
+	// No upload may put it back, whether the interval or leaving the page.
+	const wasReady = ready;
+	ready = false;
+	try {
+		const res = await fetch('/api/save', { method: 'DELETE' });
+		if (!res.ok) throw new Error(`DELETE /api/save answered ${res.status}`);
+	} catch {
+		ready = wasReady;
+		toast('Du må ha nett for å slette alt, for kopien i skyen blir slettet også. Ingenting er slettet.', { bad: true });
+		return false;
+	}
+	await deleteBackup();
+	localStorage.clear();
+	sessionStorage.clear();
+	location.reload();
+	return true;
 }
 
 /**
