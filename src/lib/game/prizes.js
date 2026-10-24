@@ -3,6 +3,7 @@
 import { player } from '#lib/player.svelte.js';
 import { trackEvent } from '#lib/track.js';
 import { writeItem } from '#lib/storage.js';
+import { startYear } from '#lib/game/springEvent.js';
 
 /** @param {string} entry  As stored, e.g. "N150" or "S25". */
 export function giveSpecificPokemon(entry) {
@@ -13,16 +14,12 @@ export function giveSpecificPokemon(entry) {
 /**
  * The spring event (March and April) counts every Pokémon caught in the game, on this device and
  * site-wide. Since the live pokestuff.js of 2026-10 it counts normal catches only, starts over each
- * year, and sends the stored id and token instead of creating one.
+ * year (springEvent.js, which the event page uses too), and sends the stored id and token instead
+ * of creating one.
  */
 export function countEventCatch() {
-	const year = new Date().getFullYear();
-	if (parseInt(localStorage.getItem('easterYear') || '0') !== year) {
-		writeItem('easterYear', String(year));
-		writeItem('easterCaught', '0');
-		writeItem('easterClaimed', '[]');
-		writeItem('easterLocalTs', '{}');
-	}
+	// Through writeItem, so a full storage does not stop the catch.
+	startYear({ getItem: (key) => localStorage.getItem(key), setItem: writeItem }, new Date().getFullYear());
 	const caught = parseInt(localStorage.getItem('easterCaught') || '0') + 1;
 	writeItem('easterCaught', String(caught));
 	// Remember when each block of 50 was reached.

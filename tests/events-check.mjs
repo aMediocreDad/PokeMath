@@ -355,6 +355,21 @@ const closeLootbox = async (page) => {
 }
 
 {
+	// The claim window: an egg earned in March or April can be opened until the year changes, so a
+	// child who was away in April still gets it in the autumn. Next year it is gone with the count.
+	const { ctx, page } = await device();
+	await fakeGlobal(page, 0);
+	await visit(page, `${EASTER}?date=2026-10-24`, { easterYear: '2026', easterCaught: '60' });
+	await page.waitForSelector('.item');
+	check('24 October: the event is over, the egg is still there', (await page.locator('#easterCountdown').innerText()) === 'Eventet er avsluttet.' && (await countOf(page, 0, 'reached')) === 1);
+	await bar(page, 0).locator('.item.reached button').click();
+	await page.waitForSelector('#bingo-lootbox-overlay');
+	await closeLootbox(page);
+	check('24 October: the egg opens and pays', (await list(page)).join('|') === 'N659-E1' && (await money(page)) === 1000, `${await list(page)} ${await money(page)}`);
+	await ctx.close();
+}
+
+{
 	// The event is March and April, every year.
 	const { ctx, page } = await device();
 	await fakeGlobal(page, 0);
@@ -374,6 +389,43 @@ const closeLootbox = async (page) => {
 	await page.waitForSelector('.item');
 	await sleep(1200);
 	check('30 April 23:59: a minute left', /0d\s*0t\s*00m|0d\s*0t\s*0\dm/.test((await page.locator('#easterCountdown').innerText()).replace(/\n/g, ' ')), await page.locator('#easterCountdown').innerText());
+	await ctx.close();
+}
+
+{
+	// A new year, met on the event page: last year's counts and every prize taken are gone.
+	const { ctx, page } = await device();
+	await fakeGlobal(page, 0);
+	await visit(page, `${EASTER}?date=2027-04-10`, { easterYear: '2026', easterCaught: '400', easterClaimed: '[0,1,2]', easterGlobalClaimed: '[0,1]', easterExtraClaimed: '[0]' });
+	await page.waitForSelector('.item');
+	const kept = async () => [await get(page, 'easterYear'), await get(page, 'easterCaught'), await get(page, 'easterClaimed'), await get(page, 'easterGlobalClaimed'), await get(page, 'easterExtraClaimed')].join(' ');
+	check('a new year: this device starts at 0 with no prize taken', (await bar(page, 0).locator('.count').innerText()) === '0 / 500' && (await countOf(page, 0, 'claimed')) === 0, await kept());
+	check('a new year: the save is this year\'s, with no global or bonus prize taken', (await kept()) === '2027 0 [] [] []', await kept());
+	await ctx.close();
+}
+
+{
+	// A new year, met in the game first: the first catch of the year starts the save over, so the
+	// event page (which then sees the right year) has no old prizes left either.
+	const { ctx, page } = await device();
+	await ctx.clock.setFixedTime(new Date(2027, 3, 10, 12));
+	await visit(page, '/pokemath.html?stage=1', { easterYear: '2026', easterCaught: '400', easterClaimed: '[0,1,2]', easterGlobalClaimed: '[0,1]', easterExtraClaimed: '[0]' });
+	await page.locator('.problem').waitFor({ state: 'attached' });
+	await sleep(800);
+	const solve = async () => {
+		const [a, op, b] = (await page.locator('.problem').textContent()).trim().split(/\s+/);
+		const [x, y] = [Number(a), Number(b)];
+		return op === '+' ? x + y : op === '-' || op === '−' ? x - y : op === 'x' || op === '·' ? x * y : x / y;
+	};
+	for (let i = 0; i < 12 && !(await page.locator('#pokeball:not(.is-hidden)').isVisible()); i++) {
+		await page.locator('.our-field').fill(String(await solve()));
+		await page.locator('.answer-button').click();
+		await sleep(700);
+	}
+	await page.locator('#pokeball').click();
+	await sleep(800);
+	const kept = async () => [await get(page, 'easterYear'), await get(page, 'easterCaught'), await get(page, 'easterClaimed'), await get(page, 'easterGlobalClaimed'), await get(page, 'easterExtraClaimed')].join(' ');
+	check('a new year, in the game: the first catch starts the save over and counts', (await kept()) === '2027 1 [] [] []', await kept());
 	await ctx.close();
 }
 

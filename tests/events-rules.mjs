@@ -78,5 +78,12 @@ check('ten prizes on each bar, steps of 50 and 150 000', LOCAL_PRIZES.length ===
 	check('the three lists are kept apart', markClaimed(save, 'easterGlobalClaimed', 0) && markClaimed(save, 'easterExtraClaimed', 0) && save.data.get('easterClaimed') === '[0,1,2]');
 	check('the same year changes nothing', !startSpringYear(save, 2026) && readCaught(save) === 175);
 }
+{
+	const old = store({ easterYear: '2025', easterCaught: '400', easterClaimed: '[0,1]', easterLocalTs: '{"1":5}', easterGlobalClaimed: '[0,1,2]', easterExtraClaimed: '[0]' });
+	check('a new year starts over', startSpringYear(old, 2026) && old.data.get('easterYear') === '2026' && readCaught(old) === 0 && old.data.get('easterLocalTs') === '{}');
+	check('a new year takes back every prize, the global and bonus ones too', ['easterClaimed', 'easterGlobalClaimed', 'easterExtraClaimed'].every((key) => old.data.get(key) === '[]'), [...old.data].join(' '));
+	const first = store();
+	check('no year saved yet is a new year', startSpringYear(first, 2026) && first.data.get('easterGlobalClaimed') === '[]' && first.data.get('easterExtraClaimed') === '[]');
+}
 
 process.exit(failed ? 1 : 0);

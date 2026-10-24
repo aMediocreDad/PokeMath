@@ -66,7 +66,8 @@ export const GLOBAL_PRIZES = /** @type {Prize[]} */ ([
 /** @typedef {Pick<Storage, 'getItem' | 'setItem'>} Store */
 
 /**
- * Whether the save is this year's; if not, it starts over.
+ * Whether the save is this year's; if not, it starts over: nothing counted and no prize taken, the
+ * global and bonus ones included (the legacy page left those, so last year's stayed taken).
  * @param {Store} storage
  * @param {number} year
  * @returns {boolean} true when it started over.
@@ -77,6 +78,8 @@ export function startYear(storage, year) {
 	storage.setItem('easterCaught', '0');
 	storage.setItem('easterClaimed', '[]');
 	storage.setItem('easterLocalTs', '{}');
+	storage.setItem('easterGlobalClaimed', '[]');
+	storage.setItem('easterExtraClaimed', '[]');
 	return true;
 }
 
