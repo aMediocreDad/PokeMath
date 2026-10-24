@@ -526,7 +526,7 @@ async function assertSilent(c, type, label) {
   assert((await j("/api/save", { method: "DELETE", headers: saver })).body.ok === true, "DELETE /api/save answers ok when there was none");
   assert(other.body.ok && (await j("/api/save", { headers: { "x-dev-email": "other@test.no" } })).body.save.pokemon === 1, "DELETE only takes the login's own save");
 
-  // Bodies are capped before they are read: a login code is tiny, a stats upload is a few KB.
+  // Bodies are capped before they are read: a login code is tiny, a stats upload is about 56 KB at most.
   // wrangler dev's proxy loses its connection to the Worker after an answer sent before the body was
   // read, and the next POST on it is not retried; a GET is, so one after each takes the loss.
   const settle = () => fetch(BASE + "/login.html").then((r) => r.text());
@@ -537,14 +537,15 @@ async function assertSilent(c, type, label) {
   const streamedLogin = await chunked("/login/code", longCode, anon);
   assert(streamedLogin.status === 413, "a login code body over 1 KB -> 413 (streamed)");
   await settle();
-  const bigStats = { uuid, token: v1.body.token, state: { username: "Test", pkmnList: ["N1x"].concat(Array(20000).fill("N10000x10")) }, shopOptions: {} };
+  const bigStats = { uuid, token: v1.body.token, state: { username: "Test", pkmnList: ["N1x"].concat(Array(30000).fill("N10000x10")) }, shopOptions: {} };
   const bigUpload = await post("/update-user-stats", bigStats);
-  assert(bigUpload.status === 413, `a stats upload over 64 KB -> 413 (${bigUpload.status})`);
+  assert(bigUpload.status === 413, `a stats upload over 256 KB -> 413 (${bigUpload.status})`);
   await settle();
   const streamedUpload = await chunked("/update-user-stats", JSON.stringify(bigStats));
-  assert(streamedUpload.status === 413, `a stats upload over 64 KB -> 413 (streamed, ${streamedUpload.status})`);
+  assert(streamedUpload.status === 413, `a stats upload over 256 KB -> 413 (streamed, ${streamedUpload.status})`);
   await settle();
   assert((await post("/update-user-stats", { uuid, token: v1.body.token, state: { username: "Test", totalScore: 6 }, shopOptions: {} })).body?.success, "a normal stats upload still goes through");
+  assert((await post("/update-user-stats", { uuid, token: v1.body.token, state: { username: "Test", pkmnList: Array(8000).fill("N10000x10") }, shopOptions: {} })).body?.success, "so does one of 100 KB");
 
   // Logging out ends the login's teacher sessions with it, and only that login's.
   const sessionFor = async (email) => {

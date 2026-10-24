@@ -5,8 +5,8 @@ import { body, cappedBody, json, log, randomHex } from './http.js';
 
 const EVENT = 'easter';
 const MILESTONE_STEP = 250_000;
-/** The state of one player's stats is a few KB (a compressed list of Pokémon and some numbers). */
-const MAX_STATS_BYTES = 64 * 1024;
+/** A stats upload is a compressed list of Pokémon and some numbers: about 56 KB with every form, normal and shiny. */
+const MAX_STATS_BYTES = 256 * 1024;
 /** One catch per login per second counts for the spring event. */
 const CATCH_INTERVAL = 1000;
 
