@@ -19,10 +19,13 @@ serves the old in-memory mock in `dev/` instead.
 - `raid-check.mjs [outdir]`, `memory-check.mjs [outdir]`: a whole raid or memory game, from
   the teacher's setup to the children's prizes, with screenshots.
 - `events-rules.mjs`: the Christmas calendar's doors and save, and the `?date=` clock, without a server.
-- `events-check.mjs`: `christmas.html` on faked dates (`?date=2026-12-10`, honoured on localhost
-  only): a door opens on its day and not before, pays once, stays opened after a reload, and the
-  last door gives the shinies and fireworks. Fresh profile and login per case; run with
-  `BASE=http://localhost:3134 node tests/events-check.mjs`.
+- `events-check.mjs`: `christmas.html` and `easter.html` on faked dates (`?date=2026-12-10`,
+  honoured on localhost only). Christmas: a door opens on its day and not before, pays once,
+  stays opened after a reload, and the last door gives the shinies and fireworks. Easter: the
+  countdown, an egg opened on this device's bar and on everyone's (`/api/easter/global` is
+  answered by hand for the totals, the real endpoints are checked by their increase), the bonus
+  goals, and the Worker being down. Phone and desktop get a layout check. Every case has its own
+  profile and login; run with `BASE=http://localhost:3134 node tests/events-check.mjs`.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
 - `problems-rules.mjs`: the game's setup in `src/lib/game/problems.js` without a server: a custom level
   with no operation, and how custom multiplication and division are rated.

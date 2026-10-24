@@ -1,6 +1,7 @@
 // The Christmas calendar's and the spring event's rules (src/lib/game/xmasCalendar.js, eventClock.js,
 // springEvent.js) without a browser. Usage: node tests/events-rules.mjs
 import { fakeTime } from '../src/lib/game/eventClock.js';
+import { GLOBAL_PRIZES, GLOBAL_STEP, LOCAL_PRIZES, LOCAL_STEP, SEG_COUNT, markClaimed, readCaught, readClaimed, readTimestamps, startYear as startSpringYear } from '../src/lib/game/springEvent.js';
 import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, startYear } from '../src/lib/game/xmasCalendar.js';
 
 let failed = 0;
@@ -57,6 +58,18 @@ check('only doors 1-24, once each', readOpened(store({ xmasOpened: '[1,1,0,25,"7
 	const none = store({ xmasOpened: '[4]' });
 	check('doors with no year saved start over too', startYear(none, 2026) && none.data.get('xmasOpened') === '[]');
 	check('the year is checked once: asking again changes nothing', !startYear(old, 2026) && old.data.get('xmasOpened') === '[]');
+}
+
+// ---- the spring event ------------------------------------------------------------------------------
+check('ten prizes on each bar, steps of 50 and 150 000', LOCAL_PRIZES.length === SEG_COUNT && GLOBAL_PRIZES.length === SEG_COUNT && LOCAL_STEP === 50 && GLOBAL_STEP === 150_000);
+{
+	const save = store({ easterYear: '2026', easterCaught: '175', easterClaimed: '[0,1]', easterLocalTs: '{"1":5}' });
+	check('this year\'s save is read as it is', readCaught(save) === 175 && readClaimed(save, 'easterClaimed').join() === '0,1' && readTimestamps(save)[1] === 5);
+	check('a broken list is no prizes taken', readClaimed(store({ easterClaimed: 'x' }), 'easterClaimed').length === 0 && readClaimed(store({ easterClaimed: '{"a":1}' }), 'easterClaimed').length === 0 && readClaimed(store(), 'easterClaimed').length === 0);
+	check('broken times are none', Object.keys(readTimestamps(store({ easterLocalTs: '[1]' }))).length === 0 && Object.keys(readTimestamps(store({ easterLocalTs: 'x' }))).length === 0);
+	check('a prize is written down once, so it is paid once', markClaimed(save, 'easterClaimed', 2) && !markClaimed(save, 'easterClaimed', 2) && !markClaimed(save, 'easterClaimed', 0) && save.data.get('easterClaimed') === '[0,1,2]');
+	check('the three lists are kept apart', markClaimed(save, 'easterGlobalClaimed', 0) && markClaimed(save, 'easterExtraClaimed', 0) && save.data.get('easterClaimed') === '[0,1,2]');
+	check('the same year changes nothing', !startSpringYear(save, 2026) && readCaught(save) === 175);
 }
 
 process.exit(failed ? 1 : 0);

@@ -24,8 +24,7 @@ async function device({ desktop = false } = {}) {
 		extraHTTPHeaders: { 'x-dev-email': `events-${Date.now()}-${n++}@test.no` }
 	});
 	const page = await ctx.newPage();
-	// Leaving the page that seeds the save cuts its own requests short: not a fault in the page under test.
-	page.on('pageerror', (e) => /access control|preload CSS|service-worker/.test(e.message) || console.log('pageerror', e.message));
+	page.on('pageerror', (e) => console.log('pageerror', e.message));
 	/** @type {string[]} */
 	const outside = [];
 	page.on('request', (r) => {
@@ -34,12 +33,16 @@ async function device({ desktop = false } = {}) {
 	return { ctx, page, outside };
 }
 
-/** Open a page after putting a save in place; the header's storage notice is already seen. @param {import('playwright-core').Page} page */
+/**
+ * Open a page with a save already in place, once per tab: the header's storage notice is seen, and
+ * the save is there before any script runs, so the cloud save never sees an empty device first.
+ * @param {import('playwright-core').Page} page
+ */
 async function visit(page, path, seed = {}) {
-	await page.goto(BASE + '/faq.html');
-	await page.evaluate((s) => {
-		localStorage.clear();
-		for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);
+	await page.addInitScript((save) => {
+		if (sessionStorage.getItem('events-check-seeded')) return;
+		sessionStorage.setItem('events-check-seeded', '1');
+		for (const [key, value] of Object.entries(save)) localStorage.setItem(key, value);
 	}, { storageNoticeSeen: '1', ...seed });
 	await page.goto(BASE + path);
 }
@@ -241,6 +244,143 @@ const doorsReady = async (page) => (await page.locator('.door.ready .num').allIn
 		const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 		check(`${desktop ? 'desktop' : 'phone'}: every door is at least 44 px`, smallest >= 44, `${Math.round(smallest)} px`);
 		check(`${desktop ? 'desktop' : 'phone'}: the page does not scroll sideways`, wide <= 0, `${wide} px`);
+		await ctx.close();
+	}
+}
+
+// ---- the spring event ------------------------------------------------------------------------
+const EASTER = '/easter.html';
+const bar = (page, n) => page.locator('.bars').nth(n);
+const countOf = (page, n, state) => bar(page, n).locator(`.item.${state}`).count();
+const fakeGlobal = (page, total, milestones = []) =>
+	page.route('**/api/easter/global', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ total, milestones }) }));
+const closeLootbox = async (page) => {
+	await page.locator('#bingo-lootbox-overlay').click();
+	await sleep(700);
+	await page.locator('#bingo-lootbox-overlay').click();
+	await sleep(300);
+};
+
+{
+	// 20 April, 175 caught here, the first prize taken.
+	const { ctx, page, outside } = await device();
+	await fakeGlobal(page, 0);
+	await visit(page, `${EASTER}?date=2026-04-20`, { easterYear: '2026', easterCaught: '175', easterClaimed: '[0]', easterLocalTs: JSON.stringify({ 1: Date.UTC(2026, 3, 18, 12, 0) }) });
+	await page.waitForSelector('.item');
+	await sleep(900);
+	check('the countdown runs to the end of April', /Avsluttes om:\s*10d/.test(await page.locator('#easterCountdown').innerText()), await page.locator('#easterCountdown').innerText());
+	check('this device: 175 / 500', (await bar(page, 0).locator('.count').innerText()) === '175 / 500', await bar(page, 0).locator('.count').innerText());
+	check('this device: one taken, two eggs, seven shut', (await countOf(page, 0, 'claimed')) === 1 && (await countOf(page, 0, 'reached')) === 2 && (await countOf(page, 0, 'locked')) === 7);
+	check('the time of the first block shows', /18\. apr\./.test(await bar(page, 0).locator('.item').first().locator('.time').innerText()));
+	check('a shut prize is no button', (await bar(page, 0).locator('.item.locked button').count()) === 0);
+
+	await bar(page, 0).locator('.item.reached button').first().click();
+	await page.waitForSelector('#bingo-lootbox-overlay');
+	await closeLootbox(page);
+	check('opening an egg gives the Pokémon and the coins', (await list(page)).join('|') === 'N298-E1' && (await money(page)) === 2000, `${await list(page)} ${await money(page)}`);
+	check('the prize is written down', (await get(page, 'easterClaimed')) === '[0,1]', await get(page, 'easterClaimed'));
+	check('the egg is a Pokémon now', (await countOf(page, 0, 'claimed')) === 2 && (await countOf(page, 0, 'reached')) === 1);
+	check('the prize screen is gone', (await count(page, '#bingo-lootbox-overlay')) === 0);
+
+	await reload(page);
+	await page.waitForSelector('.item');
+	check('after a reload the prize stays taken and nothing is paid again', (await countOf(page, 0, 'claimed')) === 2 && (await money(page)) === 2000 && (await list(page)).length === 1);
+	check('no request leaves the site', outside.length === 0, outside.join(' '));
+	await ctx.close();
+}
+
+{
+	// Everyone's bar: 300 000 caught, two blocks reached.
+	const { ctx, page } = await device();
+	await fakeGlobal(page, 300000, [
+		{ segment: 1, reached_at: '2026-03-24T10:14:00.000Z' },
+		{ segment: 2, reached_at: '2026-03-25T09:12:00.000Z' }
+	]);
+	await visit(page, `${EASTER}?date=2026-04-20`);
+	await page.waitForSelector('.item');
+	await sleep(1200);
+	check('everyone: 300 000 / 1 500 000', (await bar(page, 1).locator('.count').innerText()).replace(/\s/g, ' ') === '300 000 / 1 500 000', await bar(page, 1).locator('.count').innerText());
+	check('everyone: two eggs, eight shut', (await countOf(page, 1, 'reached')) === 2 && (await countOf(page, 1, 'locked')) === 8);
+	check('everyone: the steps are 150k, 300k ... 1,5M', (await bar(page, 1).locator('.threshold').allInnerTexts()).join(' ') === '150k 300k 450k 600k 750k 900k 1,05M 1,2M 1,35M 1,5M', (await bar(page, 1).locator('.threshold').allInnerTexts()).join(' '));
+	check('everyone: the Worker\'s times show', /24\. mars/.test(await bar(page, 1).locator('.item').first().locator('.time').innerText()));
+	check('no bonus goals before 1 500 000', (await count(page, '.extras')) === 0);
+	await bar(page, 1).locator('.item.reached button').first().click();
+	await page.waitForSelector('#bingo-lootbox-overlay');
+	await closeLootbox(page);
+	check('opening a global egg gives its Pokémon and coins', (await list(page)).join('|') === 'N43-E1' && (await money(page)) === 5000 && (await get(page, 'easterGlobalClaimed')) === '[0]', `${await list(page)} ${await money(page)}`);
+	await ctx.close();
+}
+
+{
+	// Beyond 1 500 000: the bonus goals.
+	const { ctx, page } = await device();
+	await fakeGlobal(page, 3100000);
+	await visit(page, `${EASTER}?date=2026-04-20`);
+	await page.waitForSelector('.extras');
+	check('bonus goals show: one egg, two shut', (await count(page, '.card.reached')) === 1 && (await count(page, '.card.locked')) === 2);
+	check('a shut bonus goal hides its name', (await page.locator('.card.locked .card-name').first().innerText()) === '???');
+	check('all ten global eggs are open', (await countOf(page, 1, 'reached')) === 10);
+	await page.locator('.card.reached button').click();
+	await page.waitForSelector('#bingo-lootbox-overlay');
+	await closeLootbox(page);
+	check('opening a bonus egg gives the shiny and 150 000 coins', (await list(page)).join('|') === 'S421-E1' && (await money(page)) === 150000 && (await get(page, 'easterExtraClaimed')) === '[0]', `${await list(page)} ${await money(page)}`);
+	check('the bonus goal is taken', (await count(page, '.card.claimed')) === 1 && (await page.locator('.card.claimed .card-status').innerText()).includes('Hentet'));
+	await ctx.close();
+}
+
+{
+	// The Worker's real counter, with no mock: a catch counts, and the page shows the count.
+	const { ctx, page } = await device();
+	const total = async () => (await (await fetch(BASE + '/api/easter/global')).json()).total;
+	const before = await total();
+	for (let i = 0; i < 2; i++) await fetch(BASE + '/api/easter/catch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+	const after = await total();
+	check('two catches raise the Worker\'s count by two', after === before + 2, `${before} -> ${after}`);
+	await visit(page, `${EASTER}?date=2026-04-20`);
+	await page.waitForSelector('.item');
+	await sleep(1200);
+	check('the page shows the Worker\'s count', (await bar(page, 1).locator('.count').innerText()).replace(/\s/g, '').startsWith(String(after)), `${await bar(page, 1).locator('.count').innerText()} vs ${after}`);
+	await ctx.close();
+}
+
+{
+	// The Worker is down: the page still works, with no count for everyone.
+	const { ctx, page } = await device();
+	await page.route('**/api/easter/global', (route) => route.fulfill({ status: 500, body: 'no' }));
+	await visit(page, `${EASTER}?date=2026-04-20`, { easterYear: '2026', easterCaught: '60' });
+	await page.waitForSelector('.item');
+	await sleep(800);
+	check('no answer from the Worker: no count for everyone, and this device still works', (await bar(page, 1).locator('.count').innerText()).startsWith('–') && (await countOf(page, 0, 'reached')) === 1);
+	await ctx.close();
+}
+
+{
+	// The event ends on 30 April.
+	const { ctx, page } = await device();
+	await fakeGlobal(page, 0);
+	await visit(page, `${EASTER}?date=2026-05-01`);
+	await page.waitForSelector('.item');
+	check('1 May: the event is over', (await page.locator('#easterCountdown').innerText()) === 'Eventet er avsluttet.', await page.locator('#easterCountdown').innerText());
+	await page.goto(BASE + `${EASTER}?date=2026-04-30T23:59`);
+	await page.waitForSelector('.item');
+	await sleep(1200);
+	check('30 April 23:59: a minute left', /0d\s*0t\s*00m|0d\s*0t\s*0\dm/.test((await page.locator('#easterCountdown').innerText()).replace(/\n/g, ' ')), await page.locator('#easterCountdown').innerText());
+	await ctx.close();
+}
+
+{
+	// Phone and desktop: nothing scrolls sideways, and an egg is at least 44 px.
+	for (const desktop of [false, true]) {
+		const { ctx, page } = await device({ desktop });
+		await fakeGlobal(page, 3100000);
+		await visit(page, `${EASTER}?date=2026-04-20`, { easterYear: '2026', easterCaught: '175' });
+		await page.waitForSelector('.extras');
+		const wide = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+		const egg = await page.evaluate(() => Math.min(...[...document.querySelectorAll('.egg')].map((e) => Math.min(e.getBoundingClientRect().width, e.getBoundingClientRect().height))));
+		const cut = await page.evaluate(() => [...document.querySelectorAll('.item .coins')].filter((c) => c.scrollWidth > c.clientWidth + 1).length);
+		check(`${desktop ? 'desktop' : 'phone'}: the page does not scroll sideways`, wide <= 0, `${wide} px`);
+		check(`${desktop ? 'desktop' : 'phone'}: every egg is at least 44 px`, egg >= 44, `${Math.round(egg)} px`);
+		check(`${desktop ? 'desktop' : 'phone'}: no coin text is cut off`, cut === 0, `${cut} cut`);
 		await ctx.close();
 	}
 }

@@ -121,7 +121,6 @@
 	/* The night sky behind the calendar fills the page, not just this column. */
 	:global(body:has(.xmas-page)) {
 		background: linear-gradient(oklch(0.27 0.045 250), oklch(0.17 0.01 250));
-		background-attachment: fixed;
 	}
 	.xmas-page {
 		min-height: calc(100vh - var(--pm-bar-height));
