@@ -28,7 +28,7 @@
 	} from '#lib/bingoHost.js';
 
 	/** @typedef {import('#lib/bingoHost.js').Cell} Cell */
-	/** @typedef {{ uuid?: string, name?: string, icon?: string, connected?: boolean, catchCount?: number }} Player */
+	/** @typedef {{ uuid?: string, name?: string, icon?: string, connected?: boolean, catchCount?: number, needsRename?: boolean }} Player */
 	/** @typedef {{ t: string, b?: boolean, dim?: boolean }} Seg */
 
 	/** @type {WebSocket | undefined} */
@@ -82,9 +82,12 @@
 	let prize = $state(null);
 	/** The prize has been handed out; the board takes no more catches. */
 	let locked = $state(false);
-	/** @type {{ message: string, position: string } | null} */
-	let adminPopup = $state(null);
 	let potPop = $state(false);
+	/** False while the socket is down and the page is coming back; the teacher is told. */
+	let connected = $state(false);
+	/** What to do once the server says the room has ended: a new board, or back to the teacher page. */
+	let afterEnd = /** @type {'new' | 'leave' | ''} */ ('');
+	const NO_CONNECTION = 'Ingen forbindelse akkurat nå. Vent litt og prøv igjen.';
 
 	/** @type {HTMLCanvasElement | undefined} */
 	let confettiCanvas = $state();
@@ -109,9 +112,11 @@
 
 	const status = (/** @type {string} */ text) => console.log('[BINGO HOST]', text);
 
-	/** @param {any} message */
+	/** @param {any} message @returns {boolean} false when the socket is not open and nothing was sent */
 	function send(message) {
-		ws?.send(JSON.stringify({ teacherSession, ...message }));
+		if (ws?.readyState !== WebSocket.OPEN) return false;
+		ws.send(JSON.stringify({ teacherSession, ...message }));
+		return true;
 	}
 
 	/** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -145,6 +150,8 @@
 
 	/** @param {any} msg */
 	function loadLobby(msg) {
+		// The room is here, so an End asked for before the connection dropped never reached it.
+		afterEnd = '';
 		currentCode = msg.code;
 		ready = true;
 		phase = msg.phase === 'lobby' ? 'lobby' : 'play';
@@ -247,33 +254,39 @@
 		});
 	}
 
-	async function newGame() {
-		if (currentCode && !(await ask('Lage et nytt brett med de samme innstillingene?\n\nDet gamle brettet avsluttes, og elevene må koble til med den nye koden.', { ok: 'Nytt brett' }))) return;
-		const oldCode = localStorage.getItem('teacherBingoCode');
-		localStorage.removeItem('teacherBingoCode');
-		if (oldCode && ws?.readyState === WebSocket.OPEN) {
-			try {
-				send({ type: 'hostEndLobby', code: oldCode });
-			} catch {
-				// The old lobby times out on the server anyway.
-			}
-		}
-		createLobby();
+	/** What ending the bingo now means for the children, for the questions: the prize is paid, not lost. */
+	const endNote = () => (phase === 'play' && !locked ? ' De som har fanget minst én Pokémon får premien.' : '');
+
+	/**
+	 * Ask the server to end the room. The room is forgotten here only when it says it has ended
+	 * (lobbyEnded), not before: an End sent on a dropped connection would leave the children playing
+	 * and the prize unpaid, and the teacher with nothing to show for it.
+	 * @returns {boolean} false when the socket is down, and the teacher has been told
+	 */
+	function sendEnd() {
+		if (send({ type: 'hostEndLobby', code: currentCode })) return true;
+		banner = { message: [{ t: NO_CONNECTION }] };
+		return false;
 	}
 
-	function endLobby() {
-		const code = currentCode;
+	/** The server has ended the room (or it is gone): forget it, then do what the teacher asked next. */
+	function roomGone() {
 		currentCode = '';
 		locked = false;
 		prize = null;
 		players = [];
 		localStorage.removeItem('teacherBingoCode');
 		celebrated.clear();
-		try {
-			send({ type: 'hostEndLobby', code });
-		} catch {
-			// Nothing to end if the socket is gone.
-		}
+		const next = afterEnd;
+		afterEnd = '';
+		if (next === 'new') createLobby();
+		else if (next === 'leave') goto('/lærer/index.html');
+	}
+
+	async function newGame() {
+		if (!currentCode) return createLobby();
+		if (!(await ask(`Lage et nytt brett med de samme innstillingene?\n\nDet gamle brettet avsluttes, og elevene må koble til med den nye koden.${endNote()}`, { ok: 'Nytt brett' }))) return;
+		if (sendEnd()) afterEnd = 'new';
 	}
 
 	/** End the game with the prize now, for when the lesson runs out before the board is full. */
@@ -283,16 +296,16 @@
 	}
 
 	async function endGame() {
-		if (!currentCode || !(await ask('Avslutte bingoen? Alle elevene kobles fra.', { ok: 'Avslutt' }))) return;
-		endLobby();
-		goto('/lærer/index.html');
+		if (!currentCode || !(await ask(`Avslutte bingoen? Alle elevene kobles fra.${endNote()}`, { ok: 'Avslutt' }))) return;
+		if (sendEnd()) afterEnd = 'leave';
 	}
 
 	/** Back to the setup. In the waiting room this is "Avbryt". */
 	async function backToSettings() {
-		const question = phase === 'lobby' ? (players.length ? 'Avbryte bingoen? Elevene kobles fra.' : '') : 'Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.';
+		const question = phase === 'lobby' ? (players.length ? 'Avbryte bingoen? Elevene kobles fra.' : '') : `Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.${endNote()}`;
 		if (question && !(await ask(question))) return;
-		if (currentCode) endLobby();
+		afterEnd = '';
+		if (currentCode) sendEnd();
 	}
 
 	function startBingo() {
@@ -415,19 +428,15 @@
 				showToast(msg.matched ? 'match' : 'info', lines);
 				return;
 			}
-			case 'adminPopup':
-				adminPopup = { message: msg.message, position: msg.position || 'top-center' };
-				setTimeout(() => (adminPopup = null), (msg.duration || 5) * 1000);
-				return;
-			case 'adminSound':
-				playSound(msg.file);
+			case 'lobbyEnded':
+				status('Lobby avsluttet: ' + msg.code);
+				roomGone();
 				return;
 			case 'lobbyNotFound':
 				// The game has ended or timed out: back to the setup.
 				status('Lobby ikke funnet.');
-				localStorage.removeItem('teacherBingoCode');
-				currentCode = '';
 				ready = true;
+				roomGone();
 				return;
 			case 'error':
 				status('SERVER ERROR: ' + (msg.message || 'Feil'));
@@ -465,6 +474,8 @@
 
 		ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
 		ws.addEventListener('open', () => {
+			connected = true;
+			if (banner?.message[0]?.t === NO_CONNECTION) banner = null;
 			retryDelay = 1500;
 			const stored = (localStorage.getItem('teacherBingoCode') || '').toUpperCase().trim();
 			if (reconnect) {
@@ -486,6 +497,7 @@
 		});
 		ws.addEventListener('close', () => {
 			if (gone()) return;
+			connected = false;
 			status('Mistet forbindelsen. Kobler til igjen …');
 			setTimeout(() => !gone() && start(gone, true), retryDelay);
 			retryDelay = Math.min(retryDelay * 2, 15000);
@@ -540,6 +552,9 @@
 {/snippet}
 
 <TeacherPage subtitle="PokéBingo" wide back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
+	{#if ready && !connected}
+		<p id="connection-lost" role="status">Mistet forbindelsen. Kobler til igjen …</p>
+	{/if}
 	{#if !ready}
 		<p class="muted">Kobler til…</p>
 	{:else if !currentCode}
@@ -624,7 +639,7 @@
 						{:else}
 							<span class="player-dot" class:connected={p.connected}></span>
 						{/if}
-						<button class="player-name" title="Trykk for alternativer" onclick={(e) => openPlayerMenu(p, e)}>{p.name || 'Ash'}</button>
+						<button class="player-name" title={p.needsRename ? 'Venter på nytt navn. Trykk for alternativer' : 'Trykk for alternativer'} onclick={(e) => openPlayerMenu(p, e)}>{p.name || 'Ash'}{#if p.needsRename}<small class="dim">nytt navn</small>{/if}</button>
 						{#if showCatches}
 							<span class="player-catches">
 								{p.catchCount ?? 0}<small>({totalCatches > 0 ? Math.round(((p.catchCount || 0) / totalCatches) * 100) : 0}%)</small>
@@ -773,10 +788,6 @@
 			<button class="pm-button" onclick={() => (prize = null)}>OK</button>
 		</div>
 	</div>
-{/if}
-
-{#if adminPopup}
-	<div id="admin-popup" class="admin-popup pos-{adminPopup.position}">{adminPopup.message}</div>
 {/if}
 
 <canvas id="confetti-canvas" bind:this={confettiCanvas}></canvas>
@@ -990,6 +1001,11 @@
 		color: var(--pm-ink-soft);
 		font-size: 13px;
 		line-height: 1.4;
+	}
+	.player-name small {
+		margin-left: 6px;
+		font-size: 12px;
+		font-weight: 400;
 	}
 	.player-catches {
 		font-family: var(--pm-display);
@@ -1320,30 +1336,14 @@
 		color: var(--pm-ink-soft);
 	}
 
-	.admin-popup {
-		position: fixed;
-		z-index: 2300;
-		max-width: 500px;
-		padding: 16px 28px;
-		border-radius: 16px;
-		background: var(--pm-ink);
-		color: var(--pm-paper);
-		font-size: 19px;
+	#connection-lost {
+		margin: 0 0 12px;
+		padding: 10px 16px;
+		border-radius: 12px;
+		background: oklch(0.97 0.05 90);
+		color: oklch(0.4 0.08 80);
+		box-shadow: 0 0 0 2px oklch(0.82 0.13 90);
 		font-weight: 700;
-		text-align: center;
-		box-shadow: 0 8px 32px oklch(0.15 0.03 265 / 0.5);
-		animation: admin-pop 0.25s ease;
-	}
-	.pos-top-left { top: 16px; left: 16px; }
-	.pos-top-center { top: 16px; left: 50%; translate: -50% 0; }
-	.pos-top-right { top: 16px; right: 16px; }
-	.pos-center { top: 50%; left: 50%; translate: -50% -50%; }
-	.pos-bottom-left { bottom: 16px; left: 16px; }
-	.pos-bottom-center { bottom: 16px; left: 50%; translate: -50% 0; }
-	.pos-bottom-right { bottom: 16px; right: 16px; }
-	@keyframes admin-pop {
-		from { opacity: 0; transform: scale(0.88); }
-		to { opacity: 1; transform: scale(1); }
 	}
 
 	#confetti-canvas {

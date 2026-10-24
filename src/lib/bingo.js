@@ -60,6 +60,8 @@ function playerName() {
 
 /** The ids of prizes already given, part of the save (see claimPrizes). */
 const PRIZES_GIVEN = 'bingoPrizesGiven';
+/** Held while one tab claims prizes, so a second tab cannot give the same ones (Safari 15.4 and up). */
+const PRIZE_LOCK = 'pokemath-bingo-prizes';
 
 /**
  * A prize from GET /bingo/claim-prizes.
@@ -67,6 +69,13 @@ const PRIZES_GIVEN = 'bingoPrizesGiven';
  *   entry?: string, pokedexId?: number, shiny?: boolean, legendary?: boolean,
  *   easterName?: string, easterCoins?: number, label?: string }} Prize
  */
+
+/**
+ * What a prize is remembered by once given: its id, or for one the server gave no id (the first
+ * deploy's), everything it says.
+ * @param {Prize} prize
+ */
+const prizeKey = (prize) => prize.id || 'c:' + JSON.stringify(Object.entries(prize).sort(([a], [b]) => (a < b ? -1 : 1)));
 
 /**
  * @typedef {object} CatchInfo
@@ -91,12 +100,13 @@ const PRIZES_GIVEN = 'bingoPrizesGiven';
  * @param {object} handlers
  * @param {(prizes: Prize[]) => void} handlers.onPrizes  Prizes from a finished game, to give the player.
  * @param {(code: string) => void} handlers.onCodeChange  The lobby code changed ('' when it ended).
- * @param {(message: string, duration: number, position: string) => void} handlers.onAdminPopup
+ * @param {(message: string, duration: number, position: string) => void} [handlers.onAdminPopup]
+ *   Never called: the server has no adminPopup message. Only the game page still passes it.
  * @param {(game: ClassGame) => void} [handlers.onGame]
  *   The lobby was joined, or the game moved on (started, hit, won).
  * @param {(damage: number) => void} [handlers.onDamage]  This child's answer hit the raid boss for this much.
  */
-export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDamage }) {
+export function startBingo({ onPrizes, onCodeChange, onGame, onDamage }) {
 	const url = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 	/** @type {WebSocket | null} */
 	let ws = null;
@@ -152,12 +162,18 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDam
 	/**
 	 * Give the prizes waiting on the server, then confirm them so the server drops them. The ids
 	 * given are kept in the save too, so a confirm lost on bad wifi never pays a prize twice.
+	 * Open in two tabs, only one claims at a time: the other then finds nothing left, or the
+	 * prizes already given.
 	 */
-	async function claimOnce() {
+	function claimOnce() {
+		return navigator.locks?.request ? navigator.locks.request(PRIZE_LOCK, claimLocked) : claimLocked();
+	}
+
+	async function claimLocked() {
 		const id = await uuid();
 		const url = '/bingo/claim-prizes?uuid=' + encodeURIComponent(id);
 		try {
-			const d = await (await fetch(url + '&keep=1')).json();
+			const d = await (await fetch(url)).json();
 			if (!d.ok || !Array.isArray(d.prizes) || !d.prizes.length) return;
 			/** @type {string[]} */
 			let given = [];
@@ -166,12 +182,13 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDam
 			} catch {
 				// A broken list: the server's copy decides.
 			}
-			const fresh = d.prizes.filter((/** @type {Prize} */ p) => !p.id || !given.includes(p.id));
+			const fresh = d.prizes.filter((/** @type {Prize} */ p) => !given.includes(prizeKey(p)));
 			if (fresh.length) {
-				localStorage.setItem(PRIZES_GIVEN, JSON.stringify([...given, ...fresh.map((/** @type {Prize} */ p) => p.id).filter(Boolean)].slice(-200)));
+				localStorage.setItem(PRIZES_GIVEN, JSON.stringify([...given, ...fresh.map(prizeKey)].slice(-200)));
 				onPrizes(fresh);
 			}
-			await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: d.prizes.map((/** @type {Prize} */ p) => p.id) }) });
+			const ids = d.prizes.map((/** @type {Prize} */ p) => p.id).filter(Boolean);
+			await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
 		} catch (e) {
 			console.error('[BINGO] claimBingoPrizes failed', e);
 		}
@@ -258,8 +275,6 @@ export function startBingo({ onPrizes, onCodeChange, onAdminPopup, onGame, onDam
 			} else if (msg.type === 'nameChanged') {
 				localStorage.setItem('username', msg.name);
 				player.username = msg.name;
-			} else if (msg.type === 'adminPopup') {
-				onAdminPopup(msg.message, msg.duration || 5, msg.position);
 			} else if (msg.type === 'error') {
 				console.warn('[BINGO] Server error:', msg.message || 'unknown');
 			}

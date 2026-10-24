@@ -3,7 +3,7 @@
 	// to play on the left, and on the right the code and QR code, who has joined, and Start.
 	import JoinPanel from './JoinPanel.svelte';
 
-	/** @typedef {{ uuid?: string, name?: string, connected?: boolean }} Player */
+	/** @typedef {{ uuid?: string, name?: string, connected?: boolean, needsRename?: boolean }} Player */
 	/**
 	 * @type {{
 	 *   code: string,
@@ -29,9 +29,9 @@
 					{#each players as p, i (p.uuid ?? i)}
 						<li class:offline={!p.connected}>
 							{#if onPlayer}
-								<button class="name" title="Trykk for alternativer" onclick={(e) => (e.stopPropagation(), onPlayer(p, e))}>{p.name || 'Ash'}</button>
+								<button class="name" title={p.needsRename ? 'Venter på nytt navn. Trykk for alternativer' : 'Trykk for alternativer'} onclick={(e) => (e.stopPropagation(), onPlayer(p, e))}>{p.name || 'Ash'}{#if p.needsRename}<small>nytt navn</small>{/if}</button>
 							{:else}
-								<span class="name">{p.name || 'Ash'}</span>
+								<span class="name">{p.name || 'Ash'}{#if p.needsRename}<small>nytt navn</small>{/if}</span>
 							{/if}
 						</li>
 					{/each}
@@ -92,6 +92,12 @@
 	}
 	button.name {
 		cursor: pointer;
+	}
+	li .name small {
+		margin-left: 6px;
+		font-size: 12px;
+		font-weight: 400;
+		opacity: 0.7;
 	}
 	li.offline .name {
 		color: var(--pm-ink-soft);
