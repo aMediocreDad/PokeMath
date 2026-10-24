@@ -6,6 +6,8 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import TeacherPage from '#lib/TeacherPage.svelte';
+	import { ask } from '#lib/ask.svelte.js';
+	import { toast } from '#lib/toast.svelte.js';
 	import Fireworks from '#lib/Fireworks.svelte';
 	import { ensureTeacher, getTeacherSession } from '#lib/teacher.js';
 	import { localSprite } from '#lib/bingoHost.js';
@@ -123,7 +125,7 @@
 			memory = msg.memory;
 			winners = msg.winners;
 		} else if (msg.type === 'error') {
-			alert(msg.message);
+			toast(msg.message, { bad: true });
 		}
 	}
 
@@ -164,7 +166,7 @@
 	 */
 	function sendEnd() {
 		if (ws?.readyState !== WebSocket.OPEN) {
-			alert('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.');
+			toast('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.', { bad: true });
 			return false;
 		}
 		send({ type: 'hostEndLobby', code });
@@ -172,19 +174,20 @@
 	}
 
 	/** Back to the setup. In the lobby this is "Avbryt". */
-	function newSettings() {
-		if (memory?.phase === 'lobby' ? players.length && !confirm('Avbryte memory? Barna kobles fra.') : !confirm(`Velge nye innstillinger?\n\nDette spillet avsluttes.${endNote()}`)) return;
+	async function newSettings() {
+		const question = memory?.phase === 'lobby' ? (players.length ? 'Avbryte memory? Barna kobles fra.' : '') : `Velge nye innstillinger?\n\nDette spillet avsluttes.${endNote()}`;
+		if (question && !(await ask(question))) return;
 		sendEnd();
 	}
 
 	/** The same board size again, with new cards and a new code (as bingo's "Nytt brett"). */
-	function newGame() {
-		if (!confirm(`Lage et nytt memory med de samme innstillingene?\n\nDet gamle spillet avsluttes, og elevene må koble til med den nye koden.${endNote()}`)) return;
+	async function newGame() {
+		if (!(await ask(`Lage et nytt memory med de samme innstillingene?\n\nDet gamle spillet avsluttes, og elevene må koble til med den nye koden.${endNote()}`, { ok: 'Nytt memory' }))) return;
 		restart = sendEnd();
 	}
 
-	function endGame() {
-		if (!confirm(`Avslutte memory? Alle elevene kobles fra.${endNote()}`)) return;
+	async function endGame() {
+		if (!(await ask(`Avslutte memory? Alle elevene kobles fra.${endNote()}`, { ok: 'Avslutt' }))) return;
 		if (sendEnd()) goto('/lærer/index.html');
 	}
 

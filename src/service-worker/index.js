@@ -5,7 +5,9 @@
 //   the device is online; offline, the cached copy is served.
 // - Images and fonts are kept in a cache that outlives builds (ART), filled as they are seen and
 //   by the background download in #lib/offline.svelte.js. A shiny picture not downloaded yet is
-//   shown with the normal art, as the Worker does for shinies without their own art.
+//   shown with the normal art, as the Worker does for shinies without their own art. A stored
+//   file is always served from the cache, but one older than a week is checked against the
+//   server in the background, so a changed picture or font does not stay for good.
 // - Everything else (the API, bingo, logging in) goes to the network as before.
 //
 // Nothing is stored unless it is a real answer for that file: with an expired session the Worker
@@ -14,7 +16,7 @@
 import { self } from '$app/service-worker';
 import { immutable, prerendered } from '$app/manifest';
 import { version } from '$app/env';
-import { ART_CACHE } from '#lib/artCache.js';
+import { ART_CACHE, isStale, stamped } from '#lib/artCache.js';
 
 const APP = `pm-app-${version}`;
 /** Pages that only work online (teacher and bingo host pages) are left out. */
@@ -68,7 +70,7 @@ self.addEventListener('fetch', (/** @type {FetchEvent} */ event) => {
 	} else if (request.mode === 'navigate') {
 		event.respondWith(page(request, path));
 	} else if (/^\/(images|fonts)\/|\.(svg|png|webp|gif|ico|woff2?)$/.test(path)) {
-		event.respondWith(art(request, path));
+		event.respondWith(art(event, request, path));
 	} else if (DATA.includes(path)) {
 		event.respondWith(networkFirst(request, path, /json/));
 	}
@@ -103,17 +105,42 @@ async function networkFirst(request, path, type) {
 	}
 }
 
-/** @param {Request} request @param {string} path */
-async function art(request, path) {
+/** @param {FetchEvent} event @param {Request} request @param {string} path */
+async function art(event, request, path) {
 	const cache = await caches.open(ART_CACHE);
 	const hit = await cache.match(path);
-	if (hit) return hit;
+	if (hit) {
+		if (isStale(hit)) event.waitUntil(revalidate(cache, path));
+		return hit;
+	}
 	try {
 		const res = await fetch(request);
-		if (usable(res, /^(image|font)\//)) await cache.put(path, res.clone()).catch(() => {});
+		if (usable(res, /^(image|font)\//)) await cache.put(path, stamped(res.clone())).catch(() => {});
 		return res;
 	} catch {
 		const normal = path.startsWith('/images/pokemon/shiny/') && (await cache.match(path.replace('/shiny/', '/normal/')));
 		return normal || Response.error();
+	}
+}
+
+/** Pictures being checked, so a page showing one picture many times asks about it once. @type {Set<string>} */
+const revalidating = new Set();
+
+/**
+ * Ask the server whether a stored file has changed, and keep the answer if it is a real file. Not
+ * a plain fetch, which the browser may answer from its own copy; no-cache sends a conditional
+ * request. Offline, or with the file gone, the stored copy stays and is checked on its next use.
+ * @param {Cache} cache @param {string} path
+ */
+async function revalidate(cache, path) {
+	if (revalidating.has(path)) return;
+	revalidating.add(path);
+	try {
+		const res = await fetch(path, { cache: 'no-cache' });
+		if (usable(res, /^(image|font)\//)) await cache.put(path, stamped(res));
+	} catch {
+		// Offline, or out of storage.
+	} finally {
+		revalidating.delete(path);
 	}
 }

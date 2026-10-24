@@ -38,9 +38,9 @@ for (const path of ["/faq-legacy.html", "/faq.html"]) {
 
   if (path === "/faq.html") {
     await page.selectOption("#snooze-select", "3");
-    page.once("dialog", (d) => { console.log("snooze alert:", d.message()); d.accept(); });
     await page.locator("#snooze-btn").tap();
     await page.waitForTimeout(300);
+    console.log("snooze toast:", await page.locator(".pm-toast").textContent().catch(() => "none"));
     const until = await page.evaluate(() => localStorage.getItem("backupReminder"));
     console.log("backupReminder written:", until, "| days ahead:", Math.round((new Date(until) - Date.now()) / 864e5));
     console.log("popup hidden after snooze:", await page.locator("#backup-popup").evaluate((el) => el.classList.contains("hidden")));

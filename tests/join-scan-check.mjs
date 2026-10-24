@@ -5,6 +5,7 @@
 import { createRequire } from 'module';
 import QRCode from 'qrcode';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:3123';
@@ -18,7 +19,7 @@ const shot = (page, name) => OUT && page.screenshot({ path: `${OUT}/${name}.png`
 
 const browser = muteAudio(await webkit.launch());
 const host = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-host.on('dialog', (d) => d.accept());
+await acceptAsks(host);
 await host.goto(BASE + '/lærer/raid.html');
 await host.locator('#createRaidBtn').click();
 const code = (await host.locator('#lobbyCode').textContent()).trim();

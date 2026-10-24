@@ -74,7 +74,11 @@
 		return url;
 	}
 
+	/** Nothing to play until an operation is on: the game would have nothing to ask. */
+	const noOperation = $derived(!Object.values(enabled).some(Boolean));
+
 	function play() {
+		if (noOperation) return toast('Slå på minst én regneart først.', { bad: true });
 		location.href = '.' + gameUrl();
 	}
 
@@ -195,7 +199,7 @@
 		</div>
 
 		<div class="actions">
-			<button class="pm-button" id="useform" onclick={play} type="button">Spill!</button>
+			<button class="pm-button" class:disabled={noOperation} id="useform" onclick={play} type="button">Spill!</button>
 			<button class="pm-button secondary" id="copyform" onclick={copyLink} type="button">Kopier lenke</button>
 			<button class="pm-button secondary" id="qrcreate" onclick={makeQr} type="button">Lag QR-kode</button>
 		</div>

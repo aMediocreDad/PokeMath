@@ -9,6 +9,7 @@
 // player lists already show.
 
 import { CARDS, MAX_TURNS } from '../src/lib/memoryConfig.js';
+import { MAX_PAID_ANSWERS, paidCount, playerOf } from './players.js';
 
 /** A child's answers closer together than this are dropped: nobody answers that fast. */
 const MIN_ANSWER_GAP = 1000;
@@ -76,7 +77,7 @@ export function startMemory(room) {
  * @param {any} room @param {string} uuid @param {number} now
  */
 export function answer(room, uuid, now) {
-	const player = room.players[uuid];
+	const player = playerOf(room, uuid);
 	if (room.phase !== 'play' || !player || now - (player.lastHit || 0) < MIN_ANSWER_GAP) return false;
 	player.lastHit = now;
 	player.catchCount += 1;
@@ -123,12 +124,13 @@ export function flip(room, index) {
 }
 
 /**
- * What a child gets: one Pokémon from the pairs the class found, and coins for every answer.
- * An unfinished board pays the Pokémon too, if a pair was found.
+ * What a child gets: one Pokémon from the pairs the class found, and coins for every answer (up to
+ * what a child can play, MAX_PAID_ANSWERS). An unfinished board pays the Pokémon too, if a pair
+ * was found.
  * @param {any} room @param {any} player
  */
 export function memoryPrizes(room, player) {
-	const coins = { type: 'coins', amount: 25 * player.catchCount + (room.phase === 'won' ? 1000 : 0), source: 'memory' };
+	const coins = { type: 'coins', amount: 25 * paidCount(player.catchCount, MAX_PAID_ANSWERS) + (room.phase === 'won' ? 1000 : 0), source: 'memory' };
 	if (!room.found.length) return [coins];
 	const id = room.found[Math.floor(Math.random() * room.found.length)];
 	const shiny = Math.random() < SHINY_CHANCE;

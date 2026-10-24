@@ -6,9 +6,11 @@
 	import { player } from '#lib/player.svelte.js';
 	import { layout } from '#lib/layoutState.svelte.js';
 	import { me } from '#lib/me.svelte.js';
-	import { cloud, useCloud, keepDevice, decideLater, logOut } from '#lib/cloudSave.svelte.js';
-	import { acceptedOldNotice, setLegacySaveFlag, writeSaveData } from '#lib/storage.js';
+	import { cloud, useCloud, keepDevice, decideLater, logOut, deleteEverything } from '#lib/cloudSave.svelte.js';
+	import { acceptedOldNotice, replaceSaveData } from '#lib/storage.js';
 	import { readBackup, deleteBackup, countPokemon } from '#lib/idbBackup.js';
+	import { ask } from '#lib/ask.svelte.js';
+	import { toast } from '#lib/toast.svelte.js';
 
 	let showCookieNotice = $state(false);
 	let backupDue = $state(false);
@@ -24,7 +26,6 @@
 		// Whoever tapped the old cookie notice has read about the storage already.
 		if (acceptedOldNotice()) localStorage.setItem(NOTICE_SEEN, '1');
 		showCookieNotice = localStorage.getItem(NOTICE_SEEN) === null;
-		setLegacySaveFlag();
 		saveMissing = localStorage.getItem('pokemonlist') === null;
 	});
 
@@ -51,8 +52,8 @@
 		if (!found) return;
 		const backupCount = countPokemon(found.data.pokemonlist);
 		const currentCount = countPokemon(localStorage.getItem('pokemonlist'));
-		if (backupCount < currentCount && !confirm(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`)) return;
-		writeSaveData(found.data);
+		if (backupCount < currentCount && !(await ask(`Backupen har ${backupCount} Pokémon, men du har allerede ${currentCount} her. Er du sikker på at du vil gjenopprette?`, { ok: 'Gjenopprett' }))) return;
+		if (!replaceSaveData(found.data)) return toast('Fikk ikke hentet backupen, for det er ikke plass på enheten. Ingenting er endret.', { bad: true });
 		restore = null;
 		location.reload();
 	}
@@ -79,11 +80,9 @@
 		showCookieNotice = false;
 	}
 
-	function resetPrompt() {
-		if (!confirm('Er du sikker på at du vil slette alle pokemon og poeng?')) return;
-		localStorage.clear();
-		sessionStorage.clear();
-		location.reload();
+	async function resetPrompt() {
+		if (!(await ask('Er du sikker på at du vil slette alle Pokémon og poeng, også kopien i skyen? Det kan ikke angres.', { ok: 'Slett alt' }))) return;
+		await deleteEverything();
 	}
 
 	// The menu and the trainer card open on a tap (they only opened on hover before), and close
@@ -118,7 +117,7 @@
 		const until = new Date();
 		until.setDate(until.getDate() + days);
 		localStorage.setItem('backupReminder', until.toISOString());
-		alert(`Varselett ble utsatt i ${days} dag(er).`);
+		toast(days === 1 ? 'Du blir påminnet i morgen.' : `Du blir påminnet om ${days} dager.`);
 		backupDue = false;
 	}
 </script>
@@ -610,6 +609,7 @@
 		display: none;
 	}
 	.reminder {
+		box-sizing: border-box;
 		width: min(440px, 100%);
 		padding: 22px;
 		border-radius: var(--pm-radius);
@@ -618,11 +618,17 @@
 	}
 	.snooze {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 		margin-top: 12px;
 	}
+	/* Side by side where they fit, each a full row on a narrow phone. */
+	.snooze > :global(*) {
+		flex: 1 1 auto;
+	}
 	.snooze select {
-		flex: 1;
+		flex: 1 1 12em;
+		min-width: 0;
 		min-height: 48px;
 		padding: 0 10px;
 		border: 2px solid var(--pm-line);

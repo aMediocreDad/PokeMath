@@ -1,6 +1,6 @@
 <script>
-	// The foil of a shiny, as on a holo trading card: a rainbow foil behind the Pokémon, a shine over
-	// both where the light catches the card, and a glare at the light. The parent is the window:
+	// The foil of a shiny, as on a holo trading card: a near-white ground behind the Pokémon, a shine
+	// over both where the light catches the card, and a glare at the light. The parent is the window:
 	// position: relative and overflow: hidden. The Pokémon passed in must be positioned too, or it
 	// paints under the foil. `phase` shifts the drift, so several drifting shinies side by side do
 	// not flash in unison. With `on` false only the Pokémon is rendered.
@@ -9,7 +9,7 @@
 	// sideways across it. A finger on a Pokédex card is left alone, as the card is a link. With the
 	// tilt switched on in the profile (tilt.js), tilting the iPad or phone moves it instead. A foil
 	// in a fixed overlay, like a bingo prize, never scrolls, so it keeps drifting.
-	import { followTilt, askAgainForTilt } from '#lib/tilt.js';
+	import { followTilt } from '#lib/tilt.js';
 
 	/** @type {{ on?: boolean, phase?: string, children: import('svelte').Snippet }} */
 	let { on = true, phase = '0s', children } = $props();
@@ -53,8 +53,7 @@
 			pointer = { x: across(e.clientX, box.left, box.width), y: across(e.clientY, box.top, box.height) };
 		};
 		const leave = () => (pointer = null);
-		const ask = () => !link && askAgainForTilt();
-		const events = /** @type {const} */ ([['pointermove', move], ['pointerleave', leave], ['pointercancel', leave], ['click', ask]]);
+		const events = /** @type {const} */ ([['pointermove', move], ['pointerleave', leave], ['pointercancel', leave]]);
 		for (const [type, f] of events) windowEl.addEventListener(type, /** @type {EventListener} */ (f));
 		return () => {
 			unfollow.forEach((f) => f());
@@ -67,17 +66,17 @@
 {@render children()}
 {#if on}
 	<span bind:this={shine} class="shine" class:scrolls class:live={pointer !== null} style:--phase={phase} style:--pointer={pointer?.x} style:--pointer-y={pointer?.y} aria-hidden="true">
-		<span class="layer rainbow"></span>
-		<span class="grain"></span>
-		<span class="layer pillars"></span>
 		<span class="layer falloff"></span>
+		<span class="layer bands"></span>
+		<span class="layer pillars"></span>
+		<span class="grain"></span>
 	</span>
 	<span bind:this={glare} class="layer glare" class:scrolls class:live={pointer !== null} style:--phase={phase} style:--pointer={pointer?.x} style:--pointer-y={pointer?.y} aria-hidden="true"></span>
 {/if}
 
 <style>
 	/* Every moving layer is larger than the window and slides with transform, which stays cheap with
-	   a full Pokédex of shinies; moving background-position, as most holo effects do, would repaint
+	   a full row of shinies; moving background-position, as most holo effects do, would repaint
 	   every card. Each layer slides --ax and --ay at the ends of its travel, so one set of keyframes
 	   serves them all; --fx and --fy are where the light is, -1 to 1. The light rests up and left. */
 	.layer,
@@ -93,74 +92,83 @@
 		animation: sweep 7s ease-in-out var(--phase) infinite alternate;
 	}
 
-	/* The foil behind the Pokémon: soft spectral colour, which gives the shine something to light. */
+	/* The ground: near white, as on a shiny-rare card, with only a faint pearly sheen sliding over
+	   it. The colour comes from the shine, and mostly where it falls on the Pokémon. */
 	.foil {
 		--ax: 20%;
 		--ay: 5%;
 		inset: -50% auto -50% -100%;
 		width: 300%;
-		opacity: 0.8;
+		opacity: 0.16;
 		background: linear-gradient(
 			115deg,
-			oklch(0.78 0.14 25),
-			oklch(0.84 0.14 90),
-			oklch(0.8 0.14 150),
-			oklch(0.76 0.12 230),
-			oklch(0.7 0.14 300),
-			oklch(0.78 0.14 25),
-			oklch(0.84 0.14 90),
-			oklch(0.8 0.14 150)
+			oklch(0.85 0.1 25),
+			oklch(0.9 0.1 90),
+			oklch(0.86 0.1 150),
+			oklch(0.84 0.09 230),
+			oklch(0.8 0.1 300),
+			oklch(0.85 0.1 25),
+			oklch(0.9 0.1 90),
+			oklch(0.86 0.1 150)
 		);
 	}
 
-	/* The shine, over foil and Pokémon alike: dark spectral bands in color-dodge, so black leaves
-	   the card as it is and colour lights it up. Inside it, a grain of scanlines and glitter, sun
-	   pillars sliding at their own pace, and a falloff that keeps it brightest near the light. */
+	/* The shine, the way holo trading cards are commonly built (the technique after
+	   poke-holo.simey.me's shiny rare; no code taken). Bottom to top: a soft darkening round the
+	   light, dark diagonal bands with one pale stripe each (hard-light), a slow rainbow of vertical
+	   sun pillars (hue) and fine etched rings round the Pokémon (soft-light). Together they make coloured stripes
+	   on dark; colour-dodged onto the window, dark leaves it alone, the white ground stays white,
+	   and the Pokémon lights up in colour. */
 	.shine {
 		inset: 0;
-		mix-blend-mode: color-dodge;
 		isolation: isolate;
-	}
-	.rainbow {
-		--ax: -30%;
-		--ay: -12%;
-		inset: -100%;
-		background: repeating-linear-gradient(
-			110deg,
-			hsl(283 70% 30%) 0%,
-			hsl(228 70% 32%) 3.3%,
-			hsl(176 70% 30%) 6.6%,
-			hsl(93 70% 30%) 10%,
-			hsl(53 70% 34%) 13.3%,
-			hsl(2 70% 32%) 16.6%,
-			hsl(283 70% 30%) 20%
-		);
-	}
-	.grain {
-		inset: 0;
-		mix-blend-mode: multiply;
-		background:
-			radial-gradient(circle, #fff 0 1px, transparent 1.7px) 0 0 / 9px 8px,
-			radial-gradient(circle, #fff 0 1.3px, transparent 2.1px) 4px 5px / 17px 15px,
-			repeating-linear-gradient(90deg, #000 0 1px, #999 1px 2px);
-	}
-	.pillars {
-		--ax: 12%;
-		--ay: 0%;
-		inset: 0 -100%;
-		mix-blend-mode: screen;
-		opacity: 0.45;
-		background: repeating-linear-gradient(90deg, #000 0 2%, #555 3%, #000 3.5%, #555 4%, #000 5%, #000 13%);
+		mix-blend-mode: color-dodge;
+		filter: brightness(0.55) contrast(1.4) saturate(2.2);
 	}
 	.falloff {
 		--ax: -16%;
 		--ay: -16%;
 		inset: -100%;
-		mix-blend-mode: multiply;
-		background: radial-gradient(circle at 50% 50%, #fff 0, #bbb 10%, #222 32%);
+		background: radial-gradient(circle at 50% 50%, oklch(0 0 0 / 0.1) 4%, oklch(0 0 0 / 0.15) 7%, oklch(0 0 0 / 0.25) 40%);
+	}
+	.bands {
+		--ax: -14%;
+		--ay: 0%;
+		inset: -20% -100%;
+		mix-blend-mode: hard-light;
+		background: repeating-linear-gradient(
+			133deg,
+			oklch(0.2 0.04 265) 0%,
+			oklch(0.66 0.02 200) 3.8%,
+			oklch(0.76 0.06 195) 4.5%,
+			oklch(0.66 0.02 200) 5.2%,
+			oklch(0.2 0.04 265) 10%,
+			oklch(0.2 0.04 265) 12%
+		);
+	}
+	.pillars {
+		--ax: 0%;
+		--ay: 18%;
+		inset: -100% 0;
+		mix-blend-mode: hue;
+		background: repeating-linear-gradient(
+			0deg,
+			oklch(0.8 0.18 25) 0%,
+			oklch(0.9 0.16 100) 14%,
+			oklch(0.88 0.18 140) 28%,
+			oklch(0.9 0.12 195) 42%,
+			oklch(0.78 0.15 270) 56%,
+			oklch(0.76 0.19 320) 70%,
+			oklch(0.8 0.18 25) 84%
+		);
+	}
+	.grain {
+		inset: 0;
+		mix-blend-mode: soft-light;
+		background: repeating-radial-gradient(circle at 50% 55%, oklch(0.8 0 0) 0 0.6px, oklch(0.55 0 0) 0.6px 2px);
 	}
 
-	/* The glare: a round light where the light falls. */
+	/* The glare: a soft round light where the light falls. */
 	.glare {
 		--ax: -22%;
 		--ay: -22%;
@@ -168,9 +176,9 @@
 		mix-blend-mode: overlay;
 		background: radial-gradient(
 			circle at 50% 50%,
-			hsl(0 0% 100% / 0.85) 0,
-			hsl(0 0% 100% / 0.45) 6%,
-			hsl(0 0% 0% / 0.2) 24%
+			hsl(0 0% 100% / 0.7) 0,
+			hsl(0 0% 100% / 0.35) 6%,
+			hsl(0 0% 0% / 0.12) 24%
 		);
 	}
 

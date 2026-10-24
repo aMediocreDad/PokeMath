@@ -3,9 +3,10 @@
 // Worker (tests/serve-worker.sh). Usage: node tests/cloud-save-check.mjs
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
-const BASE = 'http://localhost:3123';
+const BASE = process.env.BASE || 'http://localhost:3123';
 const WHO = { 'x-dev-email': `sky-${Date.now()}@test.no` };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -110,7 +111,7 @@ await ipad.page.setExtraHTTPHeaders(kidC);
 // A real login clears the tab's cached identity (worker/login.js); switching the header does not.
 await ipad.page.evaluate(() => sessionStorage.clear());
 await open(ipad, '/saveandload.html');
-ipad.page.on('dialog', (d) => d.accept());
+await acceptAsks(ipad.page);
 await ipad.page.setInputFiles('#fileInput', { name: 'a.pkmth', mimeType: 'application/octet-stream', buffer: Buffer.from(file) });
 await sleep(1500);
 await open(ipad);
@@ -161,15 +162,12 @@ check('…and the next upload is not refused', !(await offer(a)) && (await cloud
 await money(b, 1);
 await open(b);
 check('Diverged again: B is asked', await offer(b));
-let asked = '';
-b.page.once('dialog', (d) => {
-	asked = d.message();
-	d.dismiss();
-});
 await b.page.click('#cloud-later-btn');
 await b.page.click('.menu-button');
 await b.page.click('#logoutBtn');
 await sleep(800);
+const asked = (await b.page.locator('#ask-text').textContent().catch(() => '')) ?? '';
+await b.page.click('#ask-cancel').catch(() => {});
 check('Logging out with unsynced progress asks first', asked.startsWith('Fikk ikke lagret'), asked);
 check('…and saying no keeps the progress', (await b.page.evaluate(() => localStorage.getItem('money'))) === '1');
 

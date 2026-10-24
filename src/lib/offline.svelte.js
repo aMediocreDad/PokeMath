@@ -4,7 +4,7 @@
 // with the normal art. The download picks up where it stopped on the next page load, and stops
 // quietly when the device goes offline or the browser refuses more storage.
 
-import { ART_CACHE } from '#lib/artCache.js';
+import { ART_CACHE, stamped } from '#lib/artCache.js';
 import { toast } from '#lib/toast.svelte.js';
 
 const PARALLEL = 6;
@@ -54,7 +54,7 @@ export async function startArtDownload() {
 				try {
 					const res = await fetch(path);
 					// A missing picture (404) or a lost session (401) is skipped, not stored.
-					if (res.ok && !res.redirected && (res.headers.get('Content-Type') || '').startsWith('image/')) await cache.put(path, res);
+					if (res.ok && !res.redirected && (res.headers.get('Content-Type') || '').startsWith('image/')) await cache.put(path, stamped(res));
 					offline.done++;
 				} catch (err) {
 					// Offline again, or out of storage (QuotaExceededError): try again on a later visit.

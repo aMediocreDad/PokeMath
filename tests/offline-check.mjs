@@ -6,7 +6,7 @@ import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright-core');
-const BASE = 'http://localhost:3123';
+const BASE = process.env.BASE || 'http://localhost:3123';
 const OUT = process.argv[2];
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -37,6 +37,23 @@ const art = await page.evaluate(async () => {
 check('Pokémon pictures downloaded', art.count > 3000, `${art.count} in ${Math.round((Date.now() - started) / 1000)}s`);
 check('only images in the picture cache', art.types.every((t) => t?.startsWith('image/')), art.types.join(', '));
 
+// A stored picture older than a week is checked against the server in the background, and is
+// still served from the cache while that happens.
+const revalidated = await page.evaluate(async () => {
+	const cache = await caches.open('pm-art');
+	const path = new URL((await cache.keys()).find((k) => k.url.includes('/images/pokemon/normal/')).url).pathname;
+	const stored = await cache.match(path);
+	const headers = new Headers(stored.headers);
+	headers.set('x-pm-cached-at', String(Date.now() - 30 * 24 * 60 * 60 * 1000));
+	await cache.put(path, new Response(await stored.blob(), { status: 200, headers }));
+	const served = await fetch(path);
+	const age = async () => Date.now() - Number((await cache.match(path)).headers.get('x-pm-cached-at'));
+	for (let i = 0; i < 50 && (await age()) > 60_000; i++) await new Promise((r) => setTimeout(r, 100));
+	return { served: served.ok && served.headers.get('x-pm-cached-at') !== null, fresh: (await age()) <= 60_000, path };
+});
+check('an old stored picture is served from the cache', revalidated.served, revalidated.path);
+check('…and checked against the server in the background', revalidated.fresh);
+
 // Offline from here on.
 await ctx.setOffline(true);
 await page.goto(BASE + '/pokemath.html?stage=1');
@@ -56,7 +73,7 @@ for (let i = 0; i < 40 && !(await page.locator('#pokeball:not(.is-hidden)').isVi
 }
 check('a round finishes offline', await page.locator('#pokeball:not(.is-hidden)').isVisible());
 await page.locator('#pokeball').click();
-const sprite = page.locator('.sprite');
+const sprite = page.locator('.pkmn-pop.sprite');
 await sprite.waitFor({ timeout: 10_000 });
 const url = (await sprite.getAttribute('style'))?.match(/url\(["']?([^"')]+)/)?.[1];
 const picture = await page.evaluate(async (u) => {

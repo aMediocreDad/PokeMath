@@ -3,11 +3,13 @@
 // the favicon, the preview image). The login page is served from here, whole and self-contained,
 // so nothing of the app itself (its code, the Pokémon art) is public.
 import { accessEmail, endSession, startSession } from './auth.js';
-import { body, json, log } from './http.js';
+import { cappedBody, json, log } from './http.js';
 
 const FAIL_WINDOW = 15 * 60 * 1000;
 /** Different wrong codes per address and quarter hour. A whole class shares one address at school. */
 const MAX_FAILS = 50;
+/** A login code is nine characters; the body around it is not much more. */
+const MAX_CODE_BODY = 1024;
 
 /** Codes look like TOKE-4821: no I, O or Q, so they read aloud and type easily. */
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
@@ -29,23 +31,47 @@ export async function hashCode(code) {
 	return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** A path on this site to go back to after logging in; anything else goes to the front page. */
-function safeNext(/** @type {string | null} */ next) {
-	return next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+/**
+ * A path on this site to go back to after logging in; anything else goes to the front page. It is
+ * resolved the way a browser does, so a backslash in /\evil.com or a tab in /<TAB>/evil.com, which
+ * browsers read as //evil.com, are not taken for paths. A path that resolves to //host (as
+ * /.//evil.com does) is refused too, since the redirect would be protocol-relative. The login
+ * page has the same check.
+ * @param {string | null} next @param {string} site this site's origin
+ */
+function safeNext(next, site) {
+	try {
+		const target = new URL(next || '/', site);
+		return target.origin === site && !target.pathname.startsWith('//') ? target.pathname + target.search + target.hash : '/';
+	} catch {
+		return '/';
+	}
 }
 
 /**
- * Where a login comes from, for counting wrong codes: the IPv4 address, or an IPv6 address's /64,
- * since one home or school network has a whole /64 to pick addresses from.
+ * Where a login comes from, for counting wrong codes: the IPv4 address (also when it comes
+ * IPv4-mapped, as ::ffff:1.2.3.4), or an IPv6 address's /64, since one home or school network has
+ * a whole /64 to pick addresses from.
  * @param {Request} request
  */
-function origin(request) {
-	const ip = request.headers.get('CF-Connecting-IP') || 'local';
+export function origin(request) {
+	const ip = (request.headers.get('CF-Connecting-IP') || 'local').toLowerCase();
 	if (!ip.includes(':')) return ip;
 	const [head, tail] = ip.split('::');
-	const h = head ? head.split(':') : [];
-	const t = tail ? tail.split(':') : [];
-	return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 4).join(':') + '::/64';
+	const groups = (/** @type {string | undefined} */ part) =>
+		(part ? part.split(':') : []).flatMap((g) => {
+			// A dotted tail (1.2.3.4) is the last two groups.
+			const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(g);
+			return v4 ? [((+v4[1] << 8) | +v4[2]).toString(16), ((+v4[3] << 8) | +v4[4]).toString(16)] : [g];
+		});
+	const h = groups(head);
+	const t = groups(tail);
+	const all = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+	if (all.slice(0, 5).every((g) => parseInt(g, 16) === 0) && parseInt(all[5], 16) === 0xffff) {
+		const [a, b] = [parseInt(all[6], 16), parseInt(all[7], 16)];
+		return `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
+	}
+	return all.slice(0, 4).join(':') + '::/64';
 }
 
 /** Files anyone may fetch. */
@@ -62,6 +88,9 @@ export async function route(url, request, env) {
 	}
 
 	if (pathname === '/login/code' && request.method === 'POST') {
+		// Too big a body is no guess, so it is refused before it costs one.
+		const input = await cappedBody(request, MAX_CODE_BODY);
+		if (!input) return json({ ok: false, message: 'Koden er for lang.' }, 413);
 		const ip = origin(request);
 		const now = Date.now();
 		// Failures older than the window count for nothing, so they are not kept either.
@@ -75,7 +104,7 @@ export async function route(url, request, env) {
 			.first();
 		if (Number(tries?.count) > MAX_FAILS) return json({ ok: false, message: 'For mange feil forsøk. Vent et kvarter og prøv igjen.' }, 429);
 
-		const hash = await hashCode((await body(request)).code || '');
+		const hash = await hashCode(input.code || '');
 		const kid = await env.DB.prepare('SELECT id, name FROM kids WHERE code_hash = ?').bind(hash).first();
 		// Each wrong code tried is remembered for the window, in the same table under its own key.
 		const repeat =
@@ -95,7 +124,7 @@ export async function route(url, request, env) {
 		if (!email) return new Response('Innloggingen med e-post er ikke satt opp riktig.', { status: 403 });
 		const setCookie = await startSession(env, url, { subject: email, kind: 'email', name: email.split('@')[0] });
 		log('login', `e-post: ${email}`);
-		return new Response(null, { status: 302, headers: { Location: safeNext(url.searchParams.get('next')), 'Set-Cookie': setCookie } });
+		return new Response(null, { status: 302, headers: { Location: safeNext(url.searchParams.get('next'), url.origin), 'Set-Cookie': setCookie } });
 	}
 
 	if (pathname === '/logout' && request.method === 'POST') {
@@ -168,7 +197,13 @@ const PAGE = `<!doctype html>
 </main>
 <script>
 	const next = new URLSearchParams(location.search).get('next') || '/';
-	const target = next.startsWith('/') && !next.startsWith('//') ? next : '/';
+	// Only a path on this site, resolved as the browser would (see safeNext in worker/login.js).
+	const target = (() => {
+		try {
+			const u = new URL(next, location.origin);
+			return u.origin === location.origin && !u.pathname.startsWith('//') ? u.pathname + u.search + u.hash : '/';
+		} catch { return '/'; }
+	})();
 	const email = document.getElementById('email');
 	email.href = '/login/email?next=' + encodeURIComponent(target);
 	email.addEventListener('click', () => { try { sessionStorage.removeItem('pm-me'); } catch {} });

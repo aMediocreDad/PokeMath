@@ -1,7 +1,8 @@
 // A copy of the save in IndexedDB, ported from the live global.js (pokemath.online, 2026-10).
 // Clearing the browser history often clears localStorage but keeps IndexedDB, so when the save is
 // gone the page can offer to bring it back. The copy is refreshed at most every three hours and
-// never leaves the device. Private browsing can block IndexedDB; every call then does nothing.
+// never leaves the device, and never replaces a copy that holds more Pokémon. Private browsing can
+// block IndexedDB; every call then does nothing.
 // It holds the whole save, as the cloud copy and backup files do (saveData()).
 import { saveData } from '#lib/storage.js';
 
@@ -53,8 +54,12 @@ export async function maybeSaveBackup() {
 			return db.close();
 		}
 		const data = saveData();
+		// Never over a copy with more Pokémon: after a localStorage wipe the first catch would
+		// replace the good copy with an almost empty save, and the restore offer would be gone.
 		if (data.pokemonlist) {
-			await run(db, 'readwrite', (s) => s.put({ timestamp: now, data }, KEY));
+			if (countPokemon(data.pokemonlist) >= countPokemon(existing?.data?.pokemonlist)) {
+				await run(db, 'readwrite', (s) => s.put({ timestamp: now, data }, KEY));
+			}
 			freshUntil = now + INTERVAL_MS;
 		}
 		db.close();

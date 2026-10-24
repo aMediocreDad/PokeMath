@@ -3,6 +3,7 @@
 // Run against tests/serve-worker.sh. Usage: node tests/bingo-prize-check.mjs [outdir]
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:3123';
@@ -29,7 +30,7 @@ await teacherCtx.addInitScript(() => {
 });
 const teacher = await teacherCtx.newPage();
 teacher.on('pageerror', (e) => console.log('teacher pageerror', e.message));
-teacher.on('dialog', (d) => d.accept());
+await acceptAsks(teacher);
 // The old settings address forwards to the setup on the bingo screen.
 await teacher.goto(BASE + '/lærer/bingo_settings.html');
 await teacher.locator('#bingoSetup').waitFor({ timeout: 10000 });

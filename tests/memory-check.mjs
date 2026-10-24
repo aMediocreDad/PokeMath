@@ -4,6 +4,7 @@
 // Run against tests/serve-worker.sh. Usage: BASE=http://localhost:3125 node tests/memory-check.mjs [outdir]
 import { createRequire } from 'module';
 import { muteAudio } from './mute.mjs';
+import { acceptAsks } from './ask.mjs';
 const require = createRequire(import.meta.url);
 const { webkit, devices } = require('playwright-core');
 const BASE = process.env.BASE || 'http://localhost:3123';
@@ -27,7 +28,7 @@ const browser = muteAudio(await webkit.launch());
 const hostCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const host = await hostCtx.newPage();
 host.on('pageerror', (e) => console.log('host pageerror', e.message));
-host.on('dialog', (d) => d.accept());
+await acceptAsks(host);
 
 await host.goto(BASE + '/lærer/index.html');
 await host.locator('#start-memory').click();
@@ -179,7 +180,7 @@ lise.close();
 // The teacher's screen on a phone, for a teacher without a projector.
 const phone = await browser.newContext({ ...devices['iPhone 13'] });
 const hp = await phone.newPage();
-hp.on('dialog', (d) => d.accept());
+await acceptAsks(hp);
 await hp.goto(BASE + '/lærer/memory.html');
 await hp.locator('#memorySetup').waitFor();
 await shot(hp, 'memory-setup-phone');
