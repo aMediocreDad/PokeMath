@@ -191,7 +191,7 @@ async function loginChange(tag, targetCloud) {
 		try {
 			window.__meAtStart = sessionStorage.getItem('pm-me');
 		} catch {
-			// about:blank has no session storage.
+			// A page without session storage.
 		}
 	});
 	const state = newState(fromId);
@@ -203,8 +203,9 @@ async function loginChange(tag, targetCloud) {
 	await putSnapshot(page, { timestamp: Date.now(), data: { pokemonlist: 'N1|N4|N7' } });
 	check(`${tag}: the first login owns the save`, JSON.parse((await local(page, 'pm-cloud')) || '{}').owner === fromId);
 	await setLocal(page, 'pokemonlist', 'N1|N4|N7|N9');
-	// Leave as the first login (the page uploads on the way out), then log in as the other.
-	await page.goto('about:blank');
+	// Leave as the first login (the page uploads on the way out), then log in as the other. The page
+	// stays on this origin: leaving it (about:blank) sometimes drops the tab's session storage.
+	await page.goto(BASE + '/valid_images.json');
 	await sleep(500);
 	await ctx.setExtraHTTPHeaders(to);
 	state.id = toId;
