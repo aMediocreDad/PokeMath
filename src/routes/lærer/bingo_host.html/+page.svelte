@@ -150,6 +150,8 @@
 
 	/** @param {any} msg */
 	function loadLobby(msg) {
+		// The room is here, so an End asked for before the connection dropped never reached it.
+		afterEnd = '';
 		currentCode = msg.code;
 		ready = true;
 		phase = msg.phase === 'lobby' ? 'lobby' : 'play';
@@ -302,6 +304,7 @@
 	async function backToSettings() {
 		const question = phase === 'lobby' ? (players.length ? 'Avbryte bingoen? Elevene kobles fra.' : '') : `Velge nye innstillinger?\n\nDette brettet avsluttes, og alle elevene kobles fra.${endNote()}`;
 		if (question && !(await ask(question))) return;
+		afterEnd = '';
 		if (currentCode) sendEnd();
 	}
 
@@ -549,6 +552,9 @@
 {/snippet}
 
 <TeacherPage subtitle="PokéBingo" wide back={{ href: '/lærer/index.html', label: 'Lærersiden' }}>
+	{#if ready && !connected}
+		<p id="connection-lost" role="status">Mistet forbindelsen. Kobler til igjen …</p>
+	{/if}
 	{#if !ready}
 		<p class="muted">Kobler til…</p>
 	{:else if !currentCode}
@@ -633,7 +639,7 @@
 						{:else}
 							<span class="player-dot" class:connected={p.connected}></span>
 						{/if}
-						<button class="player-name" title={p.needsRename ? 'Venter på nytt navn. Trykk for alternativer' : 'Trykk for alternativer'} onclick={(e) => openPlayerMenu(p, e)}>{p.name || 'Ash'}{#if p.needsRename} <small class="dim">nytt navn</small>{/if}</button>
+						<button class="player-name" title={p.needsRename ? 'Venter på nytt navn. Trykk for alternativer' : 'Trykk for alternativer'} onclick={(e) => openPlayerMenu(p, e)}>{p.name || 'Ash'}{#if p.needsRename}<small class="dim">nytt navn</small>{/if}</button>
 						{#if showCatches}
 							<span class="player-catches">
 								{p.catchCount ?? 0}<small>({totalCatches > 0 ? Math.round(((p.catchCount || 0) / totalCatches) * 100) : 0}%)</small>
@@ -782,10 +788,6 @@
 			<button class="pm-button" onclick={() => (prize = null)}>OK</button>
 		</div>
 	</div>
-{/if}
-
-{#if ready && !connected}
-	<div id="connection-lost" role="status">Mistet forbindelsen. Kobler til igjen …</div>
 {/if}
 
 <canvas id="confetti-canvas" bind:this={confettiCanvas}></canvas>
@@ -999,6 +1001,11 @@
 		color: var(--pm-ink-soft);
 		font-size: 13px;
 		line-height: 1.4;
+	}
+	.player-name small {
+		margin-left: 6px;
+		font-size: 12px;
+		font-weight: 400;
 	}
 	.player-catches {
 		font-family: var(--pm-display);
@@ -1330,17 +1337,13 @@
 	}
 
 	#connection-lost {
-		position: fixed;
-		top: 12px;
-		right: 12px;
-		z-index: 2100;
-		padding: 8px 14px;
-		border-radius: 999px;
-		background: var(--pm-ink);
-		color: var(--pm-paper);
-		font-size: 14px;
+		margin: 0 0 12px;
+		padding: 10px 16px;
+		border-radius: 12px;
+		background: oklch(0.97 0.05 90);
+		color: oklch(0.4 0.08 80);
+		box-shadow: 0 0 0 2px oklch(0.82 0.13 90);
 		font-weight: 700;
-		pointer-events: none;
 	}
 
 	#confetti-canvas {
