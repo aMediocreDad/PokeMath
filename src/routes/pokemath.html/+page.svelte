@@ -224,6 +224,8 @@
 			logSolved(values.stage);
 			layout.workOverview = workOverview();
 			const solved = /** @type {NonNullable<typeof problem>} */ (problem);
+			// How long this problem took, before the next one replaces it (and its start time).
+			const elapsed = Date.now() - (solved.startedAt ?? Date.now());
 			flash('correct');
 			newProblem();
 
@@ -231,9 +233,6 @@
 			if (adaptive) {
 				player.adaptiveSolved++;
 				player.save('adaptiveSolved');
-				// As on the live site this measures from the new problem's start, set just above, so
-				// a correct answer always counts as fast.
-				const elapsed = Date.now() - (problem?.startedAt ?? Date.now());
 				const limit = adaptive.timeLimit(solved);
 				values.stage = adaptive.record(solved.operator, elapsed <= limit * 0.5 ? 'fast' : elapsed <= limit ? 'golden' : 'slow');
 			} else if (tier >= 0) {
