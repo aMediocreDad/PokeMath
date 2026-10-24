@@ -45,7 +45,13 @@ const defaultAchievements = {
 
 /** @returns {Achievements} */
 function read() {
-	const stored = JSON.parse(localStorage.getItem('badges') ?? 'null') || JSON.parse(JSON.stringify(defaultAchievements));
+	let stored = null;
+	try {
+		stored = JSON.parse(localStorage.getItem('badges') ?? 'null');
+	} catch {
+		// A broken value counts as no badges yet, as when nothing is stored.
+	}
+	if (!Array.isArray(stored?.badges)) stored = JSON.parse(JSON.stringify(defaultAchievements));
 	// global.js "migrates" 1.0 to 1.1 on every page load; keep writing the same version.
 	if (stored.version === '1.0') stored.version = '1.1';
 	return stored;
