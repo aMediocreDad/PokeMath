@@ -27,7 +27,9 @@ serves the old in-memory mock in `dev/` instead.
   answered by hand for the totals, the real endpoints are checked by their increase), the bonus
   goals, and the Worker being down. Phone and desktop get a layout check. Every case has its own
   profile and login. `BASE` is where the Worker serves (default :3123), for instance
-  `BASE=http://localhost:3134 node tests/events-check.mjs`.
+  `BASE=http://localhost:3134 node tests/events-check.mjs`. It posts two catches to the Worker's
+  Easter counter, and `smoke.js` expects that counter at 1 on a fresh database: restart the server
+  without `--keep` before running `smoke.js` after it.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
 - `problems-rules.mjs`: the game's setup in `src/lib/game/problems.js` without a server: a custom level
   with no operation, and how custom multiplication and division are rated.
