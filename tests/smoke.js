@@ -1,5 +1,6 @@
 // End-to-end smoke test of the mock server: HTTP endpoints plus a full bingo round, a raid and a
 // memory game.
+const vm = require("vm");
 const WebSocket = require("ws");
 const BASE = process.argv[2];
 const WS = BASE.replace("http", "ws") + "/ws";
@@ -443,6 +444,58 @@ async function assertSilent(c, type, label) {
   await j(`/teacher/kids/${child.body.kid.id}?save=delete`, { method: "DELETE" });
   assert((await j("/api/me", { headers: last.headers })).status === 401, "removing the child ends their sessions");
   assert((await codeLogin(fresh.body.code)).status === 401, "removed child's code stops working");
+
+  // The page to go back to after logging in may only be a path on this site, in both the Worker's
+  // redirect and the login page's own script.
+  const hostile = ["/\\evil.com", "/\t/evil.com", "//evil.com", "/.//evil.com", "/a/../..//evil.com", "https://evil.com", "javascript:alert(1)", "\\\\evil.com", "/\n/evil.com"];
+  const legit = "/l%C3%A6rer/index.html?x=1#h";
+  const redirectTo = async (next) => {
+    const r = await fetch(BASE + "/login/email?next=" + encodeURIComponent(next), { redirect: "manual" });
+    return r.status === 302 ? r.headers.get("location") : `status ${r.status}`;
+  };
+  const stuck = [];
+  for (const next of hostile) if ((await redirectTo(next)) !== "/") stuck.push(next);
+  assert(!stuck.length, "e-mail login only redirects to this site's own paths" + (stuck.length ? ` (let through: ${JSON.stringify(stuck)})` : ""));
+  assert((await redirectTo(legit)) === legit && (await redirectTo("")) === "/", "a path on this site is kept, none goes to the front page");
+  const script = (await (await fetch(BASE + "/login.html")).text()).match(/<script>([\s\S]*?)<\/script>/)[1];
+  const pageTarget = (next) => {
+    const els = {};
+    const el = (id) => (els[id] ??= { href: "", value: "", addEventListener() {}, disabled: false });
+    vm.runInNewContext(script, { location: { search: "?next=" + encodeURIComponent(next), origin: BASE, replace() {} }, document: { getElementById: el }, sessionStorage: { removeItem() {} }, URLSearchParams, URL, encodeURIComponent, fetch: async () => {} });
+    return decodeURIComponent(els.email.href.split("?next=")[1]);
+  };
+  const pageStuck = hostile.filter((next) => pageTarget(next) !== "/");
+  assert(!pageStuck.length, "the login page only goes back to this site's own paths" + (pageStuck.length ? ` (let through: ${JSON.stringify(pageStuck)})` : ""));
+  assert(pageTarget(legit) === legit && pageTarget("") === "/", "the login page keeps a path on this site");
+
+  // Logging out ends the login's teacher sessions with it, and only that login's.
+  const sessionFor = async (email) => {
+    const r = await fetch(BASE + "/login/email?next=%2F", { redirect: "manual", headers: { "x-dev-email": email } });
+    const cookie = (r.headers.get("set-cookie") || "").split(";")[0];
+    return { cookie, headers: { "x-dev-email": email, Cookie: cookie } };
+  };
+  const teacherIn = await sessionFor("laerer@test.no");
+  const teacherToken = (await post("/teacher/access-login", {}, teacherIn.headers)).body.teacherSession;
+  const bearerOf = (t) => ({ Authorization: `Bearer ${t}` });
+  assert(teacherToken && (await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 200, "a teacher session made from a login works");
+  const studentIn = await sessionFor("elev@test.no");
+  await fetch(BASE + "/logout", { method: "POST", headers: studentIn.headers });
+  assert((await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 200, "someone else logging out leaves the teacher session alone");
+  await fetch(BASE + "/logout", { method: "POST", headers: teacherIn.headers });
+  assert((await j("/teacher/session", { headers: bearerOf(teacherToken) })).status === 401, "logging out ends the login's teacher sessions");
+  assert((await j("/teacher/session", { headers: auth })).status === 401, "all of the teacher's teacher sessions end, not only the one from this login");
+
+  // An IPv4-mapped IPv6 address is the IPv4 address, not a share of one /64 bucket.
+  const tryFrom = async (ip, code) => (await fetch(BASE + "/login/code", { method: "POST", headers: { ...anon, "Content-Type": "application/json", "CF-Connecting-IP": ip }, body: JSON.stringify({ code }) })).status;
+  let mappedLast = 0;
+  for (let i = 0; i < 51; i++) mappedLast = await tryFrom("::ffff:10.1.1.1", `ZZZZ-${String(2000 + i)}`);
+  assert(mappedLast === 429, "fifty-one different wrong codes lock a mapped address");
+  assert((await tryFrom("10.1.1.1", "ZZZZ-3000")) === 429, "the same address as plain IPv4 is locked too");
+  assert((await tryFrom("::FFFF:10.1.1.1", "ZZZZ-3001")) === 429, "whatever the case of the mapped form");
+  assert((await tryFrom("::ffff:10.1.1.2", "ZZZZ-3000")) === 401, "another mapped address is not locked with it");
+  let v6Last = 0;
+  for (let i = 0; i < 51; i++) v6Last = await tryFrom("2001:db8:1:2:aaaa::1", `ZZZZ-${String(4000 + i)}`);
+  assert(v6Last === 429 && (await tryFrom("2001:db8:1:2:bbbb::2", "ZZZZ-3000")) === 429 && (await tryFrom("2001:db8:1:3::1", "ZZZZ-3000")) === 401, "other IPv6 addresses are still counted per /64");
 
   // Guessing: fifty different wrong codes from one address lock it out for a quarter hour; the
   // same typo again does not count. Keep this last: the lock lasts for the rest of this server's run.

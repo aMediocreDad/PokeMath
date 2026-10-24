@@ -74,7 +74,7 @@ export async function accessEmail(request, env, url) {
 	let keys = keySets.get(TEAM_DOMAIN);
 	if (!keys) keySets.set(TEAM_DOMAIN, (keys = createRemoteJWKSet(new URL(`${TEAM_DOMAIN}/cdn-cgi/access/certs`))));
 	try {
-		const { payload } = await jwtVerify(token, keys, { issuer: TEAM_DOMAIN, audience: POLICY_AUD });
+		const { payload } = await jwtVerify(token, keys, { issuer: TEAM_DOMAIN, audience: POLICY_AUD, algorithms: ['RS256'] });
 		return typeof payload.email === 'string' && payload.email ? normalise(payload.email) : null;
 	} catch {
 		return null;
@@ -98,10 +98,22 @@ export async function startSession(env, url, who) {
 	return `${COOKIE}=${token}; ${attributes(env, url)}; Max-Age=${Math.floor(life / 1000)}`;
 }
 
-/** @param {Request} request @param {Env} env @param {URL} url */
+/**
+ * End the session in this request's cookie, and with it the teacher sessions of that login, which
+ * would stay valid for a week otherwise (worker/teacher.js).
+ * @param {Request} request @param {Env} env @param {URL} url
+ */
 export async function endSession(request, env, url) {
 	const token = cookie(request, COOKIE);
-	if (token) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run();
+	if (token) {
+		await env.DB.batch([
+			// Before the session row goes: it is where the login's email is read from.
+			env.DB
+				.prepare("DELETE FROM teacher_sessions WHERE teacher_id IN (SELECT id FROM teachers WHERE email = (SELECT subject FROM sessions WHERE token = ? AND kind = 'email'))")
+				.bind(token),
+			env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token),
+		]);
+	}
 	return `${COOKIE}=; ${attributes(env, url)}; Max-Age=0`;
 }
 
