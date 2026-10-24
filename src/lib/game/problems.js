@@ -145,6 +145,14 @@ export function setupGame(params) {
 			values.divisionDecimals = Number(params.get('ddec'));
 			values.operations.push('/');
 		}
+		if (values.operations.length === 0) {
+			// Nothing switched on (the customizer does not allow it, but a link can): addition, so the
+			// page has something to ask, and nothing is earned.
+			values.operations = ['+'];
+			values.stage = 0;
+			messages.push({ text: 'Du har ikke valgt noen regneart, så du kan ikke fange pokemon på dette nivået.', bad: true });
+			return { values, winScore: 5, cheated: false, custom: true, messages };
+		}
 		const { stage, message } = customDifficulty(values);
 		values.stage = stage;
 		messages.push(message);
@@ -172,6 +180,25 @@ export function setupGame(params) {
 }
 
 /**
+ * The level (0 = too easy, 1–5) of a multiplication or division, from the biggest numbers it can
+ * ask about: the two factors, or the quotient and the divisor. The size is what the biggest
+ * product (or dividend) comes to, and a small factor caps it, so 10 000 × 2 stays a doubling.
+ * The normal stages 3, 4 and 5 land on 3, 4 and 5.
+ * @param {number[]} first  Lowest and highest of one factor.
+ * @param {number[]} second  Lowest and highest of the other.
+ * @param {number} decimals
+ */
+function factorLevel(first, second, decimals) {
+	const scale = 10 ** decimals;
+	const biggest = (/** @type {number[]} */ range) => Math.max(...range.map(Math.abs)) * scale;
+	const [a, b] = [biggest(first), biggest(second)];
+	const size = [99999, 999, 99, 19, 4].findIndex((limit) => a * b > limit);
+	const bySize = size === -1 ? 0 : 5 - size;
+	const smaller = Math.min(a, b);
+	return Math.min(bySize, smaller <= 1 ? 0 : smaller <= 2 ? 2 : smaller <= 5 ? 3 : 5);
+}
+
+/**
  * calculateCustomDifficulty(): the stage (1–5) a custom setup counts as, or 0 if it is too easy.
  * @param {MathValues} v
  */
@@ -195,18 +222,19 @@ function customDifficulty(v) {
 		values.push(level(subtraction, [9000, 999, 99, 24, 2]));
 	}
 	if (v.operations.includes('x')) {
-		const rangeA = Math.abs(v.multiplicationMinA - v.multiplicationMaxA) * 10 ** v.multiplicationDecimals;
-		const rangeB = Math.abs(v.multiplicationMinB - v.multiplicationMaxB) * 10 ** v.multiplicationDecimals;
-		values.push(level(rangeA * rangeB, [999, 99, 9, 4, 2]));
+		values.push(
+			factorLevel([v.multiplicationMinA, v.multiplicationMaxA], [v.multiplicationMinB, v.multiplicationMaxB], v.multiplicationDecimals)
+		);
 	}
 	if (v.operations.includes('/')) {
-		const division = Math.abs(v.divisionMultiplierMax - v.divisionMin) * 10 ** v.divisionDecimals;
 		const tooNarrow =
 			Math.abs(v.divisionMultiplierMax - v.divisionMultiplierMin) < 2 || Math.abs(v.divisionMax - v.divisionMin) < 2;
-		values.push(tooNarrow ? 0 : level(division, [999, 99, 9, 4, 2]));
+		values.push(
+			tooNarrow ? 0 : factorLevel([v.divisionMultiplierMin, v.divisionMultiplierMax], [v.divisionMin, v.divisionMax], v.divisionDecimals)
+		);
 	}
 
-	if (values.includes(0)) {
+	if (values.length === 0 || values.includes(0)) {
 		return {
 			stage: 0,
 			message: {
@@ -244,7 +272,9 @@ function countDecimals(number) {
  * @returns {Problem}
  */
 export function generateProblem(v) {
-	const operator = v.operations[Math.floor(Math.random() * v.operations.length)];
+	// Never without an operation: a setup with none asks addition rather than "1 undefined 1".
+	const operations = v.operations.length ? v.operations : ['+'];
+	const operator = operations[Math.floor(Math.random() * operations.length)];
 	let numberOne = 1;
 	let numberTwo = 1;
 	switch (operator) {
