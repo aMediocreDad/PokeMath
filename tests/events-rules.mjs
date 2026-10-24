@@ -1,7 +1,7 @@
 // The Christmas calendar's and the spring event's rules (src/lib/game/xmasCalendar.js, eventClock.js,
 // springEvent.js) without a browser. Usage: node tests/events-rules.mjs
 import { fakeTime } from '../src/lib/game/eventClock.js';
-import { GLOBAL_PRIZES, GLOBAL_STEP, LOCAL_PRIZES, LOCAL_STEP, SEG_COUNT, markClaimed, readCaught, readClaimed, readTimestamps, startYear as startSpringYear } from '../src/lib/game/springEvent.js';
+import { GLOBAL_PRIZES, GLOBAL_STEP, LOCAL_PRIZES, LOCAL_STEP, SEG_COUNT, markClaimed, springWindow, readCaught, readClaimed, readTimestamps, startYear as startSpringYear } from '../src/lib/game/springEvent.js';
 import { BONUS_ENTRIES, GRID, doorReward, readOpened, recordOpened, startYear } from '../src/lib/game/xmasCalendar.js';
 
 let failed = 0;
@@ -61,6 +61,13 @@ check('only doors 1-24, once each', readOpened(store({ xmasOpened: '[1,1,0,25,"7
 }
 
 // ---- the spring event ------------------------------------------------------------------------------
+{
+	const at = (y, m, d, h = 12, min = 0, sec = 0) => new Date(y, m - 1, d, h, min, sec).getTime();
+	const w26 = springWindow(at(2026, 4, 20));
+	check('the event is March and April of the year', w26.year === 2026 && w26.start === at(2026, 3, 1, 0) && w26.end === at(2026, 4, 30, 23, 59, 59));
+	check('next year\'s event ends on 30 April next year', springWindow(at(2027, 4, 20)).end === at(2027, 4, 30, 23, 59, 59));
+	check('the window follows the year of the moment, at both ends of the year', springWindow(at(2026, 12, 31, 23, 59)).year === 2026 && springWindow(at(2027, 1, 1, 0, 0, 1)).year === 2027);
+}
 check('ten prizes on each bar, steps of 50 and 150 000', LOCAL_PRIZES.length === SEG_COUNT && GLOBAL_PRIZES.length === SEG_COUNT && LOCAL_STEP === 50 && GLOBAL_STEP === 150_000);
 {
 	const save = store({ easterYear: '2026', easterCaught: '175', easterClaimed: '[0,1]', easterLocalTs: '{"1":5}' });

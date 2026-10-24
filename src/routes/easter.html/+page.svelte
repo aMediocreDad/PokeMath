@@ -9,7 +9,6 @@
 	import { eventClock } from '#lib/game/eventClock.js';
 	import BingoLootbox from '#lib/game/BingoLootbox.svelte';
 	import {
-		EASTER_END,
 		EXTRA_PRIZES,
 		GLOBAL_CAP,
 		GLOBAL_PRIZES,
@@ -22,6 +21,7 @@
 		readCaught,
 		readClaimed,
 		readTimestamps,
+		springWindow,
 		startYear
 	} from '#lib/game/springEvent.js';
 
@@ -66,7 +66,8 @@
 	/** The prize being opened. */
 	let lootbox = $state(/** @type {import('#lib/bingo.js').Prize | null} */ (null));
 
-	const left = $derived(EASTER_END.getTime() - now);
+	const season = $derived(springWindow(now));
+	const left = $derived(season.end - now);
 
 	/** @type {Record<string, number>} */
 	const frames = {};
@@ -247,6 +248,8 @@
 	<div class="countdown" id="easterCountdown" aria-live="off">
 		{#if !now}
 			Laster…
+		{:else if now < season.start}
+			Eventet starter 1. mars.
 		{:else if left <= 0}
 			Eventet er avsluttet.
 		{:else}

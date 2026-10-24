@@ -17,8 +17,14 @@ export const SEG_COUNT = 10;
 export const LOCAL_STEP = LOCAL_CAP / SEG_COUNT;
 export const GLOBAL_STEP = GLOBAL_CAP / SEG_COUNT;
 
-/** The event ends here; the page counts down to it. */
-export const EASTER_END = new Date('2026-04-30T23:59:59');
+/**
+ * The event is March and April of every year: when it starts and ends (ms) in the year of `time`.
+ * @param {number} time
+ */
+export function springWindow(time) {
+	const year = new Date(time).getFullYear();
+	return { year, start: new Date(year, 2, 1).getTime(), end: new Date(year, 3, 30, 23, 59, 59).getTime() };
+}
 
 /** @typedef {{ entry: string, imageid: number, name: string, coins: number }} Prize */
 

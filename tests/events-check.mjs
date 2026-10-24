@@ -355,11 +355,20 @@ const closeLootbox = async (page) => {
 }
 
 {
-	// The event ends on 30 April.
+	// The event is March and April, every year.
 	const { ctx, page } = await device();
 	await fakeGlobal(page, 0);
-	await visit(page, `${EASTER}?date=2026-05-01`);
+	await visit(page, `${EASTER}?date=2027-04-20`);
 	await page.waitForSelector('.item');
+	await sleep(900);
+	check('next year: the countdown runs to 30 April next year', /Avsluttes om:\s*10d/.test(await page.locator('#easterCountdown').innerText()), await page.locator('#easterCountdown').innerText());
+	await page.goto(BASE + `${EASTER}?date=2027-02-10`);
+	await page.waitForSelector('.item');
+	await sleep(900);
+	check('February: the event has not started', (await page.locator('#easterCountdown').innerText()) === 'Eventet starter 1. mars.', await page.locator('#easterCountdown').innerText());
+	await page.goto(BASE + `${EASTER}?date=2026-05-01`);
+	await page.waitForSelector('.item');
+	await sleep(900);
 	check('1 May: the event is over', (await page.locator('#easterCountdown').innerText()) === 'Eventet er avsluttet.', await page.locator('#easterCountdown').innerText());
 	await page.goto(BASE + `${EASTER}?date=2026-04-30T23:59`);
 	await page.waitForSelector('.item');
