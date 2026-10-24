@@ -1,7 +1,8 @@
 // The shiny foil following the card: scrolling it up the screen by default, a mouse across it on
 // desktop, a finger dragged across a bingo prize, the tilt (faked deviceorientation events) only
 // once switched on in the profile, Safari's question asked by that switch, a bingo prize drifting
-// as before, Safari asked again by the first tap after the page is reopened, and the foil left
+// as before, Safari asked again by the first tap on a card after the page is reopened (and not after
+// a Cancel), and the foil left
 // alone under reduced motion. The foiled cards are the game page's recent catches.
 // Usage: node foil-tilt-check.mjs [base] [outdir]. tests/foil-tilt-serve-check.sh builds this
 // checkout and serves it on :3126.
@@ -46,10 +47,10 @@ const tiltLeftRight = async (page) => {
   const b = await offset(page, `${CARD} .glare`);
   return [0, Math.hypot(b[0] - a[0], b[1] - a[1])];
 };
-// Safari's question, faked: answers `answer` and counts how often it was asked.
+// Safari's question, faked: answers `answer` (or sessionStorage.answer) and counts how often it was asked.
 const fakeSafari = (context, answer) => context.addInitScript((answer) => {
   window.DeviceOrientationEvent ??= class extends Event {};
-  DeviceOrientationEvent.requestPermission = () => { sessionStorage.asked = (+sessionStorage.asked || 0) + 1; return Promise.resolve(answer); };
+  DeviceOrientationEvent.requestPermission = () => { sessionStorage.asked = (+sessionStorage.asked || 0) + 1; return Promise.resolve(sessionStorage.answer || answer); };
 }, answer);
 const open = async (device, motion, extra = {}) => {
   const context = await browser.newContext({ ...device, reducedMotion: motion, serviceWorkers: "block" });
@@ -141,16 +142,29 @@ for (const [name, device] of [["ipad", devices["iPad (gen 7)"]], ["ipad-landscap
   console.log(`     ${name} foil shift`, Math.round(a), "→", Math.round(b));
   check(Math.abs(b - a) > 20, `${name}: foil follows the tilt`);
   check(await page.evaluate(() => sessionStorage.asked) === "1", `${name}: the game page does not ask again`);
-  // Opened again, Safari has forgotten the answer and sends nothing: the next tap anywhere asks.
+  // Opened again, Safari has forgotten the answer and sends nothing: a tap elsewhere leaves Safari
+  // alone, the next tap on the card asks. A touchend, as a click on the card would open its page.
+  const asked = () => page.evaluate(() => sessionStorage.asked);
+  const tapCard = async () => { await page.locator(`${CARD} .foil`).dispatchEvent("touchend", { bubbles: true }); await page.waitForTimeout(300); };
   await page.reload();
   await page.waitForSelector(`${CARD} .foil`);
   await page.waitForTimeout(300);
   await page.locator("h2", { hasText: "Siste fangster" }).click();
   await page.waitForTimeout(300);
-  check(await page.evaluate(() => sessionStorage.asked) === "2", `${name}: a tap after reopening asks Safari again (${await page.evaluate(() => sessionStorage.asked)})`);
-  await page.locator("h2", { hasText: "Siste fangster" }).click();
+  check(await asked() === "1", `${name}: a tap off the cards after reopening does not ask Safari (${await asked()})`);
+  await tapCard();
+  check(await asked() === "2", `${name}: a tap on the card asks Safari again (${await asked()})`);
+  await tapCard();
+  check(await asked() === "2", `${name}: and only once`);
+  // Cancelled: no more asking until the page is opened again.
+  await page.evaluate(() => (sessionStorage.answer = "denied"));
+  await page.reload();
+  await page.waitForSelector(`${CARD} .foil`);
   await page.waitForTimeout(300);
-  check(await page.evaluate(() => sessionStorage.asked) === "2", `${name}: and only once, while the tilt is coming`);
+  await tapCard();
+  check(await asked() === "3", `${name}: reopened, the card asks again (${await asked()})`);
+  await tapCard();
+  check(await asked() === "3", `${name}: after a Cancel it stops asking (${await asked()})`);
   await context.close();
 }
 
