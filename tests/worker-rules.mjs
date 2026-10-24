@@ -4,6 +4,7 @@
 import { createServer } from 'http';
 import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 import { accessEmail } from '../worker/auth.js';
+import { cappedBody } from '../worker/http.js';
 import { origin } from '../worker/login.js';
 
 let failed = 0;
@@ -46,5 +47,24 @@ check('an RS256 token from Access gives the email, in lower case', (await verifi
 check('a token for another audience gives nothing', (await verified(await sign('RS256', rs.privateKey, 'rs', 'annen'))) === null);
 check('a token signed with PS256 gives nothing', (await verified(await sign('PS256', ps.privateKey, 'ps'))) === null);
 server.close();
+
+// A body over its cap is refused before it is read in full, with or without a Content-Length.
+const post = (body, headers = {}) => new Request('http://localhost/', { method: 'POST', body, headers });
+const stream = (text, size) => {
+	const bytes = new TextEncoder().encode(text);
+	return new ReadableStream({
+		start(c) {
+			for (let i = 0; i < bytes.length; i += size) c.enqueue(bytes.slice(i, i + size));
+			c.close();
+		},
+	});
+};
+check('a small JSON body is read', (await cappedBody(post('{"a":1}'), 100))?.a === 1);
+check('a body of exactly the cap is read', (await cappedBody(post('{"a":"xxxx"}'), 12))?.a === 'xxxx');
+check('a body one byte over the cap is refused', (await cappedBody(post('{"a":"xxxxx"}'), 12)) === null);
+check('the cap counts bytes, not letters', (await cappedBody(post('{"a":"ææææ"}'), 12)) === null);
+check('a broken, null or empty body is {}', JSON.stringify([await cappedBody(post('nope'), 100), await cappedBody(post('null'), 100), await cappedBody(post(''), 100)]) === '[{},{},{}]');
+check('a streamed body over the cap is refused', (await cappedBody(new Request('http://localhost/', { method: 'POST', body: stream(`{"a":"${'x'.repeat(5000)}"}`, 512), duplex: 'half' }), 1000)) === null);
+check('a streamed body under the cap is read', (await cappedBody(new Request('http://localhost/', { method: 'POST', body: stream('{"a":1}', 2), duplex: 'half' }), 1000))?.a === 1);
 
 process.exit(failed ? 1 : 0);

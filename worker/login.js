@@ -3,11 +3,13 @@
 // the favicon, the preview image). The login page is served from here, whole and self-contained,
 // so nothing of the app itself (its code, the Pokémon art) is public.
 import { accessEmail, endSession, startSession } from './auth.js';
-import { body, json, log } from './http.js';
+import { cappedBody, json, log } from './http.js';
 
 const FAIL_WINDOW = 15 * 60 * 1000;
 /** Different wrong codes per address and quarter hour. A whole class shares one address at school. */
 const MAX_FAILS = 50;
+/** A login code is nine characters; the body around it is not much more. */
+const MAX_CODE_BODY = 1024;
 
 /** Codes look like TOKE-4821: no I, O or Q, so they read aloud and type easily. */
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
@@ -86,6 +88,9 @@ export async function route(url, request, env) {
 	}
 
 	if (pathname === '/login/code' && request.method === 'POST') {
+		// Too big a body is no guess, so it is refused before it costs one.
+		const input = await cappedBody(request, MAX_CODE_BODY);
+		if (!input) return json({ ok: false, message: 'Koden er for lang.' }, 413);
 		const ip = origin(request);
 		const now = Date.now();
 		// Failures older than the window count for nothing, so they are not kept either.
@@ -99,7 +104,7 @@ export async function route(url, request, env) {
 			.first();
 		if (Number(tries?.count) > MAX_FAILS) return json({ ok: false, message: 'For mange feil forsøk. Vent et kvarter og prøv igjen.' }, 429);
 
-		const hash = await hashCode((await body(request)).code || '');
+		const hash = await hashCode(input.code || '');
 		const kid = await env.DB.prepare('SELECT id, name FROM kids WHERE code_hash = ?').bind(hash).first();
 		// Each wrong code tried is remembered for the window, in the same table under its own key.
 		const repeat =

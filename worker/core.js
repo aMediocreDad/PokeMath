@@ -1,10 +1,21 @@
 // Player endpoints: UUID validation, stats upload, redeem codes, the spring event and tracking.
 // Ported from dev/core.js; the data lives in D1.
 import { isTeacher } from './auth.js';
-import { body, json, log, randomHex } from './http.js';
+import { body, cappedBody, json, log, randomHex } from './http.js';
 
 const EVENT = 'easter';
 const MILESTONE_STEP = 250_000;
+/** The state of one player's stats is a few KB (a compressed list of Pokémon and some numbers). */
+const MAX_STATS_BYTES = 64 * 1024;
+
+/**
+ * Whether the browser's id and token are a pair this server handed out.
+ * @param {Env} env @param {unknown} uuid @param {unknown} token
+ */
+async function knownPlayer(env, uuid, token) {
+	const user = uuid && (await env.DB.prepare('SELECT token FROM users WHERE uuid = ?').bind(String(uuid)).first());
+	return Boolean(user) && user.token === token;
+}
 
 /**
  * @param {URL} url @param {Request} request @param {Env} env @param {import('./auth.js').Identity} who
@@ -38,9 +49,10 @@ export async function route(url, request, env, who) {
 	}
 
 	if (method === 'POST' && pathname === '/update-user-stats') {
-		const { uuid, token, state, shopOptions } = await body(request);
-		const user = uuid && (await db.prepare('SELECT token FROM users WHERE uuid = ?').bind(String(uuid)).first());
-		if (!user || user.token !== token) return json({ error: 'Ugyldig token' }, 401);
+		const input = await cappedBody(request, MAX_STATS_BYTES);
+		if (!input) return json({ error: 'Opplastingen er for stor.' }, 413);
+		const { uuid, token, state, shopOptions } = input;
+		if (!(await knownPlayer(env, uuid, token))) return json({ error: 'Ugyldig token' }, 401);
 		await db
 			.prepare('UPDATE users SET stats = ?, updated_at = ? WHERE uuid = ?')
 			.bind(JSON.stringify({ state, shopOptions }), Date.now(), String(uuid))
@@ -51,8 +63,15 @@ export async function route(url, request, env, who) {
 
 	if (method === 'POST' && pathname === '/redeem') {
 		const code = String((await body(request)).code || '').trim().toUpperCase();
-		const row = code && (await db.prepare('SELECT type, value, label, image FROM codes WHERE code = ?').bind(code).first());
+		const row = code && (await db.prepare('SELECT type, value, label, image, repeatable FROM codes WHERE code = ?').bind(code).first());
 		if (!row) return json({ ok: false, message: 'Ugyldig kode!' });
+		// Each login redeems a code once, unless the teacher made it repeatable. The insert is the
+		// check, so two requests sent at once cannot both pass.
+		const claimed = await db
+			.prepare('INSERT INTO redemptions (login_id, code, at) VALUES (?, ?, ?) ON CONFLICT (login_id, code) DO NOTHING')
+			.bind(who.id, code, Date.now())
+			.run();
+		if (!claimed.meta.changes && !row.repeatable) return json({ ok: false, used: true, message: 'Denne koden er allerede brukt.' });
 		/** @type {Record<string, unknown>} */
 		const prize = { type: row.type, label: row.label };
 		if (row.value != null) prize.value = JSON.parse(String(row.value));

@@ -11,6 +11,13 @@ const j = async (path, opts = {}) => {
 };
 const post = (path, body, headers) => j(path, { method: "POST", body: JSON.stringify(body), headers });
 const kidHeaders = () => ({ "x-dev-anonymous": "1" });
+/** A request with a streamed body, so it carries no Content-Length and the Worker must count the bytes itself. */
+const chunked = async (path, text, headers = {}, method = "POST") => {
+  const bytes = new TextEncoder().encode(text);
+  const stream = new ReadableStream({ start(c) { for (let i = 0; i < bytes.length; i += 16384) c.enqueue(bytes.slice(i, i + 16384)); c.close(); } });
+  const r = await fetch(BASE + path, { method, body: stream, duplex: "half", headers: { "Content-Type": "application/json", ...headers } });
+  return { status: r.status, body: await r.json().catch(() => null) };
+};
 
 function client() {
   const ws = new WebSocket(WS);
@@ -103,6 +110,18 @@ async function assertSilent(c, type, label) {
   assert(list.body.codes.length === 1, "list codes");
   const red = await post("/redeem", { code: "klasse5b" });
   assert(red.body.ok && red.body.prize.value === "100", "teacher code is redeemable");
+
+  // A code that is not repeatable pays each login once; a repeatable one pays every time.
+  const usedMessage = "Denne koden er allerede brukt.";
+  const r1again = await post("/redeem", { code: "MYNTER" });
+  assert(r1again.status === 200 && r1again.body.ok === false && r1again.body.used === true && r1again.body.message === usedMessage, "a code this login already redeemed is used");
+  assert((await post("/redeem", { code: "klasse5b" })).body.used === true, "a teacher code is used the second time too, whatever the case");
+  const r1other = await post("/redeem", { code: "mynter" }, kid);
+  assert(r1other.body.ok && r1other.body.prize.type === "coins" && !r1other.body.used, "the same code still pays another login");
+  assert((await post("/redeem", { code: "tull" }, kid)).body.used === undefined, "an unknown code is invalid, not used");
+  assert((await post("/teacher/codes", { plaintext_code: "Gjenta", label: "Igjen", prize_type: "coins", prize_value: "5", repeatable: true }, auth)).body.ok, "create repeatable code");
+  const rep = [await post("/redeem", { code: "gjenta" }), await post("/redeem", { code: "gjenta" }), await post("/redeem", { code: "gjenta" })];
+  assert(rep.every((r) => r.body.ok && r.body.prize.value === "5"), "a repeatable code is never used up");
 
   // Bingo round
   const host = client();
@@ -467,6 +486,60 @@ async function assertSilent(c, type, label) {
   const pageStuck = hostile.filter((next) => pageTarget(next) !== "/");
   assert(!pageStuck.length, "the login page only goes back to this site's own paths" + (pageStuck.length ? ` (let through: ${JSON.stringify(pageStuck)})` : ""));
   assert(pageTarget(legit) === legit && pageTarget("") === "/", "the login page keeps a path on this site");
+
+  // Cloud saves: the answers say whose save it is, a stale PUT is refused, and one can be deleted.
+  const saver = { "x-dev-email": "saver@test.no" };
+  const put = (data, extra = {}, headers = saver) => j("/api/save", { method: "PUT", headers, body: JSON.stringify({ data, ...extra }) });
+  const noSave = await j("/api/save", { headers: saver });
+  assert(noSave.status === 200 && noSave.body.save === null && noSave.body.id === "saver@test.no", "GET /api/save names the login, also with no save");
+  const firstSave = await put({ pokemonlist: "N1|N2" }, { base: null });
+  assert(firstSave.status === 200 && firstSave.body.ok && firstSave.body.pokemon === 2 && firstSave.body.id === "saver@test.no", "PUT /api/save answers with the login's id");
+  const stale = await put({ pokemonlist: "N1|N2|N3" }, { base: firstSave.body.updatedAt - 1 });
+  assert(stale.status === 409 && stale.body.id === "saver@test.no" && stale.body.save.updatedAt === firstSave.body.updatedAt, "a stale PUT is refused with the id and the newer save");
+  const shrunk = await put({ pokemonlist: "N1" });
+  assert(shrunk.status === 409 && shrunk.body.id === "saver@test.no" && shrunk.body.save.pokemon === 2, "an unversioned PUT with fewer Pokémon is refused with the id");
+  assert((await j("/api/save", { headers: saver })).body.id === "saver@test.no", "GET /api/save names the login");
+  const badBases = [["abc", "a word"], ["123", "a numeric string"], [true, "a boolean"], [{}, "an object"], [[1], "an array"]];
+  const baseAnswers = await Promise.all(badBases.map(([base]) => put({ pokemonlist: "N1|N2|N3" }, { base })));
+  assert(baseAnswers.every((r) => r.status === 400), "a base that is not a number or null is refused with 400 (" + baseAnswers.map((r) => r.status).join(", ") + ")");
+  const hugeBase = await j("/api/save", { method: "PUT", headers: saver, body: '{"data":{"pokemonlist":"N1|N2|N3"},"base":1e999}' });
+  assert(hugeBase.status === 400, "a base past what a number can hold is refused with 400");
+  assert((await j("/api/save", { headers: saver })).body.save.updatedAt === firstSave.body.updatedAt, "refused PUTs leave the save as it was");
+  const nextSave = await put({ pokemonlist: "N1|N2|N3" }, { base: firstSave.body.updatedAt });
+  assert(nextSave.status === 200 && nextSave.body.updatedAt > firstSave.body.updatedAt, "a PUT from the save the device last saw goes through");
+  const big = JSON.stringify({ data: { pokemonlist: "N".repeat(1_100_000) }, base: nextSave.body.updatedAt });
+  const bigPut = await j("/api/save", { method: "PUT", headers: saver, body: big });
+  assert(bigPut.status === 413, "a PUT over a megabyte -> 413 (declared length)");
+  const streamed = await chunked("/api/save", big, saver, "PUT");
+  assert(streamed.status === 413, "a PUT over a megabyte -> 413 (streamed, no length declared)");
+  assert((await j("/api/save", { headers: saver })).body.save.updatedAt === nextSave.body.updatedAt, "a refused big PUT leaves the save as it was");
+  const other = await put({ pokemonlist: "N7" }, { base: null }, { "x-dev-email": "other@test.no" });
+  const gone = await j("/api/save", { method: "DELETE", headers: saver });
+  assert(gone.status === 200 && gone.body.ok === true, "DELETE /api/save answers ok");
+  const afterGone = await j("/api/save", { headers: saver });
+  assert(afterGone.body.save === null && afterGone.body.id === "saver@test.no", "the deleted save is gone");
+  assert((await j("/api/save", { method: "DELETE", headers: saver })).body.ok === true, "DELETE /api/save answers ok when there was none");
+  assert(other.body.ok && (await j("/api/save", { headers: { "x-dev-email": "other@test.no" } })).body.save.pokemon === 1, "DELETE only takes the login's own save");
+
+  // Bodies are capped before they are read: a login code is tiny, a stats upload is a few KB.
+  // wrangler dev's proxy loses its connection to the Worker after an answer sent before the body was
+  // read, and the next POST on it is not retried; a GET is, so one after each takes the loss.
+  const settle = () => fetch(BASE + "/login.html").then((r) => r.text());
+  const longCode = JSON.stringify({ code: "A".repeat(2000) });
+  const longLogin = await fetch(BASE + "/login/code", { method: "POST", headers: { ...anon, "Content-Type": "application/json" }, body: longCode });
+  assert(longLogin.status === 413 && (await longLogin.json()).ok === false, "a login code body over 1 KB -> 413");
+  await settle();
+  const streamedLogin = await chunked("/login/code", longCode, anon);
+  assert(streamedLogin.status === 413, "a login code body over 1 KB -> 413 (streamed)");
+  await settle();
+  const bigStats = { uuid, token: v1.body.token, state: { username: "Test", pkmnList: ["N1x"].concat(Array(20000).fill("N10000x10")) }, shopOptions: {} };
+  const bigUpload = await post("/update-user-stats", bigStats);
+  assert(bigUpload.status === 413, `a stats upload over 64 KB -> 413 (${bigUpload.status})`);
+  await settle();
+  const streamedUpload = await chunked("/update-user-stats", JSON.stringify(bigStats));
+  assert(streamedUpload.status === 413, `a stats upload over 64 KB -> 413 (streamed, ${streamedUpload.status})`);
+  await settle();
+  assert((await post("/update-user-stats", { uuid, token: v1.body.token, state: { username: "Test", totalScore: 6 }, shopOptions: {} })).body?.success, "a normal stats upload still goes through");
 
   // Logging out ends the login's teacher sessions with it, and only that login's.
   const sessionFor = async (email) => {
