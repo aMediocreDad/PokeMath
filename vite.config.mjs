@@ -3,32 +3,26 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
-// dev/server.js stands in for the production server, which is not in this repository.
+// The Worker (scripts/dev-worker.sh) answers the API, the login and the class games for `vite dev`.
 const API_PORT = 3001;
 const api = `http://localhost:${API_PORT}`;
 
 /**
- * Start the stand-in server alongside `vite dev`.
+ * Start the local Worker alongside `vite dev`.
  * @returns {import('vite').Plugin}
  */
-function devApiServer() {
-	const shared = /** @type {{ pokemathDevApi?: import('node:child_process').ChildProcess }} */ (globalThis);
+function devWorker() {
+	const shared = /** @type {{ pokemathDevWorker?: import('node:child_process').ChildProcess }} */ (globalThis);
 
 	return {
-		name: 'pokemath-dev-api',
+		name: 'pokemath-dev-worker',
 		apply: 'serve',
 		configureServer(server) {
-			// Serve static/index.html for / (and lærer/index.html for /lærer/), as static hosting does.
-			server.middlewares.use((req, _res, next) => {
-				const [path, query = ''] = (req.url ?? '').split('?');
-				if (path.endsWith('/')) req.url = path + 'index.html' + (query && '?' + query);
-				next();
-			});
-
-			// Vite re-runs this on every config change; keep the one server already running.
-			if (shared.pokemathDevApi) return;
-			const child = (shared.pokemathDevApi = spawn(process.execPath, ['dev/server.js'], {
-				env: { ...process.env, PORT: String(API_PORT) },
+			// Vite re-runs this on every config change; keep the one Worker already running.
+			if (shared.pokemathDevWorker) return;
+			const pageHost = `localhost:${server.config.server.port ?? 5173}`;
+			const child = (shared.pokemathDevWorker = spawn('bash', ['scripts/dev-worker.sh'], {
+				env: { ...process.env, PORT: String(API_PORT), PAGE_HOST: pageHost },
 				stdio: 'inherit'
 			}));
 			process.on('exit', () => child.kill());
@@ -38,7 +32,7 @@ function devApiServer() {
 
 export default defineConfig({
 	plugins: [
-		devApiServer(),
+		devWorker(),
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
@@ -61,17 +55,12 @@ export default defineConfig({
 		// School iPads are often a few iPadOS versions behind.
 		target: ['es2020', 'safari15', 'ios15']
 	},
-	ssr: {
-		// express 4 (used by the production server) hoists cookie@0.7 to the root, which
-		// SvelteKit would pick up instead of its own cookie@2. Bundling it resolves the right one.
-		noExternal: ['cookie']
-	},
 	server: {
 		proxy: {
 			// Matched against the URL including its query string.
-			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+)(\\?|$)': api,
-			'^/(api|teacher|bingo)/': api,
-			// images/ and fonts/ are gitignored; the stand-in server fetches and caches them.
+			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+|logout|login\\.html)(\\?|$)': api,
+			'^/(api|teacher|bingo|login)/': api,
+			// images/ and fonts/ are gitignored; the Worker serves the mirrored ones and fetches the rest.
 			'^/(images|fonts)/': api,
 			'/ws': { target: api, ws: true }
 		}
