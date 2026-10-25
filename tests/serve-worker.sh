@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build, then run the Worker locally on :3123 (or $PORT) with a fresh database seeded like dev/ was.
+# Build, then run the Worker locally on :3123 (or $PORT) with a fresh database, seeded as for npm run dev.
 # Images and fonts that are not mirrored yet come from the live site, unless MIRROR_ONLY is set.
 # Pass --keep to reuse the database from the last run instead of starting over. --local-upstream
 # keeps the request host localhost (not the pokemath.amediocre.dad route), which the Worker's

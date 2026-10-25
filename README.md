@@ -21,33 +21,28 @@ Den originale ideen om å gi ut Pokémon som belønning for å løse matteoppgav
 
 ## Teknologi
 
-- **Frontend:** SvelteKit (nye sider) og HTML, CSS, JavaScript (eldre sider)
-- **Backend:** Node.js med Express
-- **Database:** MySQL
-- **Hosting:** DreamHost
+- **Frontend:** SvelteKit, bygget til statiske sider
+- **Backend:** en Cloudflare Worker (`worker/`) med D1-database og en Durable Object for bingo, raid og memory
+- **Innlogging:** e-post via Cloudflare Access, eller en kode fra læreren for barn uten e-post
 
 ---
 
 ## Kjøre lokalt
-
-Siden er i ferd med å flyttes til [SvelteKit](https://svelte.dev/docs/kit). Sider som er skrevet om ligger i `src/routes/` (for eksempel `src/routes/faq.html/`), resten ligger uendret i `static/`. Begge deler havner i `build/` når man bygger.
-
-Produksjonsserveren (`server.js`) ligger ikke i repoet. `dev/server.js` er en erstatning for lokal utvikling, laget ut fra hva klienten forventer. Alt lagres i minnet, og ingen e-post sendes.
 
 ```sh
 npm install
 npm run dev
 ```
 
-Åpne http://localhost:5173. `npm run dev` starter også `dev/server.js` på port 3001. Bilder og fonter som mangler lokalt hentes fra pokemath.online første gang de brukes, og lagres i `static/images/` og `static/fonts/`.
+Åpne http://localhost:5173. `npm run dev` starter også Workeren på port 3001 (`scripts/dev-worker.sh`), med en lokal database i `.wrangler/dev` som beholdes mellom kjøringer. Slett mappen for å starte på nytt. Bilder og fonter som ikke er speilet til `static/` (`npm run mirror`), hentes fra pokemath.online.
 
-- **Lærerkonto:** `laerer@test.no` / `passord123`. Nye kontoer trenger ingen manuell godkjenning. Lenker som ellers sendes på e-post, som bekreftelse og nytt passord, skrives i terminalen.
-- **Koder:** `MYNTER`, `SHINY`, `LEGENDARISK`, `STJERNESTØV` og `PIKACHU` kan løses inn på redeem.html.
-- **Bingo:** logg inn som lærer, start et spill, og åpne `bingo_join.html?code=<kode>` i et annet nettleservindu.
+- **Innlogging:** lokalt er alle innlogget som `laerer@test.no`, som også er lærer. Logg inn med en barnekode i et privat vindu for å være en annen spiller.
+- **Koder:** `MYNTER`, `SHINY`, `LEGENDARISK`, `STJERNESTØV` og `PIKACHU` kan løses inn på redeem.html, én gang per innlogging.
+- **Bingo, raid og memory:** start et spill fra lærersiden, og bli med fra `bingo_join.html` i et annet vindu.
 
 ### Publisere
 
-`npm run build` lager hele nettsiden i `build/`. Det er den mappen som skal ut på serveren, i stedet for roten av repoet. Prøv bygget lokalt med `SITE_DIR=build npm run dev:server`.
+`npm run deploy` bygger siden til `build/` og laster opp Workeren. Nye databasemigreringer må kjøres først: `npx wrangler d1 migrations apply DB --remote`. Prøv bygget lokalt med `npm run dev:worker`, som er det testene i `tests/` kjører mot.
 
 ---
 

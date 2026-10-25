@@ -2,11 +2,9 @@
   "name": "pokemath.online",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite dev",
-    "dev:server": "node dev/server.js",
     "build": "vite build",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
@@ -20,9 +18,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^4.21.1",
-    "qrcode": "^1.5.4",
-    "ws": "^8.18.0"
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@fontsource/lilita-one": "5.3.0",
@@ -38,7 +34,8 @@
     "svelte-check": "4.7.7",
     "typescript": "6.0.3",
     "vite": "8.3.4",
-    "wrangler": "4.149.0"
+    "wrangler": "4.149.0",
+    "ws": "^8.18.0"
   },
   "imports": {
     "#lib/*": "./src/lib/*"
