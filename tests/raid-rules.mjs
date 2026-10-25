@@ -37,6 +37,7 @@ startRaid(room);
 check('one child against Mewtwo, short: 106 HP', room.maxHp === 106 && room.hp === 106);
 check('a hit does the answer in damage', hit(room, 'a', 20_000, 42, 3) === 42 && room.hp === 64);
 check('a second hit within a second does nothing', hit(room, 'a', 20_500, 42, 3) === 0 && room.hp === 64);
+check('"__proto__" and "constructor" are no children, and hitting for them leaves Object.prototype alone', hit(room, '__proto__', 21_000, 42, 3) === 0 && hit(room, 'constructor', 21_000, 42, 3) === 0 && !('lastHit' in Object.prototype) && !('catchCount' in Object.prototype) && room.hp === 64);
 check('the child keeps hits and damage', room.players.a.catchCount === 1 && room.players.a.damage === 42);
 check('the last hit does only what is left, and wins', hit(room, 'a', 22_000, 50, 3) === 50 && hit(room, 'a', 24_000, 50, 3) === 14 && room.phase === 'won' && room.hp === 0);
 check('the recent hits list the damage', room.recent.map((h) => h.damage).join() === '42,50,14');

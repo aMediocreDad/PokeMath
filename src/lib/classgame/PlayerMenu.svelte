@@ -1,6 +1,7 @@
 <script>
 	// The teacher's tools for one child in a class game: kick out, ask for a new name, or set one.
 	// The server handles these the same way for every class game.
+	import { ask } from '#lib/ask.svelte.js';
 	/** @typedef {{ uuid?: string, name?: string }} Player */
 	/**
 	 * @type {{
@@ -15,14 +16,14 @@
 	const name = $derived(menu.player.name || 'Ash');
 
 	/** @param {'kick' | 'rename' | 'setName'} action */
-	function act(action) {
+	async function act(action) {
 		// Read everything first: closing unmounts this menu, and its props with it.
 		const { uuid } = menu.player;
 		const name = menu.player.name || 'Ash';
 		onClose();
 		if (!uuid) return;
 		if (action === 'kick') {
-			if (confirm(`Kaste ut ${name}?`)) send({ type: 'hostKickPlayer', code, uuid });
+			if (await ask(`Kaste ut ${name}?`, { ok: 'Kast ut' })) send({ type: 'hostKickPlayer', code, uuid });
 		} else if (action === 'rename') {
 			send({ type: 'hostForceRename', code, uuid });
 		} else {

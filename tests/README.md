@@ -7,6 +7,17 @@ image fallback. `PORT=3125` serves on another port, for a second checkout runnin
 first; the class game checks then take `BASE=http://localhost:3125`. `tests/serve-build.sh`
 serves the old in-memory mock in `dev/` instead.
 
+Where a browser cannot launch (Claude's sandbox), run the checks in a Playwright container,
+with the Worker served on the Mac as usual. `tests/pod-run.sh` forwards the container's
+`localhost:<port>` to the Mac (so pages keep a localhost host, which the local login shortcuts
+need), then runs each named script against it; `3123:3132` listens on 3123 for the scripts that
+hardcode it. Under the sandbox the Worker cannot fetch live images, so copy the mirror into
+`static/` and serve with `MIRROR_ONLY=1` when a check needs pictures:
+
+```
+pod run --rm --ipc=host -v "$PWD":/repo -w /repo mcr.microsoft.com/playwright:v1.58.0-noble bash tests/pod-run.sh 3132 save-guards-check.mjs
+```
+
 `playwright-core` is pinned to the version whose WebKit build is already installed locally;
 `npx playwright-core install webkit` fetches it on a new machine.
 
@@ -18,9 +29,38 @@ serves the old in-memory mock in `dev/` instead.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
 - `raid-check.mjs [outdir]`, `memory-check.mjs [outdir]`: a whole raid or memory game, from
   the teacher's setup to the children's prizes, with screenshots.
+- `events-rules.mjs`: the Christmas calendar's doors and save, the spring event's prizes, save and
+  yearly start-over, and the `?date=` clock, without a server.
+- `events-check.mjs`: `christmas.html` and `easter.html` on faked dates (`?date=2026-12-10`,
+  honoured on localhost only). Christmas: a door opens on its day and not before, pays once,
+  stays opened after a reload, and the last door gives the shinies and fireworks. Easter: the
+  countdown, an egg opened on this device's bar and on everyone's (`/api/easter/global` is
+  answered by hand for the totals, the real endpoints are checked by their increase), the bonus
+  goals, and the Worker being down. Phone and desktop get a layout check. Every case has its own
+  profile and login. `BASE` is where the Worker serves (default :3123), for instance
+  `BASE=http://localhost:3134 node tests/events-check.mjs`. It posts two catches to the Worker's
+  Easter counter, and `smoke.js` expects that counter at 1 on a fresh database: restart the server
+  without `--keep` before running `smoke.js` after it.
 - `memory-rules.mjs`: memory's turns and flips in `worker/memory.js`, without a server.
+- `problems-rules.mjs`: the game's setup in `src/lib/game/problems.js` without a server: a custom level
+  with no operation, and how custom multiplication and division are rated.
+- `save-guards-check.mjs`: the save's guards at the page: a teacher page as the first page, the
+  IndexedDB copy, a login that changes under a tab, "Slett alt", a code tapped twice, a backup file
+  that replaces the save, a full storage, and the adaptive level's clock. It puts the session's id on
+  `/api/save` answers and answers `DELETE /api/save` itself (`page.route`), so it runs whether the Worker
+  has them or not.
 - `cloud-save-check.mjs`: two devices on one login, and two children on one iPad; progress
   moves over, and an empty, smaller or someone else's save never replaces one without a choice.
+- `dialog-shots.mjs [outdir]`: the backup reminder, an in-page question and the import
+  message fit a 320 px phone, an iPhone and a desktop, and no native dialog opens. Checks that
+  only need to get past a question answer yes with `acceptAsks` from `ask.mjs`.
+- `offline-check.mjs [outdir]`: the service worker and the picture download, then a round offline, and a
+  stored picture a week old being checked against the server. Chromium, and `BASE=...` for another port.
+  The Worker needs the live-site image fallback, so start it where it can reach pokemath.online.
+- `foil-card-shots.mjs [base] [outdir]`, `rarity-holo-shots.mjs [base] [outdir]`: the shiny foil, the
+  trading card, and the legendary and mythic holo, against a static build
+  (`python3 -m http.server 3124 --directory build`). The second also checks that the holo
+  stands still until the mouse moves it.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
   touch checks per page. Stale since the redesign, against the mock as much as the Worker:

@@ -95,7 +95,9 @@ export async function route(url, request, env, who) {
 			await db.batch([
 				db.prepare('DELETE FROM kids WHERE id = ?').bind(id),
 				db.prepare('DELETE FROM sessions WHERE subject = ?').bind(`kid:${id}`),
-				...(dropSave ? [db.prepare('DELETE FROM saves WHERE email = ?').bind(`kid:${id}`)] : []),
+				...(dropSave
+					? [db.prepare('DELETE FROM saves WHERE email = ?').bind(`kid:${id}`), db.prepare('DELETE FROM redemptions WHERE login_id = ?').bind(`kid:${id}`)]
+					: []),
 			]);
 			log('kids', `${who.id} fjernet ${kid.name}${dropSave ? ' og lagringen' : ''}`);
 			return json({ ok: true });

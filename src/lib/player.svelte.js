@@ -4,7 +4,7 @@
 // and saveAll() in static/global.js, so legacy and Svelte pages can be used side by side.
 // One difference: a change is written straight away, and only the keys it touches are written,
 // instead of everything at the end of a round.
-import { getStorageArray, getStorageInt, getStorageString } from '#lib/storage.js';
+import { getStorageArray, getStorageInt, getStorageString, writeItem } from '#lib/storage.js';
 import { maybeSaveBackup } from '#lib/idbBackup.js';
 
 /** How saveAll() writes each field. */
@@ -107,7 +107,7 @@ class Player {
 		const username = getStorageString('username');
 		if (!username || username.length > 22) {
 			this.username = 'Ash';
-			localStorage.setItem('username', 'Ash');
+			writeItem('username', 'Ash');
 		} else {
 			this.username = username;
 		}
@@ -134,9 +134,11 @@ class Player {
 	 * @param {...Field} fields
 	 */
 	save(...fields) {
+		// Never write the defaults over the real save: a store that was not read has only those.
+		if (!this.loaded) return this.load();
 		for (const field of fields) {
 			for (const [key, value] of Object.entries(writers[field](this))) {
-				localStorage.setItem(key, value);
+				writeItem(key, value);
 			}
 		}
 		maybeSaveBackup();
@@ -149,6 +151,7 @@ class Player {
 
 	/** @param {number} amount */
 	addMoney(amount) {
+		this.#ready();
 		this.money += amount;
 		this.save('money');
 		this.#animate('+' + amount);
@@ -156,9 +159,15 @@ class Player {
 
 	/** @param {number} amount */
 	spendMoney(amount) {
+		this.#ready();
 		this.money -= amount;
 		this.save('money');
 		this.#animate('-' + amount);
+	}
+
+	/** Read the save first, so a change adds to what is stored and not to the defaults. */
+	#ready() {
+		if (!this.loaded) this.load();
 	}
 
 	/** @param {string} delta */
@@ -170,6 +179,7 @@ class Player {
 
 	/** @param {string} entry */
 	addPokemon(entry) {
+		this.#ready();
 		this.pkmnList.push(entry);
 		this.save('pkmnList');
 	}
@@ -180,7 +190,7 @@ function cleanupCorruptedData() {
 	for (const key of ['pokemonlist', 'boughtPlayerIcons']) {
 		const raw = localStorage.getItem(key);
 		if (raw && (raw.includes('"') || raw.includes('%22'))) {
-			localStorage.setItem(key, raw.replace(/%22/g, '"').replace(/"/g, '').split('|').join('|'));
+			writeItem(key, raw.replace(/%22/g, '"').replace(/"/g, '').split('|').join('|'));
 		}
 	}
 }

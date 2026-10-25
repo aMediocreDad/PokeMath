@@ -35,13 +35,11 @@ async function student(name) {
 	await ctx.addInitScript((n) => { if (!localStorage.getItem("username")) localStorage.setItem("username", n); }, name);
 	const page = await ctx.newPage();
 	page.on("pageerror", (e) => console.log(name, "pageerror", e.message));
-	const dialogs = [];
-	page.on("dialog", (d) => { dialogs.push(d.message()); d.accept(); });
 	await page.goto(`${BASE}/bingo_join.html?code=${code}`);
 	await page.click("#joinBtn");
 	await page.waitForURL(/pokemath\.html/, { timeout: 15000 }).catch(() => {});
 	if (!/pokemath\.html/.test(page.url())) await page.goto(BASE + "/pokemath.html?stage=5");
-	return { page, dialogs, ctx };
+	return { page, ctx };
 }
 const ola = await student("Ola");
 const kari = await student("Kari");
@@ -65,10 +63,10 @@ check("student sees the new name", (await kari.page.evaluate(() => localStorage.
 
 // Kick Ola.
 await teacher.locator("#players .player-name", { hasText: "Ola" }).click();
-teacher.once("dialog", (d) => d.accept());
 await teacher.locator("#bingo-player-menu button", { hasText: "Kast ut" }).click();
+await teacher.locator("#ask-ok").click();
 await sleep(2000);
-check("kicked student got the alert", ola.dialogs.some((m) => /kastet ut/.test(m)), JSON.stringify(ola.dialogs));
+check("kicked student got the message", await ola.page.locator(".pm-toast", { hasText: "kastet ut" }).isVisible());
 check("kicked student is back on the front page", new URL(ola.page.url()).pathname === "/" || /index\.html$/.test(ola.page.url()), ola.page.url());
 check("kicked student forgot the code", (await ola.page.evaluate(() => localStorage.getItem("bingoJoinedCode"))) == null);
 

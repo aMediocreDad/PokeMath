@@ -3,7 +3,7 @@
 	// window, its stats set like attacks (Attack and Defense as normal / special, and Speed), and its
 	// Pokédex entry as the flavour text. Like a real card, it is in English. It is the reveal of the Pokédex: the pane beside the list
 	// and the viewer show it. A legendary's or mythic's aura sits in the window; a shiny's picture
-	// is done like a Shiny Vault card, with a holo shine that lights up as the card is handled.
+	// is done like a Shiny Vault card, with a holo shine that is always lit and moves as the card turns.
 	// The whole card turns in 3D towards the mouse anywhere on it, or a finger dragged sideways
 	// across it, and springs back when let go; with the tilt switched on in the profile (tilt.js),
 	// tilting the iPad or phone turns it instead. The light, the sparkles and the shine all move
@@ -52,10 +52,10 @@
 
 	/** @type {HTMLElement | undefined} */
 	let card = $state();
-	/** Where the card is turned to (-1 to 1 each way) and how lit its shine is (0 to 1), where the hand wants them, and how fast they are moving. */
-	let at = { x: 0, y: 0, o: 0 };
-	let aim = { x: 0, y: 0, o: 0 };
-	let speed = { x: 0, y: 0, o: 0 };
+	/** Where the card is turned to (-1 to 1 each way), where the hand wants it, and how fast it is moving. */
+	let at = { x: 0, y: 0 };
+	let aim = { x: 0, y: 0 };
+	let speed = { x: 0, y: 0 };
 	let held = false;
 	let frame = 0;
 	// A loose spring, so the card overshoots a little and settles, like one held in the hand.
@@ -66,20 +66,19 @@
 		frame = 0;
 		if (!card) return;
 		let settled = true;
-		for (const k of /** @type {const} */ (['x', 'y', 'o'])) {
+		for (const k of /** @type {const} */ (['x', 'y'])) {
 			speed[k] = (speed[k] + (aim[k] - at[k]) * STIFFNESS) * (1 - DAMPING);
 			at[k] += speed[k];
 			if (Math.abs(aim[k] - at[k]) > 0.002 || Math.abs(speed[k]) > 0.002) settled = false;
 		}
 		if (settled && !held) {
 			// Back at rest: hand the card over to the tilt, if it is on.
-			at = { x: 0, y: 0, o: 0 };
-			for (const name of ['--px', '--py', '--po']) card.style.removeProperty(name);
+			at = { x: 0, y: 0 };
+			for (const name of ['--px', '--py']) card.style.removeProperty(name);
 			return;
 		}
 		card.style.setProperty('--px', at.x.toFixed(3));
 		card.style.setProperty('--py', at.y.toFixed(3));
-		card.style.setProperty('--po', Math.max(0, Math.min(1, at.o)).toFixed(3));
 		frame = requestAnimationFrame(step);
 	}
 
@@ -92,12 +91,12 @@
 			const box = el.getBoundingClientRect();
 			const across = (/** @type {number} */ v, /** @type {number} */ from, /** @type {number} */ size) => Math.max(-1, Math.min(1, ((v - from) / size) * 2 - 1));
 			held = true;
-			aim = { x: across(e.clientX, box.left, box.width), y: across(e.clientY, box.top, box.height), o: 1 };
+			aim = { x: across(e.clientX, box.left, box.width), y: across(e.clientY, box.top, box.height) };
 			frame ||= requestAnimationFrame(step);
 		};
 		const leave = () => {
 			held = false;
-			aim = { x: 0, y: 0, o: 0 };
+			aim = { x: 0, y: 0 };
 			frame ||= requestAnimationFrame(step);
 		};
 		const events = /** @type {const} */ ([['pointermove', move], ['pointerleave', leave], ['pointercancel', leave], ['pointerup', leave]]);
@@ -199,8 +198,6 @@
 		--bgy: calc(50% - var(--ay) * 17%);
 		/* How far the card is turned from facing you, 0 to 1. */
 		--fc: min(1, var(--ax) * var(--ax) + var(--ay) * var(--ay));
-		/* How lit the shine is: by the hand, or fully while the tilt is on. */
-		--o: var(--po, var(--rest-o, 0));
 		position: relative;
 		aspect-ratio: 63 / 88;
 		padding: 4.2%;
@@ -220,7 +217,6 @@
 		-webkit-user-select: none;
 	}
 	:global(html[data-tilt]) .holo-card {
-		--rest-o: 1;
 		transition: transform 120ms ease-out;
 	}
 	.face {
@@ -393,15 +389,13 @@
 		background: oklch(0.9 0.01 265);
 	}
 
-	/* A shiny's picture, like a Shiny Vault card. Printed in it: a near-white ground with a faint
-	   zig-zag, gold four-point sparkles and flat stars, and rays from the Pokémon. Over it, the
+	/* A shiny's picture, like a Shiny Vault card. Printed in it: a near-white ground printed with a faint maze, gold four-point sparkles and flat stars, and rays from the Pokémon. Over it, the
 	   shine. The real card's ground is silver; this one is whiter by choice, which leaves the
 	   colour-dodged shine less to brighten, so it is gentler on the ground than on the Pokémon. */
 	.holo .window {
 		background:
-			repeating-linear-gradient(60deg, oklch(0.72 0.02 260 / 0.1) 0 1px, transparent 1px 5px) padding-box,
-			repeating-linear-gradient(-60deg, oklch(0.72 0.02 260 / 0.1) 0 1px, transparent 1px 5px) padding-box,
-			radial-gradient(circle at 50% 55%, oklch(0.995 0.002 260), oklch(0.96 0.005 260) 60%, oklch(0.92 0.008 260)) padding-box,
+			url('./assets/holo/maze.svg') center / 7% padding-box,
+			radial-gradient(circle at 50% 55%, oklch(0.995 0.008 85), oklch(0.97 0.015 82) 60%, oklch(0.94 0.02 80)) padding-box,
 			linear-gradient(135deg, oklch(0.93 0.02 90), oklch(0.7 0.03 80), oklch(0.95 0.02 90), oklch(0.68 0.03 80)) border-box;
 	}
 	.vault {
@@ -471,19 +465,21 @@
 			transparent
 		);
 		filter: blur(0.5px);
+		/* Present but quiet, so the Pokémon stays the first thing seen. */
+		opacity: 0.55;
 		transform-origin: 0 50%;
 		translate: calc(var(--ax) * -5px) calc(-50% + var(--ay) * -5px);
 		rotate: var(--angle);
 	}
 	/* The shine, the way holo trading-card effects are commonly built (the technique after
-	   poke-holo.simey.me; no code taken). One layer stacks four patterns: a fine etched texture,
+	   poke-holo.simey.me; no code taken). One layer stacks four patterns: fine etched rings round the Pokémon,
 	   a rainbow of vertical sun pillars, dark diagonal bands with one bright stripe, and a soft
 	   darkening round the light. Blended into each other (soft-light, hue, hard-light) they make
 	   coloured stripes on dark; contrast and saturation push them, and the layer is colour-dodged
 	   onto the picture, where dark leaves it alone and colour blows out bright. A mirrored copy
 	   is combined by exclusion, and a white spot overlays the light. The patterns move through
-	   only a quarter of their range (--bgx, --bgy) as the card turns. The shine is lit only while
-	   the card is handled or the tilt is on (--o). */
+	   only a quarter of their range (--bgx, --bgy) as the card turns. The shine is always lit; at
+	   rest the light sits in the middle. */
 	.shine,
 	.shine::before,
 	.shine::after {
@@ -495,7 +491,7 @@
 		--rainbow: oklch(0.8 0.18 25), oklch(0.9 0.16 100), oklch(0.88 0.18 140), oklch(0.9 0.12 195), oklch(0.78 0.15 270),
 			oklch(0.76 0.19 320);
 		background-image:
-			repeating-radial-gradient(circle at 50% 55%, oklch(0.95 0 0) 0 0.8px, oklch(0.4 0 0) 0.8px 2.6px),
+			repeating-radial-gradient(circle at 50% 55%, oklch(0.95 0 0) 0 0.6px, oklch(0.4 0 0) 0.6px 2px),
 			repeating-linear-gradient(0deg, var(--rainbow), oklch(0.8 0.18 25) 32%),
 			repeating-linear-gradient(
 				130deg,
@@ -521,7 +517,6 @@
 		background-blend-mode: soft-light, hue, hard-light;
 		filter: brightness(calc(var(--fc) * 0.4 + 0.45)) contrast(1.5) saturate(2.2);
 		mix-blend-mode: color-dodge;
-		opacity: var(--o);
 	}
 	/* The mirrored copy: the same patterns running the other way, so the stripes cross and shift. */
 	.shine::after {
@@ -546,8 +541,7 @@
 	}
 
 	/* The light on the whole card: bright where it falls, dimming a little towards the far side,
-	   multiplied in, so the card darkens slightly away from the light. It shows the more the card is turned, and only
-	   while it is lit. */
+	   multiplied in, so the card darkens slightly away from the light. It shows the more the card is turned. */
 	.glare {
 		position: absolute;
 		inset: 0;
@@ -555,7 +549,7 @@
 		background: radial-gradient(farthest-corner circle at var(--mx) var(--my), oklch(1 0 0), oklch(0.68 0.01 330) 150%);
 		mix-blend-mode: multiply;
 		filter: brightness(1.15) saturate(0.7);
-		opacity: calc(var(--o) * var(--fc) * 0.72);
+		opacity: calc(var(--fc) * 0.72);
 		pointer-events: none;
 	}
 

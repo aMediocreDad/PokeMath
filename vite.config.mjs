@@ -69,7 +69,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			// Matched against the URL including its query string.
-			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+|create-board)(\\?|$)': api,
+			'^/(validate-user|update-user-stats|redeem|math-ping|track-[a-z]+)(\\?|$)': api,
 			'^/(api|teacher|bingo)/': api,
 			// images/ and fonts/ are gitignored; the stand-in server fetches and caches them.
 			'^/(images|fonts)/': api,

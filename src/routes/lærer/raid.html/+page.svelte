@@ -5,6 +5,8 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import TeacherPage from '#lib/TeacherPage.svelte';
+	import { ask } from '#lib/ask.svelte.js';
+	import { toast } from '#lib/toast.svelte.js';
 	import Fireworks from '#lib/Fireworks.svelte';
 	import { ensureTeacher, getTeacherSession } from '#lib/teacher.js';
 	import { localSprite } from '#lib/bingoHost.js';
@@ -96,7 +98,7 @@
 			raid = msg.raid;
 			winners = msg.winners;
 		} else if (msg.type === 'error') {
-			alert(msg.message);
+			toast(msg.message, { bad: true });
 		}
 	}
 
@@ -128,7 +130,7 @@
 	 */
 	function sendEnd() {
 		if (ws?.readyState !== WebSocket.OPEN) {
-			alert('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.');
+			toast('Ingen forbindelse akkurat nå. Vent litt og prøv igjen.', { bad: true });
 			return false;
 		}
 		send({ type: 'hostEndLobby', code });
@@ -136,19 +138,20 @@
 	}
 
 	/** Back to the setup. In the lobby this is "Avbryt". */
-	function newSettings() {
-		if (raid?.phase === 'lobby' ? players.length && !confirm('Avbryte raidet? Barna kobles fra.') : !confirm(`Velge nye innstillinger?\n\nDette raidet avsluttes.${endNote()}`)) return;
+	async function newSettings() {
+		const question = raid?.phase === 'lobby' ? (players.length ? 'Avbryte raidet? Barna kobles fra.' : '') : `Velge nye innstillinger?\n\nDette raidet avsluttes.${endNote()}`;
+		if (question && !(await ask(question))) return;
 		sendEnd();
 	}
 
 	/** The same boss choice and length again, with a new code (as bingo's "Nytt brett"). */
-	function newRaid() {
-		if (!confirm(`Lage et nytt raid med de samme innstillingene?\n\nDet gamle raidet avsluttes, og elevene må koble til med den nye koden.${endNote()}`)) return;
+	async function newRaid() {
+		if (!(await ask(`Lage et nytt raid med de samme innstillingene?\n\nDet gamle raidet avsluttes, og elevene må koble til med den nye koden.${endNote()}`, { ok: 'Nytt raid' }))) return;
 		restart = sendEnd();
 	}
 
-	function endRaid() {
-		if (!confirm(`Avslutte raidet? Alle elevene kobles fra.${endNote()}`)) return;
+	async function endRaid() {
+		if (!(await ask(`Avslutte raidet? Alle elevene kobles fra.${endNote()}`, { ok: 'Avslutt' }))) return;
 		if (sendEnd()) goto('/lærer/index.html');
 	}
 
