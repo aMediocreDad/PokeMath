@@ -17,15 +17,25 @@ function devWorker() {
 	return {
 		name: 'pokemath-dev-worker',
 		apply: 'serve',
-		configureServer(server) {
+		async configureServer(server) {
 			// Vite re-runs this on every config change; keep the one Worker already running.
 			if (shared.pokemathDevWorker) return;
 			const pageHost = `localhost:${server.config.server.port ?? 5173}`;
+			// No stdin: the Worker's key shortcuts would take the terminal, and Ctrl+C with it.
 			const child = (shared.pokemathDevWorker = spawn('bash', ['scripts/dev-worker.sh'], {
 				env: { ...process.env, PORT: String(API_PORT), PAGE_HOST: pageHost },
-				stdio: 'inherit'
+				stdio: ['ignore', 'inherit', 'inherit']
 			}));
+			let exited = false;
+			child.on('exit', () => (exited = true));
 			process.on('exit', () => child.kill());
+
+			// Vite waits for this before it serves, so the first page load finds the Worker up.
+			for (let tries = 0; tries < 240 && !exited; tries++) {
+				if (await fetch(`${api}/api/me`).then(() => true, () => false)) return;
+				await new Promise((r) => setTimeout(r, 250));
+			}
+			server.config.logger.error('The local Worker did not start; see its output above.');
 		}
 	};
 }
