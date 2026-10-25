@@ -1,5 +1,7 @@
 <script>
-	// A small progress pill while the Pokémon pictures download for offline play (#lib/offline.svelte.js).
+	// A small progress card while the Pokémon pictures download for offline play
+	// (#lib/offline.svelte.js). On a phone the card would cover the page, so there it shrinks to a
+	// thin bar on the header's lower edge, and the words are left for screen readers.
 	import { offline } from '#lib/offline.svelte.js';
 </script>
 
@@ -39,5 +41,46 @@
 	}
 	.count {
 		font-variant-numeric: tabular-nums;
+	}
+	@media (max-width: 600px) {
+		/* Over the header's 3px shadow, just under the bar. */
+		.pm-offline {
+			top: var(--pm-bar-height);
+			right: 0;
+			bottom: auto;
+			left: 0;
+			z-index: 1001;
+			display: block;
+			width: auto;
+			height: 3px;
+			padding: 0;
+			border-radius: 0;
+			background: var(--pm-red-deep);
+			box-shadow: none;
+		}
+		.pm-offline span {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		progress {
+			display: block;
+			height: 3px;
+			border: none;
+			appearance: none;
+			background: none;
+		}
+		progress::-webkit-progress-bar {
+			background: none;
+		}
+		progress::-webkit-progress-value {
+			background: var(--pm-gold);
+		}
+		progress::-moz-progress-bar {
+			background: var(--pm-gold);
+		}
 	}
 </style>
