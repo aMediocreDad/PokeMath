@@ -4,8 +4,7 @@ Plain Node scripts that drive WebKit through `playwright-core`. They expect the 
 `http://localhost:3123`, which `tests/serve-worker.sh` (`npm run dev:worker`) builds and serves
 with the Cloudflare Worker and a fresh local database. `MIRROR_ONLY=1` turns off the live-site
 image fallback. `PORT=3125` serves on another port, for a second checkout running beside the
-first; the class game checks then take `BASE=http://localhost:3125`. `tests/serve-build.sh`
-serves the old in-memory mock in `dev/` instead.
+first; the class game checks then take `BASE=http://localhost:3125`.
 
 Where a browser cannot launch (Claude's sandbox), run the checks in a Playwright container,
 with the Worker served on the Mac as usual. `tests/pod-run.sh` forwards the container's
@@ -24,8 +23,7 @@ pod run --rm --ipc=host -v "$PWD":/repo -w /repo mcr.microsoft.com/playwright:v1
 - `smoke.js <base>`: the Worker's HTTP endpoints, a full bingo round, a raid, a memory game and
   the login gate, no browser. On localhost the Worker treats a request without a session as `laerer@test.no`, a
   teacher; an `x-dev-email` header makes it someone else, and `x-dev-anonymous` makes it logged
-  out. Run it last: its lockout check blocks code logins from this machine for 15 minutes. The
-  old mock in `dev/` still expects password logins and fails the teacher part.
+  out. Run it last: its lockout check blocks code logins from this machine for 15 minutes.
 - `bingo-live-check.mjs [outdir]`: board size, kick, rename and continue, with screenshots.
 - `raid-check.mjs [outdir]`, `memory-check.mjs [outdir]`: a whole raid or memory game, from
   the teacher's setup to the children's prizes, with screenshots.
@@ -61,13 +59,11 @@ pod run --rm --ipc=host -v "$PWD":/repo -w /repo mcr.microsoft.com/playwright:v1
   trading card, and the legendary and mythic holo, against a static build
   (`python3 -m http.server 3124 --directory build`). The second also checks that the holo
   stands still until the mouse moves it.
+- `offline-card-shots.mjs [outdir]`: the picture download's progress, a card on a desktop and a thin bar
+  on a phone's header edge, on three pages.
 - `asset-404s.mjs`: opens the main pages and lists every file that fails to load.
 - `*-shots.mjs`, `touch-audit.mjs`, `header-touch.mjs`, `answer-field.mjs`: screenshots and
-  touch checks per page. Stale since the redesign, against the mock as much as the Worker:
-  `header-touch` and `game-shots` look for selectors that were renamed, and `touch-audit`'s
-  clock fails on this playwright-core.
-- `parity/`: compare a Svelte page with its legacy HTML page (`<name>-legacy.html`, which
-  `serve-build.sh` copies from 23f7bb5). The legacy pages predate the live-site sync, so the
-  game, profile and bingo pages now differ from them on purpose.
+  touch checks per page. Stale since the redesign: `header-touch` looks for selectors that
+  were renamed, and `touch-audit`'s clock fails on this playwright-core.
 
 Size the run to the change: one page's script for a page, everything before a push.
