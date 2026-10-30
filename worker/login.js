@@ -74,8 +74,11 @@ export function origin(request) {
 	return all.slice(0, 4).join(':') + '::/64';
 }
 
-/** Files anyone may fetch. */
-const PUBLIC = /^\/(manifest\.webmanifest|favicon\.ico|icons\/[\w-]+\.png)$/;
+/**
+ * Files anyone may fetch: the Home Screen icons, and the privacy page with its stylesheets and
+ * fonts, so a school can read it before anyone is invited. That page ships no JavaScript.
+ */
+const PUBLIC = /^\/(manifest\.webmanifest|favicon\.ico|icons\/[\w-]+\.png|personvern\.html|_app\/immutable\/assets\/[\w.-]+\.(css|woff2?)|fonts\/[\w.-]+\.woff2)$/;
 
 /** @param {URL} url @param {Request} request @param {Env} env @returns {Promise<Response | null>} */
 export async function route(url, request, env) {
@@ -180,6 +183,8 @@ const PAGE = `<!doctype html>
 	a.button { background: var(--paper); color: var(--ink); box-shadow: 0 0 0 2px var(--line), 0 4px 0 var(--line); }
 	.or { margin: 22px 0 4px; color: var(--soft); font-size: 15px; }
 	#status { min-height: 1.5em; margin: 10px 0 0; color: var(--red-deep); font-weight: 600; }
+	.privacy { margin: 18px 0 0; font-size: 15px; }
+	.privacy a { color: var(--soft); }
 </style>
 </head>
 <body>
@@ -194,6 +199,7 @@ const PAGE = `<!doctype html>
 	</form>
 	<div class="or">Voksen med e-post?</div>
 	<a class="button" id="email" href="/login/email">Logg inn med e-post</a>
+	<p class="privacy"><a href="/personvern.html">Personvern og databehandling</a></p>
 </main>
 <script>
 	const next = new URLSearchParams(location.search).get('next') || '/';

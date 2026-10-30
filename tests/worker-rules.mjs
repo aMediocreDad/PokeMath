@@ -1,12 +1,13 @@
 // The Worker's small rules that need no server: where a login attempt counts from, which year's
-// spring event a catch belongs to, which tokens Access may sign with, and how big a body may be.
+// spring event a catch belongs to, which tokens Access may sign with, how big a body may be, and
+// which files are served without a login.
 // Usage: node tests/worker-rules.mjs
 import { createServer } from 'http';
 import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 import { accessEmail } from '../worker/auth.js';
 import { eventName } from '../worker/core.js';
 import { cappedBody } from '../worker/http.js';
-import { origin } from '../worker/login.js';
+import { origin, route } from '../worker/login.js';
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -74,5 +75,17 @@ check('the cap counts bytes, not letters', (await cappedBody(post('{"a":"æææ�
 check('a broken, null or empty body is {}', JSON.stringify([await cappedBody(post('nope'), 100), await cappedBody(post('null'), 100), await cappedBody(post(''), 100)]) === '[{},{},{}]');
 check('a streamed body over the cap is refused', (await cappedBody(new Request('http://localhost/', { method: 'POST', body: stream(`{"a":"${'x'.repeat(5000)}"}`, 512), duplex: 'half' }), 1000)) === null);
 check('a streamed body under the cap is read', (await cappedBody(new Request('http://localhost/', { method: 'POST', body: stream('{"a":1}', 2), duplex: 'half' }), 1000))?.a === 1);
+
+// Only the privacy page, its stylesheets and fonts, and the Home Screen icons open without a login.
+// Everything else falls through to the session check (null here).
+const assets = { fetch: async () => new Response('file') };
+const open = async (path, method = 'GET') => (await route(new URL(`https://pokemath.amediocre.dad${path}`), new Request(`https://pokemath.amediocre.dad${path}`, { method }), { ASSETS: assets })) !== null;
+for (const path of ['/personvern.html', '/_app/immutable/assets/0.BVO8wiSD.css', '/_app/immutable/assets/lilita-one-latin-400-normal.Bx1RKZ2h.woff2', '/fonts/source-sans-pro-400.woff2', '/favicon.ico', '/manifest.webmanifest']) {
+	check(`${path} opens without a login`, await open(path));
+}
+for (const path of ['/', '/index.html', '/about.html', '/dpa.html', '/dex.html', '/lærer/index.html', '/api/me', '/_app/immutable/chunks/4FORCyyN.js', '/_app/immutable/entry/start.js', '/_app/version.json', '/images/player.png', '/personvern.html/../index.html', '/personvern.htmlx', '/_app/immutable/assets/x.js']) {
+	check(`${path} needs a login`, !(await open(path)));
+}
+check('the privacy page opens only to GET', !(await open('/personvern.html', 'POST')));
 
 process.exit(failed ? 1 : 0);
