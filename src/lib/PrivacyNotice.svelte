@@ -5,11 +5,11 @@
 	let { dpaHref = '/dpa.html' } = $props();
 </script>
 
-<p class="muted">Sist oppdatert: 22. oktober 2026</p>
+<p class="muted">Sist oppdatert: 30. oktober 2026</p>
 <p>
-	Dette er en privat kopi av PokéMath, laget av Tirco og videreutviklet for bruk i familien og blant venner. Bare de
-	som er invitert, kan logge inn. Den som drifter kopien og inviterte deg, er ansvarlig for opplysningene, og
-	spørsmål om personvern går dit.
+	Dette er en kopi av PokéMath, laget av Tirco og videreutviklet og driftet privat. Bare de som har fått en kode eller
+	har en e-postadresse som er lagt inn på forhånd, kan logge inn. Den som drifter siden, er ansvarlig for
+	opplysningene. Spørsmål om personvern sendes til <a href="mailto:hello@amediocre.dev">hello@amediocre.dev</a>.
 </p>
 
 <h3>Kort oppsummert</h3>
@@ -44,7 +44,6 @@
 		<tbody>
 			<tr><td><code>pm_session</code></td><td>Husker at du er logget inn.</td><td>Ett år med kode, tre måneder med e-post, eller til du logger ut</td></tr>
 			<tr><td><code>CF_Authorization</code></td><td>Settes av Cloudflare Access ved innlogging med e-post, og gjelder bare innloggingssiden.</td><td>Så lenge Access-økten varer</td></tr>
-			<tr><td><code>cookies</code></td><td>Lar de eldste sidene (jul og påske) lagre spillet.</td><td>Tre måneder</td></tr>
 		</tbody>
 	</table>
 </div>
@@ -110,7 +109,8 @@
 <ul>
 	<li>Du kan slette alt som ligger på enheten ved å tømme nettstedsdata i nettleseren.</li>
 	<li>
-		Du kan be den som inviterte deg om innsyn i, retting av eller sletting av opplysninger om deg eller barnet ditt.
+		Du kan be om innsyn i, retting av eller sletting av opplysninger om deg eller barnet ditt ved å skrive til
+		<a href="mailto:hello@amediocre.dev">hello@amediocre.dev</a>.
 	</li>
 	<li>
 		Mener du at opplysningene behandles feil, kan du klage til <a href="https://www.datatilsynet.no/">Datatilsynet</a>.

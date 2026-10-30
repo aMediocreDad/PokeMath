@@ -1,19 +1,17 @@
 <script>
-	// The live site's data processing agreement is for schools that use pokemath.online. This private
-	// copy is not offered to schools, so the page sums up who handles the data and where instead.
+	// Who handles the data and where, for schools weighing a data processing agreement.
 	// Shown on /dpa.html and on the public /personvern.html.
 	/** @type {{ privacyHref?: string }} Where the full privacy notice is. */
 	let { privacyHref = '/about.html#privacy' } = $props();
 </script>
 
 <p>
-	Dette er en privat kopi av PokéMath, til bruk i familien og blant venner. Den tilbys ikke til skoler. Skoler som vil
-	bruke PokéMath i undervisningen, bruker <a href="https://pokemath.online">pokemath.online</a>, der Tirco tilbyr en
-	egen databehandleravtale.
+	PokéMath er laget av Tirco. Denne kopien er videreutviklet og driftes privat. Skoler som vil bruke den i
+	undervisningen og trenger en databehandleravtale, kan skrive til <a href="mailto:hello@amediocre.dev">hello@amediocre.dev</a>.
 </p>
 <dl>
 	<dt>Ansvarlig</dt>
-	<dd>Den som drifter kopien og inviterte deg. Spørsmål om opplysningene dine går dit.</dd>
+	<dd>Den som drifter siden, på <a href="mailto:hello@amediocre.dev">hello@amediocre.dev</a>. Spørsmål om opplysningene dine går dit.</dd>
 	<dt>Databehandler</dt>
 	<dd>
 		Cloudflare driver siden, databasen, bingo-spillene og innloggingen, etter Cloudflares

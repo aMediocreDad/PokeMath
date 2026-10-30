@@ -63,7 +63,7 @@
 	<section id="contact" class="panel pm-surface">
 		<h2>Kontakt</h2>
 		<p>
-			Dette er en privat kopi av PokéMath. Har du spørsmål eller har funnet en feil, så spør den som inviterte deg.
+			Dette er en kopi av PokéMath. Har du spørsmål eller har funnet en feil, så skriv til <a href="mailto:hello@amediocre.dev">hello@amediocre.dev</a>.
 		</p>
 		<p>
 			PokéMath er laget av Tirco, og originalen finnes på <a href="https://pokemath.online">pokemath.online</a>. Spørsmål om
