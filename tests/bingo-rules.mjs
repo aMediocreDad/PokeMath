@@ -10,7 +10,7 @@ register(
 			return next(specifier, context);
 		}`)
 );
-const { catchFacts, computePrize, unfinished } = await import('../worker/bingo.js');
+const { catchFacts, computePrize, matches, unfinished } = await import('../worker/bingo.js');
 const { MAX_PAID_ANSWERS, MAX_PAID_CATCHES, isUuid, paidCount, playerOf } = await import('../worker/players.js');
 const { raidPrizes } = await import('../worker/raid.js');
 const { memoryPrizes } = await import('../worker/memory.js');
@@ -47,6 +47,14 @@ check('a code that is not a Pokémon is refused', ['', 'N0', 'N1026', 'N-1', 'ga
 const big = catchFacts({ pokemonCode: 'N25', pokemonName: 'x'.repeat(1e5), difficulty: 'y'.repeat(1e5), types: Array(500).fill('z'.repeat(1e3)) });
 check('long text is cut down', big && big.pokemonName.length === 40 && big.difficulty.length === 12 && big.types.length === 4 && big.types.every((t) => t.length === 20));
 check('what is not a list or an object is harmless', catchFacts({ pokemonCode: 'N25', types: 'fire', flags: 'shiny' })?.types.length === 0);
+
+// Which category cells a catch ticks.
+const inCategory = (category, id) => matches({ kind: 'category', category }, { pokedexId: id });
+check('the Sprigatito line are cats, and so is Litleo', [906, 907, 908, 667].every((id) => inCategory('cat', id)));
+check('Litleo is not a dog', !inCategory('dog', 667));
+check('a whole starter line counts as a starter', [4, 5, 6].every((id) => inCategory('starter', id)));
+check('Corsola is not a fish, and Klink is not an alien', !inCategory('fish', 222) && !inCategory('alien', 599));
+check('Seedot is a plant, not a farm animal; Mareep is', inCategory('plant', 273) && !inCategory('farm', 273) && inCategory('farm', 179));
 
 // What a prize counts.
 const kids = (count) => ({ a: { uuid: 'a', catchCount: count }, b: { uuid: 'b', catchCount: count }, c: { uuid: 'c', catchCount: 0 } });

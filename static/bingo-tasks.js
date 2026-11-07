@@ -7,7 +7,7 @@ const tasks = [
     { id: 10006, name: "Gen VI", image: null, text: null, textClass: null,description: "Fang en pokemon fra Generasjon 6. (650 - 721)", difficulty: "easy" },
     { id: 10007, name: "Gen VII", image: null, text: null, textClass: null,description: "Fang en pokemon fra Generasjon 7. (722 - 809)", difficulty: "easy" },
     { id: 10008, name: "Gen VIII", image: null, text: null, textClass: null,description: "Fang en pokemon fra Generasjon 8. (810 - 905)", difficulty: "easy" },
-    { id: 10009, name: "Gen IX", image: null, text: null, textClass: null,description: "Fang en pokemon fra Generasjon 9. (906 - 1017)", difficulty: "easy" },
+    { id: 10009, name: "Gen IX", image: null, text: null, textClass: null,description: "Fang en pokemon fra Generasjon 9. (906 - 1025)", difficulty: "easy" },
     { id: 10010, name: "Water-Type", image: "images/badges/4.png", text: null, textClass: null,description: "Fang en Vann-Pokemon", difficulty: "easy" },
     { id: 10011, name: "Normal-Type", image: "images/badges/1.png", text: null, textClass: null,description: "Fang en Normal-Pokemon", difficulty: "easy" },
     { id: 10012, name: "Flying-Type", image: "images/badges/5.png", text: null, textClass: null,description: "Fang en Flyve-Pokemon", difficulty: "easy" },

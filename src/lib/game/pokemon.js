@@ -301,7 +301,8 @@ export function catchFacts(entry) {
 		types,
 		flags: {
 			shiny: /^S/i.test(entry),
-			mega: name.includes('mega'),
+			// A whole word, so Meganium and Yanmega are not Mega forms.
+			mega: /\bmega\b/.test(name),
 			gmax: name.includes('gigantamax') || name.includes('gmax'),
 			hisuian: name.includes('hisuian'),
 			alolan: name.includes('alolan'),
