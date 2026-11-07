@@ -87,7 +87,7 @@ function santaHat() {
 const THEMES = {
 	logo: { fill: '#ffffff', inner: '#db3834', outer: '#7a1414', shadow: 'rgb(60 10 10 / 0.35)', o: (e) => pokeball(e) },
 	'logo-halloween': { fill: '#ffa53d', fillTop: '#ffc46b', inner: '#6a2d9a', outer: '#1a0f24', shadow: 'rgb(20 5 30 / 0.4)', o: pumpkin },
-	'logo-christmas': { fill: '#ffffff', inner: '#2e8b47', outer: '#123d22', shadow: 'rgb(10 40 20 / 0.35)', o: (e) => pokeball(e, { cap: true }), extra: santaHat, top: 80, left: 40 },
+	'logo-christmas': { fill: '#ffffff', inner: '#2e8b47', outer: '#123d22', shadow: 'rgb(10 40 20 / 0.35)', o: (e) => pokeball(e, { cap: true }), extra: santaHat, top: 40, left: 34 },
 };
 
 for (const [name, t] of Object.entries(THEMES)) {
