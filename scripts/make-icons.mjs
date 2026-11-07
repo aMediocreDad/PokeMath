@@ -1,7 +1,7 @@
 // Draw the Home Screen icons and the link preview image into static/icons/ with Chromium
 // (playwright-core). The icon is the Pokéball on Pokédex red, inside the middle 60% so a maskable
 // crop never cuts it; the preview is the logo on the site's paper colour.
-// Needs static/images/logo.png (npm run mirror). Usage: node scripts/make-icons.mjs
+// Uses static/logo.svg (scripts/make-logo.mjs). Usage: node scripts/make-icons.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -13,7 +13,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'static', 'icons');
 const data = (file, type) => `data:${type};base64,${fs.readFileSync(path.join(ROOT, 'static', file)).toString('base64')}`;
 const ball = data('pokeball.svg', 'image/svg+xml');
-const logo = data('images/logo.png', 'image/png');
+const logo = data('logo.svg', 'image/svg+xml');
 const font = data('../node_modules/@fontsource/lilita-one/files/lilita-one-latin-400-normal.woff2', 'font/woff2');
 
 const RED = 'oklch(0.59 0.2 27)';

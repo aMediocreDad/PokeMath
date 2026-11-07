@@ -9,7 +9,7 @@
 <main class="pm-bare teacher" class:narrow class:wide>
 	<header class="teacher-header">
 		<a class="brand" href="/lærer/index.html">
-			<img src="/images/logo.png" alt="" />
+			<img src="/logo.svg" alt="" />
 			<span>
 				<span class="title">PokéMath – Lærer</span>
 				<span class="subtitle">{subtitle}</span>

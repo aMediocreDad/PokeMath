@@ -44,9 +44,8 @@
 		return () => clearInterval(tips);
 	});
 
-	const logoImage = $derived(
-		month === 9 ? 'url(images/logo-halloween.png)' : month === 11 ? 'url(images/logo-christmas.png)' : month === 2 || month === 3 ? 'url(images/logo.png)' : null
-	);
+	// The logos are drawn by scripts/make-logo.mjs.
+	const logoImage = $derived(month === 9 ? 'url(/logo-halloween.svg)' : month === 11 ? 'url(/logo-christmas.svg)' : 'url(/logo.svg)');
 
 	function closeAlert() {
 		localStorage.setItem('alertDismissed', ALERT_ID);
@@ -93,7 +92,7 @@
 		</div>
 	{/if}
 
-	<div id="logo" class="logo" style:background-image={logoImage ?? 'url(images/logo.png)'} role="img" aria-label="PokéMath">
+	<div id="logo" class="logo" style:background-image={logoImage} role="img" aria-label="PokéMath">
 		<span id="logotext" class="splash" class:upside-down={aprilFools}>{splash}</span>
 	</div>
 
