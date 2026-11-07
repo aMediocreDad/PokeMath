@@ -56,6 +56,11 @@ check('a whole starter line counts as a starter', [4, 5, 6].every((id) => inCate
 check('Corsola is not a fish, and Klink is not an alien', !inCategory('fish', 222) && !inCategory('alien', 599));
 check('Seedot is a plant, not a farm animal; Mareep is', inCategory('plant', 273) && !inCategory('farm', 273) && inCategory('farm', 179));
 
+// Which letter cell a catch ticks.
+const startsWith = (letter, msg) => matches({ kind: 'nameStartsWith', letter }, catchFacts({ pokemonCode: 'N19-1', ...msg }));
+check('Alolan Rattata ticks R, not A', startsWith('R', { pokemonName: 'alolan rattata', baseName: 'Rattata' }) && !startsWith('A', { pokemonName: 'alolan rattata', baseName: 'Rattata' }));
+check('a page without baseName still ticks by the name it sends', startsWith('A', { pokemonName: 'alolan rattata' }));
+
 // What a prize counts.
 const kids = (count) => ({ a: { uuid: 'a', catchCount: count }, b: { uuid: 'b', catchCount: count }, c: { uuid: 'c', catchCount: 0 } });
 const prize = (prizeType, players) => computePrize({ board: { difficulty: 'easy' }, totalCatches: 10 ** 6, settings: { prizeType }, players });

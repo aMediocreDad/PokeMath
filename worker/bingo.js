@@ -99,6 +99,7 @@ export function catchFacts(msg) {
 		pokemonCode,
 		pokedexId,
 		pokemonName: text(msg.pokemonName, 40),
+		baseName: text(msg.baseName, 40),
 		difficulty: text(msg.difficulty, 12),
 		types: Array.isArray(msg.types) ? msg.types.slice(0, 4).map((/** @type {unknown} */ t) => text(t, 20)) : [],
 		flags: Object.fromEntries(CATCH_FLAGS.map((flag) => [flag, msg.flags?.[flag] === true])),
@@ -155,7 +156,8 @@ export function matches(rule, catchMsg) {
 		case 'category': return (CATEGORIES[rule.category] || []).includes(id);
 		case 'pokedexExact': return id === rule.id;
 		case 'pokedexRange': return id >= rule.start && id <= rule.end;
-		case 'nameStartsWith': return String(catchMsg.pokemonName || '').toUpperCase().startsWith(rule.letter);
+		// The species' name, so Alolan Rattata ticks R. Pages from before baseName send only the form's name.
+		case 'nameStartsWith': return String(catchMsg.baseName || catchMsg.pokemonName || '').toUpperCase().startsWith(rule.letter);
 		default: return false;
 	}
 }

@@ -82,7 +82,8 @@ const prizeKey = (prize) => prize.id || 'c:' + JSON.stringify(Object.entries(pri
  * @property {string} pokemonCode  The stored entry, e.g. "S25" or "N52-2".
  * @property {string} difficulty  "stage1"–"stage5" or "custom".
  * @property {number} pokedexId
- * @property {string | null} pokemonName
+ * @property {string | null} pokemonName  The form's name, e.g. "alolan rattata".
+ * @property {string | null} baseName  The species' name, e.g. "Rattata"; bingo's letter cells read it.
  * @property {string[]} types
  * @property {Record<string, boolean>} flags  shiny, mega, gmax, hisuian, alolan, legendary, mythic
  */

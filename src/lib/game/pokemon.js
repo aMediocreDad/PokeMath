@@ -298,6 +298,7 @@ export function catchFacts(entry) {
 	return {
 		pokedexId,
 		pokemonName,
+		baseName: base?.name || null,
 		types,
 		flags: {
 			shiny: /^S/i.test(entry),
