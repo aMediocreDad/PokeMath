@@ -16,4 +16,4 @@ if [ ! -f "$STATE/seeded" ]; then
 	touch "$STATE/seeded"
 fi
 exec npx wrangler dev --show-interactive-dev-session=false --port "$PORT" --local-upstream "${PAGE_HOST:-localhost:5173}" --assets static --persist-to "$STATE" \
-	--var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no --var ASSET_ORIGIN:https://pokemath.online
+	--var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no,laerer2@test.no --var ASSET_ORIGIN:https://pokemath.online

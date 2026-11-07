@@ -21,4 +21,4 @@ fi
 echo "build ok"
 ORIGIN=(--var ASSET_ORIGIN:https://pokemath.online)
 [ -n "$MIRROR_ONLY" ] && ORIGIN=()
-exec npx wrangler dev --port "$PORT" --local-upstream "localhost:$PORT" --persist-to "$STATE/state" --var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no "${ORIGIN[@]}"
+exec npx wrangler dev --port "$PORT" --local-upstream "localhost:$PORT" --persist-to "$STATE/state" --var ACCESS_DISABLED:true --var BINGO_JURISDICTION: --var TEACHER_EMAILS:laerer@test.no,laerer2@test.no "${ORIGIN[@]}"

@@ -459,6 +459,15 @@ async function assertSilent(c, type, label) {
   assert(kariSave.status === 200 && (await j("/api/save", { headers: kari.headers })).body.save.pokemon === 1, "child has a save of their own");
   assert((await j("/api/save")).body.save?.data?.pokemonlist !== "N25", "the teacher's save is separate");
 
+  // Another teacher cannot see, re-code or remove this teacher's child.
+  const otherTeacher = { "x-dev-email": "laerer2@test.no" };
+  const otherList = await j("/teacher/kids", { headers: otherTeacher });
+  assert(otherList.status === 200 && !otherList.body.kids.some((k) => k.id === child.body.kid.id), "another teacher does not see the child");
+  assert((await post(`/teacher/kids/${child.body.kid.id}/code`, {}, otherTeacher)).status === 404, "another teacher cannot make the child a new code");
+  assert((await j(`/teacher/kids/${child.body.kid.id}?save=delete`, { method: "DELETE", headers: otherTeacher })).status === 404, "another teacher cannot remove the child");
+  assert((await j("/api/me", { headers: kari.headers })).status === 200, "the child is still logged in");
+  assert((await j("/api/save", { headers: kari.headers })).body.save?.pokemon === 1, "the child's save is untouched");
+
   // A new code logs the child out; logging out ends a session; removing the child ends them all.
   const fresh = await post(`/teacher/kids/${child.body.kid.id}/code`, {});
   assert((await j("/api/me", { headers: kari.headers })).status === 401, "new code ends old sessions");

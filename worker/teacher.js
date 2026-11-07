@@ -63,8 +63,9 @@ export async function route(url, request, env, who) {
 		const id = pathname.split('/')[3] || '';
 		const action = pathname.split('/')[4] || '';
 
+		// A teacher sees and manages only the children they added themselves.
 		if (method === 'GET' && !id) {
-			const { results } = await db.prepare('SELECT id, name, created_at FROM kids ORDER BY name').all();
+			const { results } = await db.prepare('SELECT id, name, created_at FROM kids WHERE created_by = ? ORDER BY name').bind(who.id).all();
 			return json({ ok: true, kids: results });
 		}
 		if (method === 'POST' && !id) {
@@ -79,7 +80,8 @@ export async function route(url, request, env, who) {
 			log('kids', `${who.id} la til ${name}`);
 			return json({ ok: true, kid, code });
 		}
-		const kid = id && (await db.prepare('SELECT id, name FROM kids WHERE id = ?').bind(id).first());
+		// Another teacher's child gets the same 404 as a missing one, so ids cannot be probed.
+		const kid = id && (await db.prepare('SELECT id, name FROM kids WHERE id = ? AND created_by = ?').bind(id, who.id).first());
 		if (!kid) return fail(404, 'Fant ikke barnet.');
 		if (method === 'POST' && action === 'code') {
 			// A new code logs the child out everywhere; the old code stops working.
@@ -88,6 +90,7 @@ export async function route(url, request, env, who) {
 				db.prepare('UPDATE kids SET code_hash = ? WHERE id = ?').bind(await hashCode(code), id),
 				db.prepare('DELETE FROM sessions WHERE subject = ?').bind(`kid:${id}`),
 			]);
+			log('kids', `${who.id} laget ny kode til ${kid.name}`);
 			return json({ ok: true, code });
 		}
 		if (method === 'DELETE' && !action) {
