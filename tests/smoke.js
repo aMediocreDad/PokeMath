@@ -145,6 +145,20 @@ async function assertSilent(c, type, label) {
   assert(joinedBingo.ok === true && joinedBingo.bingo.phase === "lobby", "player joined the waiting bingo");
   assert((await host.next("playersUpdate")).players[0].connected, "host sees player");
 
+  // Another teacher who knows the code cannot host, start or end this teacher's game.
+  const login2 = await post("/teacher/access-login", {}, { "x-dev-email": "laerer2@test.no" });
+  assert(login2.body.ok && login2.body.teacher.email === "laerer2@test.no", "a second teacher gets a session");
+  const intruder = client();
+  await intruder.open();
+  intruder.send({ type: "hostJoinLobby", teacherSession: login2.body.teacherSession, code: created.code });
+  assert((await intruder.next("lobbyNotFound")).code === created.code, "another teacher cannot join a game as host");
+  intruder.send({ type: "hostStartBingo", teacherSession: login2.body.teacherSession, code: created.code });
+  await assertSilent(host, "bingoStarted", "another teacher cannot start the game");
+  intruder.send({ type: "hostEndLobby", teacherSession: login2.body.teacherSession, code: created.code });
+  await intruder.next("lobbyEnded");
+  await assertSilent(player, "ended", "another teacher cannot end the game");
+  intruder.ws.close();
+
   const target = cells.find((c) => c.task?.rule.kind === "pokedexExact").task.rule.id;
   const catchMsg = { type: "catchPokemon", code: created.code, uuid, name: "Ash", pokemonCode: `N${target}`, pokedexId: target, pokemonName: "X", types: [], flags: {} };
   player.send({ ...catchMsg, difficulty: "stage3" });

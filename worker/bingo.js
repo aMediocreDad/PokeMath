@@ -457,22 +457,34 @@ export class BingoHub extends DurableObject {
 	 * @param {WebSocket} ws @param {any} msg @param {'bingo' | 'raid' | 'memory'} [kind] only a lobby of this kind
 	 */
 	async hostRoom(ws, msg, kind) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) {
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) {
 			send(ws, BAD_SESSION);
 			return null;
 		}
-		const room = (await this.room(msg.code)) || null;
+		const room = await this.ownedRoom(teacher, msg.code);
 		return room && (!kind || (room.kind || 'bingo') === kind) ? room : null;
+	}
+
+	/**
+	 * The room under this code, if this teacher made it. Another teacher's room answers as if it
+	 * did not exist. Rooms made before rooms had an owner have none and stay open to any teacher.
+	 * @param {Record<string, unknown>} teacher @param {unknown} code
+	 */
+	async ownedRoom(teacher, code) {
+		const room = await this.room(code);
+		return room && (!room.teacherId || room.teacherId === teacher.id) ? room : null;
 	}
 }
 
 /** @type {Record<string, (this: BingoHub, ws: WebSocket, msg: any) => Promise<void>>} */
 const HANDLERS = {
 	async hostCreateLobby(ws, msg) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) return send(ws, BAD_SESSION);
 		const settings = msg.settings || {};
 		const room = {
-			code: await this.makeCode(), settings, players: {},
+			code: await this.makeCode(), teacherId: teacher.id, settings, players: {},
 			board: buildBoard(settings.difficulty || 'easy', settings.gridSize), totalCatches: 0, events: [], locked: false, phase: 'lobby',
 		};
 		await this.saveRoom(room);
@@ -482,8 +494,9 @@ const HANDLERS = {
 	},
 
 	async hostJoinLobby(ws, msg) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
-		const room = await this.room(msg.code);
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) return send(ws, BAD_SESSION);
+		const room = await this.ownedRoom(teacher, msg.code);
 		if (!room) return send(ws, { type: 'lobbyNotFound', code: msg.code });
 		ws.serializeAttachment({ role: 'host', code: room.code });
 		const type = room.kind === 'raid' ? 'raidState' : room.kind === 'memory' ? 'memoryState' : 'lobbyState';
@@ -519,8 +532,9 @@ const HANDLERS = {
 	},
 
 	async hostEndLobby(ws, msg) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
-		const room = await this.room(msg.code);
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) return send(ws, BAD_SESSION);
+		const room = await this.ownedRoom(teacher, msg.code);
 		if (room) {
 			// A game ended before it was won or locked (a raid before the boss fell, a bingo before the
 			// board is full) still pays every child who played.
@@ -661,8 +675,9 @@ const HANDLERS = {
 	// ── Raid ──
 
 	async hostCreateRaid(ws, msg) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
-		const room = newRaid(msg.settings || {}, await this.makeCode());
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) return send(ws, BAD_SESSION);
+		const room = { ...newRaid(msg.settings || {}, await this.makeCode()), teacherId: teacher.id };
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'host', code: room.code });
 		log('raid', `raid ${room.code} opprettet (#${room.bossId})`);
@@ -715,8 +730,9 @@ const HANDLERS = {
 	// ── Memory ──
 
 	async hostCreateMemory(ws, msg) {
-		if (!(await sessionTeacher(this.env, msg.teacherSession))) return send(ws, BAD_SESSION);
-		const room = newMemory(msg.settings || {}, await this.makeCode());
+		const teacher = await sessionTeacher(this.env, msg.teacherSession);
+		if (!teacher) return send(ws, BAD_SESSION);
+		const room = { ...newMemory(msg.settings || {}, await this.makeCode()), teacherId: teacher.id };
 		await this.saveRoom(room);
 		ws.serializeAttachment({ role: 'host', code: room.code });
 		log('memory', `memory ${room.code} opprettet (${room.cards.length} kort)`);
